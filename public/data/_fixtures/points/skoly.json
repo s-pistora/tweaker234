@@ -1,0 +1,30 @@
+{
+ "id": "skoly",
+ "label": "Školy (fixture)",
+ "sourceId": "fixture",
+ "validFor": "2026",
+ "features": [
+  {
+   "id": "s1",
+   "name": "ZŠ Fixture 1",
+   "lon": 12.87,
+   "lat": 50.23,
+   "obec": "554961",
+   "orp": "4103",
+   "attrs": {
+    "typ": "ZŠ"
+   }
+  },
+  {
+   "id": "s2",
+   "name": "MŠ Fixture 2",
+   "lon": 12.37,
+   "lat": 50.08,
+   "obec": "554481",
+   "orp": "4102",
+   "attrs": {
+    "typ": "MŠ"
+   }
+  }
+ ]
+}

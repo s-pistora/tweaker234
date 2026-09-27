@@ -1,0 +1,157 @@
+// DATOVÝ KONTRAKT – sdílený mezi pipeline (scripts/) a frontendem (src/).
+// Měnit smí jen koordinátor.
+
+export type Level = 'kraj' | 'orp' | 'obec';
+
+/** kraj: NUTS3 'CZ041'; orp: ČSÚ kód '4103'; obec: kód obce '554961' */
+export type AreaCode = string;
+
+export interface IndicatorDef {
+  id: string;
+  label: string;
+  unit: string;
+  higherIsBetter: boolean;
+  sourceId: string;
+  decimals: number;
+}
+
+export interface IndicatorFile {
+  level: Level;
+  indicators: Record<string, IndicatorDef>;
+  /** values[indikátor][kódÚzemí][rok] */
+  values: Record<string, Record<AreaCode, Record<number, number | null>>>;
+  /** hodnota / průměr ČR: national[indikátor][rok] */
+  national?: Record<string, Record<number, number>>;
+  /** průměr Karlovarského kraje (pro orp/obec): regional[indikátor][rok] */
+  regional?: Record<string, Record<number, number>>;
+}
+
+export interface PointFeature {
+  id: string;
+  name: string;
+  lon: number;
+  lat: number;
+  obec: AreaCode;
+  orp: AreaCode;
+  attrs: Record<string, string | number | boolean>;
+}
+
+export interface PointLayer {
+  id: string;
+  label: string;
+  sourceId: string;
+  validFor: string;
+  features: PointFeature[];
+}
+
+export interface SourceEntry {
+  id: string;
+  provider: string;
+  title: string;
+  url: string;
+  license: string;
+  /** ISO datum stažení */
+  downloadedAt: string;
+  /** rok / období platnosti dat, např. "2024" nebo "2026-09" */
+  validFor: string;
+  status: 'ok' | 'stale';
+  note?: string;
+}
+
+/** Vlastnosti prvků v TopoJSON objektu `areas`. */
+export interface AreaProps {
+  code: AreaCode;
+  name: string;
+  parent?: AreaCode;
+}
+
+export const LEVELS: readonly Level[] = ['kraj', 'orp', 'obec'];
+
+const isObj = (x: unknown): x is Record<string, unknown> =>
+  typeof x === 'object' && x !== null && !Array.isArray(x);
+
+export function isIndicatorDef(x: unknown): x is IndicatorDef {
+  return (
+    isObj(x) &&
+    typeof x.id === 'string' &&
+    typeof x.label === 'string' &&
+    typeof x.unit === 'string' &&
+    typeof x.higherIsBetter === 'boolean' &&
+    typeof x.sourceId === 'string' &&
+    typeof x.decimals === 'number'
+  );
+}
+
+export function isIndicatorFile(x: unknown): x is IndicatorFile {
+  if (!isObj(x) || !LEVELS.includes(x.level as Level)) return false;
+  if (!isObj(x.indicators) || !isObj(x.values)) return false;
+  if (!Object.values(x.indicators).every(isIndicatorDef)) return false;
+  for (const [ind, byArea] of Object.entries(x.values)) {
+    if (!(ind in x.indicators) || !isObj(byArea)) return false;
+    for (const byYear of Object.values(byArea)) {
+      if (!isObj(byYear)) return false;
+      for (const [y, v] of Object.entries(byYear)) {
+        if (!/^\d{4}$/.test(y)) return false;
+        if (v !== null && typeof v !== 'number') return false;
+      }
+    }
+  }
+  return true;
+}
+
+export function isSourceEntry(x: unknown): x is SourceEntry {
+  return (
+    isObj(x) &&
+    ['id', 'provider', 'title', 'url', 'license', 'downloadedAt', 'validFor'].every(
+      (k) => typeof x[k] === 'string',
+    ) &&
+    (x.status === 'ok' || x.status === 'stale')
+  );
+}
+
+export function isPointLayer(x: unknown): x is PointLayer {
+  return (
+    isObj(x) &&
+    typeof x.id === 'string' &&
+    typeof x.label === 'string' &&
+    typeof x.sourceId === 'string' &&
+    typeof x.validFor === 'string' &&
+    Array.isArray(x.features) &&
+    x.features.every(
+      (f) =>
+        isObj(f) &&
+        typeof f.id === 'string' &&
+        typeof f.name === 'string' &&
+        Number.isFinite(f.lon) &&
+        Number.isFinite(f.lat) &&
+        typeof f.obec === 'string' &&
+        typeof f.orp === 'string',
+    )
+  );
+}
+
+/** public/data/manifest.json – vstupní bod snapshotu. */
+export interface Manifest {
+  /** ISO čas posledního běhu pipeline */
+  updatedAt: string;
+  sources: SourceEntry[];
+  /** relativní cesty (vůči public/data/) k souborům snapshotu */
+  files: {
+    indicators: Partial<Record<Level, string>>;
+    points: Record<string, string>;
+    geo: Partial<Record<'kraje' | 'kv-orp' | 'kv-obce', string>>;
+  };
+}
+
+export function isManifest(x: unknown): x is Manifest {
+  return (
+    isObj(x) &&
+    typeof x.updatedAt === 'string' &&
+    Array.isArray(x.sources) &&
+    x.sources.every(isSourceEntry) &&
+    isObj(x.files) &&
+    isObj(x.files.indicators) &&
+    isObj(x.files.points) &&
+    isObj(x.files.geo)
+  );
+}

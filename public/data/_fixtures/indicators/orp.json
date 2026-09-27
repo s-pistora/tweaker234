@@ -1,0 +1,68 @@
+{
+ "level": "orp",
+ "indicators": {
+  "obyvatele": {
+   "id": "obyvatele",
+   "label": "Počet obyvatel",
+   "unit": "osoby",
+   "higherIsBetter": true,
+   "sourceId": "fixture",
+   "decimals": 0
+  },
+  "skoly": {
+   "id": "skoly",
+   "label": "Školy na 1000 obyvatel",
+   "unit": "na 1000 obyv.",
+   "higherIsBetter": true,
+   "sourceId": "fixture",
+   "decimals": 2
+  }
+ },
+ "values": {
+  "obyvatele": {
+   "4102": {
+    "2020": 50000,
+    "2021": 49800,
+    "2022": 49600,
+    "2023": 49400,
+    "2024": 49200
+   },
+   "4103": {
+    "2020": 88000,
+    "2021": 87600,
+    "2022": 87200,
+    "2023": 86800,
+    "2024": 86400
+   }
+  },
+  "skoly": {
+   "4102": {
+    "2024": 0.8
+   },
+   "4103": {
+    "2024": 0.9
+   }
+  }
+ },
+ "national": {
+  "obyvatele": {
+   "2020": 10700000,
+   "2021": 10720000,
+   "2022": 10740000,
+   "2023": 10760000,
+   "2024": 10780000
+  }
+ },
+ "regional": {
+  "obyvatele": {
+   "2020": 69000,
+   "2021": 68700,
+   "2022": 68400,
+   "2023": 68100,
+   "2024": 67800
+  },
+  "skoly": {
+   "2024": 0.85
+  }
+ }
+}

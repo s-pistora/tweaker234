@@ -1,0 +1,30 @@
+{
+ "updatedAt": "2026-09-27T00:00:00.000Z",
+ "sources": [
+  {
+   "id": "fixture",
+   "provider": "FIKTIVNÍ TESTOVACÍ DATA",
+   "title": "Fixtures pro vývoj – nejde o reálná data",
+   "url": "about:blank",
+   "license": "n/a",
+   "downloadedAt": "2026-09-27T00:00:00.000Z",
+   "validFor": "2024",
+   "status": "ok"
+  }
+ ],
+ "files": {
+  "indicators": {
+   "kraj": "indicators/kraj.json",
+   "orp": "indicators/orp.json",
+   "obec": "indicators/obec.json"
+  },
+  "points": {
+   "skoly": "points/skoly.json"
+  },
+  "geo": {
+   "kraje": "geo/kraje.topo.json",
+   "kv-orp": "geo/kv-orp.topo.json",
+   "kv-obce": "geo/kv-obce.topo.json"
+  }
+ }
+}
