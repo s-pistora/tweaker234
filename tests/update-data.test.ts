@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mkdtempSync, readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -127,6 +127,9 @@ beforeEach(() => {
   rawDir = mkdtempSync(join(tmpdir(), 'kt-raw-'));
 });
 
+// Každý test spouští celou pipeline (i dvakrát) – pod zátěží celé sady může přesáhnout výchozích 5 s.
+vi.setConfig({ testTimeout: 30_000 });
+
 const quiet = { log: () => {} };
 
 describe('runPipeline – úspěšný běh', () => {
@@ -158,6 +161,9 @@ describe('runPipeline – úspěšný běh', () => {
       ['500000', '4101'], ['500000', '4101'], ['500008', '4102'],
     ]);
     expect(res.joinStats.skoly).toEqual({ total: 4, joined: 2, dropped: 1, unchanged: 1 });
+    expect(res.manifest.find((s) => s.id === 'dz-skoly')!.note).toBe(
+      'Pipeline: vrstva skoly – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 2 z 4 bodů, 1 bodů mimo Karlovarský kraj vyřazeno.',
+    );
 
     const obec = read(join(outDir, 'indicators/obec.json'));
     expect(isIndicatorFile(obec)).toBe(true);

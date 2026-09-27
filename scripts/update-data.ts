@@ -230,6 +230,13 @@ export async function runPipeline(adapters: SourceAdapter[], opts: PipelineOptio
     layers = layers.map((l) => {
       const { layer, stats } = spatialJoinLayer(l, locate, obecToOrp);
       joinStats[l.id] = stats;
+      const e = entries.find((x) => x.id === l.sourceId && x.status === 'ok');
+      if (e && (stats.joined || stats.dropped)) {
+        const txt =
+          `Pipeline: vrstva ${l.id} – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u ` +
+          `${stats.joined} z ${stats.total} bodů${stats.dropped ? `, ${stats.dropped} bodů mimo Karlovarský kraj vyřazeno` : ''}.`;
+        e.note = e.note ? `${e.note} ${txt}` : txt;
+      }
       return layer;
     });
   } else {
