@@ -60,16 +60,36 @@ function parseCsv(text: string): CsvRow[] {
   return parsed.data;
 }
 
+/**
+ * Číselníky ČSÚ nesou platnost položky ve sloupcích `admplod`/`admnepo` (od–do, formát
+ * `YYYY-MM-DD`; "9999-09-09" = bez konce). Řádek bez těchto sloupců (např. vazba obec→ORP,
+ * která je nemá vůbec) se považuje za vždy platný. Review finding #4 (fix round 1): naivní
+ * `Map.set()` by při dvou řádcích se stejným `kod_ruian` (historický přeřazený/zrušený záznam +
+ * aktuální) vzal, který v souboru vyjde poslední – místo toho se bere ten platný k `now`.
+ */
+function isValidAt(row: CsvRow, now: Date): boolean {
+  const from = row.admplod ? new Date(row.admplod) : null;
+  const to = row.admnepo ? new Date(row.admnepo) : null;
+  if (from && !Number.isNaN(from.getTime()) && now < from) return false;
+  if (to && !Number.isNaN(to.getTime()) && now > to) return false;
+  return true;
+}
+
 /** Sestaví Codes z již stažených textů číselníků (pro testy nad fixture úryvky i pro loadCodes). */
-export function buildCodes(cis65Text: string, cis100Text: string, vazbaText: string): Codes {
+export function buildCodes(
+  cis65Text: string,
+  cis100Text: string,
+  vazbaText: string,
+  now: Date = new Date(),
+): Codes {
   const orpRuianToCsuMap = new Map<string, string>();
   for (const row of parseCsv(cis65Text)) {
-    if (row.kod_ruian && row.chodnota) orpRuianToCsuMap.set(row.kod_ruian, row.chodnota);
+    if (row.kod_ruian && row.chodnota && isValidAt(row, now)) orpRuianToCsuMap.set(row.kod_ruian, row.chodnota);
   }
 
   const krajRuianToNutsMap = new Map<string, string>();
   for (const row of parseCsv(cis100Text)) {
-    if (row.kod_ruian && row.cznuts) krajRuianToNutsMap.set(row.kod_ruian, row.cznuts);
+    if (row.kod_ruian && row.cznuts && isValidAt(row, now)) krajRuianToNutsMap.set(row.kod_ruian, row.cznuts);
   }
 
   const obecToOrp = new Map<string, string>();
@@ -110,9 +130,9 @@ export function buildCodes(cis65Text: string, cis100Text: string, vazbaText: str
  * souběžných požadavcích (Promise.all) vrací všem třem voláním stejnou (chybnou,
  * zkrácenou) odpověď – ověřeno opakovaně 2026-09-27. Proto se stahuje SEKVENČNĚ.
  */
-export async function loadCodes(rawDir: string): Promise<Codes> {
+export async function loadCodes(rawDir: string, now: Date = new Date()): Promise<Codes> {
   const cis65Text = await fetchCached(CIS65_URL, rawDir, 'cis65.csv');
   const cis100Text = await fetchCached(CIS100_URL, rawDir, 'cis100.csv');
   const vazbaText = await fetchCached(VAZBA_URL, rawDir, 'vazba43_65.csv');
-  return buildCodes(cis65Text, cis100Text, vazbaText);
+  return buildCodes(cis65Text, cis100Text, vazbaText, now);
 }
