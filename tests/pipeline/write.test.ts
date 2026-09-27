@@ -23,7 +23,7 @@ describe('writeSnapshotAtomic', () => {
         ['indicators/kraj.json', 'KRAJ'],
         ['manifest.json', 'NEW-MANIFEST'],
       ]),
-      { remove: ['points/stare.json'] },
+      { remove: ['points/stare.json'], tmpRoot: join(dir, '..', `kt-write-tmp-${process.pid}`) },
     );
     expect(readFileSync(join(dir, 'points', 'skoly.json'), 'utf8')).toBe('NEW-SKOLY');
     expect(readFileSync(join(dir, 'indicators', 'kraj.json'), 'utf8')).toBe('KRAJ');

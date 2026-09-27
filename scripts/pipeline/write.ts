@@ -1,5 +1,6 @@
-// Atomický(-ish) zápis snapshotu: vše se nejdřív zapíše do temp adresáře uvnitř cíle (stejný disk →
-// rename je levný a atomický po souborech). Až když je vše připravené, přesunou se soubory jeden po
+// Atomický(-ish) zápis snapshotu: vše se nejdřív zapíše do temp adresáře (`tmpRoot`, typicky
+// data-raw/.tmp-write – MIMO public/, aby ho nikdy neservíroval dev server ani build; výchozí = uvnitř cíle).
+// Na stejném disku je rename levný a atomický po souborech; přes disky se použije kopie. Až když je vše připravené, přesunou se soubory jeden po
 // druhém na místo (rename přes existující soubor funguje i na Windows – MoveFileEx REPLACE_EXISTING;
 // přejmenovat celý adresář přes existující na Windows nejde) a manifest.json jako POSLEDNÍ – frontend
 // tak nikdy neuvidí nový manifest odkazující na nepřipravené soubory. Selže-li příprava, cíl se nemění.
@@ -35,11 +36,11 @@ async function moveReplace(from: string, to: string): Promise<void> {
 export async function writeSnapshotAtomic(
   outDir: string,
   files: Map<string, string>,
-  opts: { remove: string[] },
+  opts: { remove: string[]; tmpRoot?: string },
 ): Promise<void> {
   const root = path.resolve(outDir);
   await mkdir(root, { recursive: true });
-  const tmp = path.join(root, `.tmp-${process.pid}-${Date.now()}`);
+  const tmp = path.join(path.resolve(opts.tmpRoot ?? root), `.tmp-${process.pid}-${Date.now()}`);
   const staged: Array<[string, string]> = [];
   try {
     for (const [rel, content] of files) {

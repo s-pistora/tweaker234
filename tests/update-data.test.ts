@@ -162,19 +162,26 @@ describe('runPipeline – úspěšný běh', () => {
     ]);
     expect(res.joinStats.skoly).toEqual({ total: 4, joined: 2, dropped: 1, unchanged: 1 });
     expect(res.manifest.find((s) => s.id === 'dz-skoly')!.note).toBe(
-      'Pipeline: vrstva skoly – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 2 z 4 bodů, 1 bodů mimo Karlovarský kraj vyřazeno.',
+      'Pipeline: vrstva skoly – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 2 z 4 bodů, 1 bodů mimo Karlovarský kraj vyřazeno. ' +
+        'Pipeline: ukazatel skoly_na_1000 = počet bodů podle stavu registru k datu stažení (2026-09-27) na 1000 obyvatel ' +
+        'podle ČSÚ k 31. 12. 2025 (poslední dostupný rok).',
     );
 
     const obec = read(join(outDir, 'indicators/obec.json'));
     expect(isIndicatorFile(obec)).toBe(true);
     expect(obec.values.skoly_na_1000['500000']).toEqual({ 2026: 2 });
     expect(obec.values.skoly_na_1000['500001']).toEqual({ 2026: 0 });
-    expect(obec.regional.skoly_na_1000[2026]).toBeCloseTo((3 / 134000) * 1000, 6);
-    expect(obec.national.obyvatele).toEqual({ 2024: 1400000, 2025: 1400000 });
+    expect(obec.regional.skoly_na_1000[2026]).toBeCloseTo((3 / (7 * 19142)) * 1000, 5); // populace KV z ORP
     expect(obec.regional.obyvatele).toEqual({ 2010: 90000, 2024: 100000, 2025: 100000 }); // = CZ041 z kraj souboru (vč. roku doplněného z KROK)
 
     const orp = read(join(outDir, 'indicators/orp.json'));
     expect(orp.values.skoly_na_1000['4101'][2026]).toBeCloseTo((2 / 19142) * 1000, 5);
+    // M3: KV průměr je na ORP i obcích stejný (počty ze všech bodů / populace KV z ORP)
+    expect(obec.regional.skoly_na_1000).toEqual(orp.regional.skoly_na_1000);
+    // M7: absolutní počty za ČR se do orp/obec nekopírují
+    expect(obec.national?.obyvatele).toBeUndefined();
+    // M4: temp adresář zápisu leží mimo public/ (v rawDir) a je uklizený
+    expect(readdirSync(join(rawDir, '.tmp-write'))).toEqual([]);
 
     // KROK: doplní chybějící roky obyvatel (2010), mzdu nepřebírá (jen stavebnictví)
     const kraj = read(join(outDir, 'indicators/kraj.json'));
@@ -204,7 +211,9 @@ describe('runPipeline – selhání zdroje', () => {
     expect(res.errors).toEqual([]);
     const stale = res.manifest.find((s) => s.id === 'dz-skoly')!;
     const prevEntry = prevManifest.sources.find((s) => s.id === 'dz-skoly')!;
-    expect(stale).toEqual({ ...prevEntry, status: 'stale', note: 'HTTP 503 Service Unavailable' });
+    // M1: původní poznámka zdroje zůstane za chybovou hláškou
+    expect(prevEntry.note).toBeTruthy();
+    expect(stale).toEqual({ ...prevEntry, status: 'stale', note: `HTTP 503 Service Unavailable; ${prevEntry.note}` });
     expect(res.manifest.find((s) => s.id === 'cuzk-ruian-hranice')!.status).toBe('stale');
 
     const manifest = read(join(outDir, 'manifest.json')) as Manifest;

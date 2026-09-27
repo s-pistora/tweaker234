@@ -13,17 +13,18 @@ import { isIndicatorFile, isManifest, isPointLayer, LEVELS } from '../src/lib/ty
 import type { GeoOutput, SourceAdapter, SourceResult } from './sources/types.ts';
 import { crossCheck, validateCounts, type AreasTopology, type CrossCheckDiff } from './validate.ts';
 import { fillMissingYears, mergeIndicatorFiles, restrictAreas } from './pipeline/merge.ts';
-import { completeRegionalNational, deriveIndicators } from './pipeline/derive.ts';
+import { completeRegionalNational, deriveIndicators, DERIVED, type DerivedMeta } from './pipeline/derive.ts';
+import { CROSS_CHECK_IDS } from './sources/csu-datastat.ts';
 import { makeObecLocator, obecToOrpFromTopology, spatialJoinLayer, type JoinStats } from './pipeline/spatial.ts';
 import { writeFileAtomic, writeSnapshotAtomic } from './pipeline/write.ts';
 import { renderSourcesMd } from './sources-md.ts';
 
 /**
  * Ukazatele, které se porovnávají mezi ČSÚ DataStat a KROK (a jen ty se z KROK doplňují do chybějících
- * roků). `mzda` záměrně chybí: ukazatel mzdy v KROK (111211) pokrývá jen stavební podniky s 50+
- * zaměstnanci, takže není srovnatelný s DataStat MZDR (celá ekonomika) a nesmí se s ním míchat.
+ * roků) – `CROSS_CHECK_IDS` z adaptéru DataStat. `mzda` v nich záměrně chybí: ukazatel mzdy v KROK
+ * pokrývá jen stavební podniky s 50+ zaměstnanci, takže není srovnatelný s DataStat MZDR.
  */
-export const CROSS_CHECK = ['obyvatele', 'nezamestnanost'] as const;
+export const CROSS_CHECK: readonly string[] = CROSS_CHECK_IDS;
 
 /** Zdroje, které se neslučují do výstupu, ale slouží jako sekundární (cross-check + doplnění roků). */
 export const SECONDARY_SOURCES = ['krok'] as const;
@@ -63,6 +64,16 @@ function soubory(n: number): string {
   if (n === 1) return '1 soubor';
   if (n >= 2 && n <= 4) return `${n} soubory`;
   return `${n} souborů`;
+}
+
+function roky(n: number): string {
+  if (n === 1) return '1 rok';
+  if (n >= 2 && n <= 4) return `${n} roky`;
+  return `${n} roků`;
+}
+
+function date(iso: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10) : iso;
 }
 
 function pct(rel: number): string {
@@ -145,7 +156,7 @@ async function loadPrevSnapshot(outDir: string, prev: Manifest | null | undefine
 function staleEntry(id: string, err: unknown, prev: Manifest | null | undefined): SourceEntry {
   const note = err instanceof Error ? err.message : String(err);
   const old = prev?.sources.find((s) => s.id === id);
-  if (old) return { ...old, status: 'stale', note };
+  if (old) return { ...old, status: 'stale', note: old.note ? `${note}; ${old.note}` : note };
   return { id, provider: id, title: id, url: '', license: '', downloadedAt: '', validFor: '', status: 'stale', note };
 }
 
@@ -261,7 +272,9 @@ export async function runPipeline(adapters: SourceAdapter[], opts: PipelineOptio
       : `SELHAL – ${cc.diffs.length} rozdílů nad ${pct(CROSS_CHECK_TOL)}`;
     const { file, filled } = fillMissingYears(merged.kraj, secKraj, CROSS_CHECK);
     merged.kraj = file;
-    const filledTxt = Object.entries(filled).map(([id, ys]) => `${id} ${ys[0]}–${ys[ys.length - 1]} (${ys.length} roků)`);
+    const filledTxt = Object.entries(filled).map(([id, ys]) =>
+      ys.length === 1 ? `${id} ${ys[0]}` : `${id} ${ys[0]}–${ys[ys.length - 1]} (${roky(ys.length)})`,
+    );
     if (filledTxt.length) {
       const e = entries.find((s) => secondaryIds.has(s.id) && s.status === 'ok');
       const txt = `Doplněny chybějící roky do krajských ukazatelů ČSÚ DataStat: ${filledTxt.join('; ')}.`;
@@ -291,10 +304,34 @@ export async function runPipeline(adapters: SourceAdapter[], opts: PipelineOptio
     }
     merged[level] = file;
   }
+  const derivedMeta: DerivedMeta[] = [];
   for (const level of ['orp', 'obec'] as const) {
     const areas = areasByLevel[level] ?? Object.keys(merged[level].values.obyvatele ?? {});
-    merged[level] = deriveIndicators(merged[level], layers, { areas, warn });
+    merged[level] = deriveIndicators(merged[level], layers, { areas, warn, onDerived: (m) => derivedMeta.push(m) });
+  }
+  // KV průměr odvozených ukazatelů = počty ze VŠECH bodů/záznamů (vč. míst bez GPS a území bez
+  // populace) nad populací KV – spočítaný na úrovni ORP a převzatý i do obcí, aby se obě úrovně shodovaly.
+  for (const spec of DERIVED) {
+    const reg = merged.orp.regional?.[spec.id];
+    if (reg && merged.obec.indicators[spec.id]) (merged.obec.regional ??= {})[spec.id] = { ...reg };
+  }
+  for (const level of ['orp', 'obec'] as const) {
     merged[level] = completeRegionalNational(merged[level], merged.kraj);
+  }
+  // Poznámka k odvozeným ukazatelům do záznamu zdroje (→ manifest a SOURCES.md), jednou na ukazatel.
+  const notedIds = new Set<string>();
+  for (const m of derivedMeta) {
+    if (notedIds.has(m.id)) continue;
+    notedIds.add(m.id);
+    const e = entries.find((x) => x.id === m.sourceId && x.status === 'ok');
+    if (!e) continue;
+    const txt =
+      m.kind === 'per1000'
+        ? `Pipeline: ukazatel ${m.id} = počet bodů podle stavu registru k datu stažení (${date(e.downloadedAt)}) ` +
+          `na 1000 obyvatel podle ČSÚ k 31. 12. ${m.popYear} (poslední dostupný rok).`
+        : `Pipeline: ukazatel ${m.id} = souhrn za roky ${m.fromYear ?? m.year}–${m.year} (podle roku v datech) ` +
+          `na obyvatele podle ČSÚ k 31. 12. ${m.popYear}; hodnota uložena pod rokem ${m.year}.`;
+    e.note = e.note ? `${e.note} ${txt}` : txt;
   }
 
   // ---------- 6) validace ----------
@@ -371,7 +408,11 @@ export async function runPipeline(adapters: SourceAdapter[], opts: PipelineOptio
   const oldRel = prev
     ? ([...Object.values(prev.files.indicators), ...Object.values(prev.files.points), ...Object.values(prev.files.geo)] as string[])
     : [];
-  await writeSnapshotAtomic(opts.outDir, files, { remove: oldRel.filter((r) => !newRel.has(r)) });
+  await writeSnapshotAtomic(opts.outDir, files, {
+    remove: oldRel.filter((r) => !newRel.has(r)),
+    // temp mimo public/ – nikdy se neservíruje ani nedostane do buildu
+    tmpRoot: path.join(opts.rawDir, '.tmp-write'),
+  });
   if (opts.sourcesMdPath) await writeFileAtomic(opts.sourcesMdPath, renderSourcesMd(manifest));
 
   return { manifest: entries, errors, warnings, written: manifest, joinStats, summary };
@@ -391,6 +432,7 @@ async function main(): Promise<void> {
   }
 
   const { csuDataStat } = await import('./sources/csu-datastat.ts');
+  const { csuObecNezamestnanost } = await import('./sources/csu-obec-nezamestnanost.ts');
   const { krok } = await import('./sources/krok.ts');
   const { datazapadAdapters } = await import('./sources/datazapad.ts');
   const { nrpzs } = await import('./sources/nrpzs.ts');
@@ -400,7 +442,7 @@ async function main(): Promise<void> {
   const cuzkGeo = makeCuzkGeo((raw) => loadCodes(path.join(raw, 'codes')));
 
   // Pořadí = priorita při konfliktu stejného id ukazatele (první vyhrává).
-  const adapters: SourceAdapter[] = [csuDataStat, krok, ...datazapadAdapters, nrpzs, cuzkGeo];
+  const adapters: SourceAdapter[] = [csuDataStat, csuObecNezamestnanost, krok, ...datazapadAdapters, nrpzs, cuzkGeo];
 
   console.log(`KRAJ-TERM data:update – ${new Date().toISOString()}`);
   const t0 = Date.now();

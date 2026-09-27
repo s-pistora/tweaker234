@@ -143,8 +143,9 @@ export const nrpzs: SourceAdapter = {
         status: 'ok',
         note:
           'Licence nenalezena na nrpzs.uzis.cz ani v NKOD (SPARQL data.gov.cz) – ověřeno 2026-09-27. ' +
-          'Export neobsahuje ČSÚ kód obce (jen RÚIAN kód adresního místa a textový název), ' +
-          'proto pole obec u prvků zůstává prázdné; agregace na úroveň obce tedy není z tohoto zdroje možná.',
+          'Export neobsahuje ČSÚ kód obce (jen RÚIAN kód adresního místa a textový název); adaptér proto ' +
+          'ponechává pole obec prázdné a obec (i ORP) doplňuje až pipeline prostorovým přiřazením bodů s GPS ' +
+          'k hranicím obcí RÚIAN. Počty na úrovni ORP (ORPKod z registru) zahrnují i místa bez GPS, počty obcí jen místa s GPS.',
       },
       points: [
         { id: 'zdravotnictvi', label: 'Zdravotnická zařízení (NRPZS)', sourceId: 'nrpzs', validFor, features },

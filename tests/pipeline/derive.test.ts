@@ -37,14 +37,26 @@ describe('deriveIndicators', () => {
     expect(f.values.obyvatele).toEqual(orpBase().values.obyvatele); // vstupní ukazatele zůstanou
   });
 
-  it('vouchery = součet attrs.prideleno na obyvatele (decimals 0)', () => {
-    const v = pts('vouchery', 'dz-vouchery', '2026', [['a', '4101', { prideleno: 50000 }], ['b', '4102', { prideleno: 30000 }]]);
-    const f = deriveIndicators(orpBase(), [v], { areas: ['4101', '4102'], warn: () => {} });
+  it('vouchery = souhrn attrs.prideleno za roky udělení na obyvatele, uložený pod posledním rokem udělení (I1)', () => {
+    const v = pts('vouchery', 'dz-vouchery', '2026', [
+      ['a', '4101', { prideleno: 50000, rok: 2012 }],
+      ['b', '4102', { prideleno: 30000, rok: 2024 }],
+    ]);
+    const meta: Array<{ id: string; year: number; popYear: number; fromYear?: number }> = [];
+    const f = deriveIndicators(orpBase(), [v], { areas: ['4101', '4102'], warn: () => {}, onDerived: (m) => meta.push(m) });
     expect(f.indicators.vouchery_kc_na_obyv).toMatchObject({
-      label: 'Krajské vouchery (Kč na obyvatele)', decimals: 0, sourceId: 'dz-vouchery',
+      label: 'Krajské vouchery 2012–2024 (souhrn, Kč na obyvatele)', decimals: 0, sourceId: 'dz-vouchery',
     });
-    expect(f.values.vouchery_kc_na_obyv).toEqual({ '4101': { 2026: 50 }, '4102': { 2026: 10 } });
-    expect(f.regional!.vouchery_kc_na_obyv).toEqual({ 2026: 80000 / 4000 });
+    // populace = poslední rok ≤ 2024 → 2024 (4101: 900, 4102 nemá 2024 → null)
+    expect(f.values.vouchery_kc_na_obyv).toEqual({ '4101': { 2024: 50000 / 900 }, '4102': { 2024: null } });
+    expect(meta).toEqual([expect.objectContaining({ id: 'vouchery_kc_na_obyv', year: 2024, popYear: 2024, fromYear: 2012 })]);
+  });
+
+  it('KV průměr počítá VŠECHNY body (i v územích bez populace) nad populací KV (M3)', () => {
+    const skoly = pts('skoly', 'dz-skoly', '2026', [['a', '4101'], ['b', '4103'], ['c', '4103']]);
+    const f = deriveIndicators(orpBase(), [skoly], { areas: ['4101', '4102', '4103'], warn: () => {} });
+    expect(f.values.skoly_na_1000!['4103']).toEqual({ 2026: null });
+    expect(f.regional!.skoly_na_1000).toEqual({ 2026: (3 / 4000) * 1000 });
   });
 
   it('NRPZS: ORP bere počty z adaptéru (vč. řádků bez GPS), ne z bodů; surový ukazatel zůstane', () => {
@@ -106,7 +118,8 @@ describe('completeRegionalNational', () => {
       regional: { skoly_na_1000: { 2026: 0.9 } },
     };
     const f = completeRegionalNational(obec, kraj);
-    expect(f.national).toEqual({ obyvatele: { 2024: 10900000 }, podil_65: { 2024: 20.1 } });
+    // absolutní počty (osoby/počet) se do orp/obec national nekopírují (M7)
+    expect(f.national).toEqual({ podil_65: { 2024: 20.1 } });
     expect(f.regional!.obyvatele).toEqual({ 2024: 290000 });
     expect(f.regional!.podil_65).toEqual({ 2024: 22.5 });
     expect(f.regional!.nezam_obec).toEqual({ 2023: (2 * 100 + 6 * 300) / 400 });

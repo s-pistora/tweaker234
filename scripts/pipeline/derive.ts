@@ -17,6 +17,26 @@ export interface DerivedSpec {
   attr?: string;
   /** surový ukazatel počtů od adaptéru (má přednost před počítáním bodů; prázdný → dopočte se z bodů) */
   countIndicator?: string;
+  /**
+   * Číselný atribut s rokem události (např. rok udělení voucheru). Je-li zadán, hodnota se uloží pod
+   * POSLEDNÍ rok v datech (ne pod rok stažení vrstvy) a `label` může obsahovat `{od}`/`{do}` = pokrytý rozsah.
+   */
+  yearAttr?: string;
+}
+
+/** Metadata o jednom odvozeném ukazateli (pro poznámky v manifestu / SOURCES.md). */
+export interface DerivedMeta {
+  id: string;
+  level: 'orp' | 'obec';
+  sourceId: string;
+  layerId: string;
+  kind: DerivedSpec['kind'];
+  /** rok, pod kterým je hodnota uložena */
+  year: number;
+  /** rok počtu obyvatel ČSÚ použitého jako jmenovatel */
+  popYear: number;
+  /** první rok událostí (jen u `yearAttr`) */
+  fromYear?: number;
 }
 
 export const DERIVED: readonly DerivedSpec[] = [
@@ -27,7 +47,10 @@ export const DERIVED: readonly DerivedSpec[] = [
     layerId: 'zdravotnictvi', id: 'zdravotnicka_mista_na_1000', label: 'Místa poskytování zdravotních služeb na 1000 obyvatel',
     unit: 'na 1000 obyvatel', decimals: 2, kind: 'per1000', countIndicator: 'zdravotnicka_mista',
   },
-  { layerId: 'vouchery', id: 'vouchery_kc_na_obyv', label: 'Krajské vouchery (Kč na obyvatele)', unit: 'Kč na obyvatele', decimals: 0, kind: 'perCapita', attr: 'prideleno' },
+  {
+    layerId: 'vouchery', id: 'vouchery_kc_na_obyv', label: 'Krajské vouchery {od}–{do} (souhrn, Kč na obyvatele)',
+    unit: 'Kč na obyvatele', decimals: 0, kind: 'perCapita', attr: 'prideleno', yearAttr: 'rok',
+  },
 ];
 
 export const KV_KRAJ: AreaCode = 'CZ041';
@@ -62,7 +85,12 @@ function hasAnyValue(series: Record<AreaCode, Record<number, number | null>> | u
 export function deriveIndicators(
   input: IndicatorFile,
   layers: PointLayer[],
-  opts: { areas: AreaCode[]; warn: (msg: string) => void; specs?: readonly DerivedSpec[] },
+  opts: {
+    areas: AreaCode[];
+    warn: (msg: string) => void;
+    specs?: readonly DerivedSpec[];
+    onDerived?: (meta: DerivedMeta) => void;
+  },
 ): IndicatorFile {
   const file: IndicatorFile = structuredClone(input);
   const level = file.level;
@@ -73,7 +101,17 @@ export function deriveIndicators(
       opts.warn(`Odvozený ukazatel ${spec.id} (${level}) vynechán – chybí bodová vrstva "${spec.layerId}".`);
       continue;
     }
-    const year = yearOf(layer.validFor);
+    let year = yearOf(layer.validFor);
+    let fromYear: number | undefined;
+    if (spec.yearAttr) {
+      const years = layer.features
+        .map((f) => f.attrs[spec.yearAttr!])
+        .filter((y): y is number => typeof y === 'number' && Number.isInteger(y) && y > 1900);
+      if (years.length) {
+        fromYear = Math.min(...years);
+        year = Math.max(...years);
+      }
+    }
     const popYear = year === null ? null : populationYear(file, year);
     if (year === null || popYear === null) {
       opts.warn(`Odvozený ukazatel ${spec.id} (${level}) vynechán – chybí rok vrstvy nebo počet obyvatel.`);
@@ -114,12 +152,14 @@ export function deriveIndicators(
         continue;
       }
       series[area] = { [year]: (a / p) * scale };
-      sumAmount += a;
       sumPop += p;
     }
+    // KV průměr: VŠECHNY body/počty (i v územích bez populace, např. vojenský újezd) nad populací KV.
+    for (const a of Object.values(amounts)) sumAmount += a;
+    const label = spec.label.replace('{od}', String(fromYear ?? year)).replace('{do}', String(year));
     file.indicators[spec.id] = {
       id: spec.id,
-      label: spec.label,
+      label,
       unit: spec.unit,
       higherIsBetter: true,
       sourceId: layer.sourceId,
@@ -127,9 +167,14 @@ export function deriveIndicators(
     };
     file.values[spec.id] = series;
     if (sumPop > 0) (file.regional ??= {})[spec.id] = { [year]: (sumAmount / sumPop) * scale };
+    opts.onDerived?.({
+      id: spec.id, level, sourceId: layer.sourceId, layerId: layer.id, kind: spec.kind, year, popYear, fromYear,
+    });
   }
   return file;
 }
+
+const ABSOLUTE_UNITS = new Set(['osoby', 'počet']);
 
 function isRate(id: string, unit: string): boolean {
   return unit === '%' || unit === '‰' || /podil|na_1000|_na_obyv/.test(id);
@@ -145,7 +190,8 @@ export function completeRegionalNational(input: IndicatorFile, kraj: IndicatorFi
   if (file.level === 'kraj') return file;
   for (const [id, d] of Object.entries(file.indicators)) {
     const nat = kraj?.national?.[id];
-    if (nat && !file.national?.[id]) (file.national ??= {})[id] = { ...nat };
+    // Absolutní počty (osoby/počet) za ČR nejsou pro ORP/obec srovnatelné – nekopírují se.
+    if (nat && !ABSOLUTE_UNITS.has(d.unit) && !file.national?.[id]) (file.national ??= {})[id] = { ...nat };
     if (file.regional?.[id]) continue;
 
     const krajSeries = kraj?.values[id]?.[KV_KRAJ];
