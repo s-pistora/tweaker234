@@ -7,6 +7,7 @@
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
   import StatusBar from './components/StatusBar.svelte';
+  import Timeline from './components/Timeline.svelte';
   import Map from './components/Map.svelte';
   import Legend from './components/Legend.svelte';
   import WeightPanel from './components/WeightPanel.svelte';
@@ -254,6 +255,7 @@
               names={geoIndex.names}
               onnavigate={navigate}
             />
+            <Timeline {years} year={st.year} onyear={setYear} />
           {:else}
             <WeightPanel
               indicators={eligible}
