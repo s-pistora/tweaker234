@@ -1,0 +1,36 @@
+/*
+ * KRAJ-TERM – design tokeny (retro CRT terminál).
+ *
+ * Barvy: pozadí téměř černá zeleň, fosfor ve 4 jasech, amber jen jako akcent/varování/focus.
+ * Kontrast vůči --bg (#0a0f0a), měřeno dle WCAG relativní luminance:
+ *   --phosphor-100  #33ff66  14.40:1  (nadpisy, zvýrazněný text)
+ *   --phosphor-80   #2bd956  10.28:1  (běžný text)
+ *   --phosphor-60   #24b347   7.01:1  (sekundární text – ještě splňuje ≥7:1)
+ *   --phosphor-40   #166629   2.73:1  (POUZE dekorace – rámečky, scanlines, neaktivní stavy;
+ *                                      NIKDY jako barva textu)
+ *   --amber         #ffb000  10.56:1  (akcent, varování, focus ring)
+ * Fonty: VT323 (nadpisy/čísla), IBM Plex Mono (běžný text) – načteny v index.html.
+ */
+
+:root {
+  --bg: #0a0f0a;
+  --bg-panel: #0d140d;
+
+  --phosphor-100: #33ff66;
+  --phosphor-80: #2bd956;
+  --phosphor-60: #24b347;
+  --phosphor-40: #166629;
+
+  --amber: #ffb000;
+  --amber-dim: #cc8d00;
+
+  --font-display: 'VT323', 'IBM Plex Mono', monospace;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--amber);
+
+  --radius: 2px;
+
+  /* rychlost typewriteru ve výchozím stavu (ms na znak) */
+  --typewriter-speed: 22ms;
+}

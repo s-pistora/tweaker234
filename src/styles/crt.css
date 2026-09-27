@@ -1,0 +1,147 @@
+/*
+ * KRAJ-TERM – CRT efekty.
+ *
+ * `.crt-screen` obaluje obsah obrazovky a přidává scanlines, vinětaci, jemné zakřivení
+ * rámu a "glow" (text-shadow). `.crt-off` na <html> (přepínač CrtToggle) i
+ * `prefers-reduced-motion: reduce` vypínají VŠECHNY animace a vizuální efekty
+ * (scanlines/vinětace/zakřivení/flicker/glow zůstávají vypnuté, text čitelný beze změny).
+ */
+
+html,
+body {
+  background: var(--bg);
+  color: var(--phosphor-80);
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1.4;
+  /* zabránit horizontálnímu scrollu na mobilu */
+  overflow-x: hidden;
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* --- CRT obrazovka -------------------------------------------------- */
+
+.crt-screen {
+  position: relative;
+  isolation: isolate;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* jemné zakřivení rámu – vinětace v rozích */
+.crt-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+/* scanlines */
+.crt-screen::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.18) 0,
+    rgba(0, 0, 0, 0.18) 1px,
+    transparent 2px,
+    transparent 3px
+  );
+  mix-blend-mode: multiply;
+  animation: crt-flicker 6s steps(60) infinite;
+}
+
+/* jemné "žhnutí" fosforového textu */
+.crt-glow {
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 6px rgba(51, 255, 102, 0.35);
+}
+
+.crt-glow-amber {
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 6px rgba(255, 176, 0, 0.4);
+}
+
+/* flicker: amplituda ≤3 % jasu */
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.97;
+  }
+}
+
+/* --- Vypnutí efektů -------------------------------------------------- */
+
+.crt-off .crt-screen::before,
+.crt-off .crt-screen::after,
+.crt-off .crt-glow,
+.crt-off .crt-glow-amber {
+  content: none;
+  display: none;
+}
+
+.crt-off * {
+  animation: none !important;
+  transition: none !important;
+  text-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-screen::before,
+  .crt-screen::after {
+    content: none;
+    display: none;
+  }
+
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* --- Layout základ ---------------------------------------------------- */
+
+.ascii-panel {
+  border: 1px solid var(--phosphor-40);
+  background: var(--bg-panel);
+  padding: 12px 16px;
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.ascii-panel__title {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--phosphor-100);
+  margin: 0 0 8px 0;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 480px) {
+  .ascii-panel {
+    padding: 8px 10px;
+  }
+}
