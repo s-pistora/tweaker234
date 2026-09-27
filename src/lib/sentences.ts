@@ -17,13 +17,14 @@ function naUrovniForm(refLabel: string): string {
 
 /**
  * Ceske skloneni "procentni bod" pro rozdil v procentnich bodech.
- * 1 -> "procentní bod", 2-4 -> "procentní body", 5+ nebo desetinne cislo -> "procentního bodu".
+ * Celociselne 1 -> "procentní bod", 2-4 -> "procentní body", 5+ (a 0) -> "procentních bodů",
+ * necelociselne (napr. 1,5) -> "procentního bodu".
  */
-function pointsPhrase(magnitude: number): string {
+export function pointsPhrase(magnitude: number): string {
   if (!Number.isInteger(magnitude)) return 'procentního bodu';
   if (magnitude === 1) return 'procentní bod';
   if (magnitude >= 2 && magnitude <= 4) return 'procentní body';
-  return 'procentního bodu';
+  return 'procentních bodů';
 }
 
 export function formatValue(v: number | null, def: IndicatorDef): string {

@@ -6,7 +6,7 @@
 // (parseHash/toHash nikdy nevyhodi vyjimku) - navic se vrati `invalid:true`.
 
 import { writable } from 'svelte/store';
-import type { Level, AreaCode } from './types.ts';
+import { LEVELS, type Level, type AreaCode } from './types.ts';
 import type { Snapshot } from './data/loader.ts';
 
 export interface AppState {
@@ -17,8 +17,6 @@ export interface AppState {
   mode: 'explore' | 'score';
   weights: Record<string, number>;
 }
-
-const LEVELS: readonly Level[] = ['kraj', 'orp', 'obec'];
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
 function yearsWithData(snap: Snapshot, level: Level, indicator: string): number[] {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { describe as describeSentence, formatValue } from '../src/lib/sentences.ts';
+import { describe as describeSentence, formatValue, pointsPhrase } from '../src/lib/sentences.ts';
 import type { IndicatorDef } from '../src/lib/types.ts';
 
 const obyvatele: IndicatorDef = {
@@ -36,6 +36,22 @@ describe('formatValue', () => {
   it('NaN/Infinity vstup -> N/A', () => {
     expect(formatValue(NaN, obyvatele)).toBe('N/A');
     expect(formatValue(Infinity, obyvatele)).toBe('N/A');
+  });
+});
+
+describe('pointsPhrase (ceske sklonovani "procentni bod")', () => {
+  it.each([
+    { magnitude: 1, expected: 'procentní bod' },
+    { magnitude: 2, expected: 'procentní body' },
+    { magnitude: 4, expected: 'procentní body' },
+    { magnitude: 5, expected: 'procentních bodů' },
+    { magnitude: 1.5, expected: 'procentního bodu' },
+  ])('pointsPhrase($magnitude) -> "$expected"', ({ magnitude, expected }) => {
+    expect(pointsPhrase(magnitude)).toBe(expected);
+  });
+
+  it('0 -> "procentních bodů"', () => {
+    expect(pointsPhrase(0)).toBe('procentních bodů');
   });
 });
 
