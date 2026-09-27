@@ -43,12 +43,11 @@
     focusables()[0]?.focus();
   });
 
+  // Esc se NEŘEŠÍ tady (lokálně) - stejně jako u Sources.svelte ho zachytává výhradně
+  // globální `onKey` v App.svelte (priorita: Sources → HowModal → o úroveň výš). Lokální
+  // handler by jinak zavolal `onclose()` a událost by SOUČASNĚ probublala na window,
+  // kde by App uviděl `howOpen` už `false` a omylem zavolal `drill.up()` (level-up race).
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      onclose();
-      return;
-    }
     if (e.key !== 'Tab') return;
     const els = focusables();
     if (!els.length) return;
@@ -89,6 +88,12 @@
         Výsledné skóre je vážený průměr percentilů:
         <code>skóre = Σ wᵢ·pᵢ / Σ wᵢ</code>. Ukazatel, pro který území nemá hodnotu, se z výpočtu vynechá a váhy
         ostatních se tím automaticky přepočítají (jmenovatel obsahuje jen váhy použitých ukazatelů).
+      </p>
+      <p data-testid="how-excluded">
+        Do nabídky kritérií se záměrně <strong>nenabízí počet obyvatel ani jiné čistě velikostní ukazatele</strong>
+        (jednotka „počet“) - vyšší počet obyvatel nebo škol sám o sobě neznamená, že se v území žije lépe nebo hůř,
+        jen že je větší. Taková kritéria by percentil jen podle velikosti území zkreslovala, ne podle kvality
+        života.
       </p>
       <p>
         Každý ukazatel používá <strong>svůj vlastní poslední rok s daty</strong> (ne aktuálně vybraný rok nahoře) -

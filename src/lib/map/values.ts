@@ -59,7 +59,17 @@ export function fitIndicator(
   return { indicator: ind, year: y };
 }
 
-/** Řádky náhledu: vybraný ukazatel první, pak další; „LABEL: hodnota jednotka (rok)“. */
+/**
+ * Řádky náhledu: vybraný ukazatel první, pak další; „LABEL: hodnota jednotka (rok)“.
+ *
+ * Vybraný (primární) ukazatel je rokem přesný (kvůli časové ose, Task 17): pokud
+ * pro něj území nemá žádnou hodnotu vůbec, řádek je „LABEL: N/A“; pokud hodnotu
+ * má, ale ne pro AKTUÁLNĚ vybraný rok, řádek je „LABEL: N/A PRO ROK <rok>“ (na
+ * rozdíl od `latestValue`, tady se NEPADÁ zpět na nejbližší/poslední známý rok -
+ * jinak by časová osa u ukazatelů bez řady tiše ukazovala starou hodnotu).
+ * Ostatní ukazatele dál používají svůj vlastní poslední rok s daty (viz `Concerns`
+ * v report - různé pokrytí roky, mixování by bylo zavádějící).
+ */
 export function summaryLines(
   file: IndicatorFile | undefined,
   code: AreaCode,
@@ -73,7 +83,15 @@ export function summaryLines(
   );
   return ids.slice(0, max).map((id) => {
     const def = file.indicators[id];
-    const lv = latestValue(file.values[id]?.[code], id === primary ? year : undefined);
+    if (id === primary) {
+      const series = file.values[id]?.[code];
+      const hasAnyData = latestValue(series) !== null;
+      if (!hasAnyData) return `${def.label}: N/A`;
+      const v = series?.[year];
+      if (typeof v !== 'number' || !Number.isFinite(v)) return `${def.label}: N/A PRO ROK ${year}`;
+      return `${def.label}: ${formatValue(v, def)} ${def.unit} (${year})`;
+    }
+    const lv = latestValue(file.values[id]?.[code]);
     if (!lv) return `${def.label}: N/A`;
     return `${def.label}: ${formatValue(lv.value, def)} ${def.unit} (${lv.year})`;
   });

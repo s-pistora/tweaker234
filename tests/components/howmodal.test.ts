@@ -35,15 +35,17 @@ describe('HowModal', () => {
     expect(getByText(/skóre = Σ wᵢ·pᵢ \/ Σ wᵢ/)).toBeTruthy();
     expect(getByText('Rozpad pro: Karlovarský kraj')).toBeTruthy();
     expect(getByTestId('how-skipped').textContent).toContain('Průměrná mzda');
+    // vysvětlení, proč nejsou v nabídce kritérií čistě velikostní ukazatele (obyvatele, "počet")
+    expect(getByTestId('how-excluded').textContent).toMatch(/počet obyvatel/i);
   });
 
-  it('Esc volá onclose', async () => {
+  it('Esc se NEŘEŠÍ lokálně (jen Tab trap) - o zavření se stará App.svelte, viz tests/components/app-esc.test.ts', async () => {
     const onclose = vi.fn();
     const { container } = render(HowModal, {
       props: { indicators: [{ def: nez, year: 2024, weight: 1 }], onclose },
     });
     await fireEvent.keyDown(container.querySelector('[role="dialog"]')!, { key: 'Escape' });
-    expect(onclose).toHaveBeenCalled();
+    expect(onclose).not.toHaveBeenCalled();
   });
 
   it('fokus je uvězněný: Tab na posledním prvku skočí na první, Shift+Tab na prvním na poslední', async () => {
