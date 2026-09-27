@@ -137,6 +137,14 @@ describe('datazapadAdapters', () => {
       ['dz-skoly', 'dz-socialni', 'dz-zastavky', 'dz-vouchery', 'dz-zdravotnictvi-kraj'].sort(),
     );
   });
+
+  it.skipIf(!process.env.LIVE)('LIVE: každý adaptér reálně stáhne a naparsuje svá data', async () => {
+    for (const adapter of datazapadAdapters) {
+      const res = await adapter.run({ rawDir: 'data-raw/_live-test', now: new Date() });
+      expect(res.source.status).toBe('ok');
+      expect(res.points?.[0]?.features.length ?? 0).toBeGreaterThan(0);
+    }
+  }, 120_000);
 });
 
 describe('perThousand – integrační sanity (Task 4 test dle zadání)', () => {
