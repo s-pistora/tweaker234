@@ -7,12 +7,18 @@
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
   import StatusBar from './components/StatusBar.svelte';
+  import Timeline from './components/Timeline.svelte';
+  import Map from './components/Map.svelte';
+  import Legend from './components/Legend.svelte';
+  import WeightPanel from './components/WeightPanel.svelte';
+  import HowModal, { type HowPart } from './components/HowModal.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
   import { appState, initHashSync } from './lib/state.ts';
   import { areaFeatures } from './lib/map/project.ts';
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
-  import type { AreaCode } from './lib/types.ts';
+  import { eligibleIndicators, score, scoreIndicatorYear } from './lib/score.ts';
+  import type { AreaCode, IndicatorDef } from './lib/types.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data/_fixtures';
@@ -69,6 +75,85 @@
   const years = $derived(yearsWithData(file, st.indicator));
   const target = $derived(detailTarget(view));
 
+  // --- režim „Kde by se mi dobře žilo?“ (Task 16) -------------------------
+  const SCORE_DEF: IndicatorDef = {
+    id: 'score',
+    label: 'Skóre',
+    unit: '/100',
+    higherIsBetter: true,
+    sourceId: 'score',
+    decimals: 0,
+  };
+
+  const eligible = $derived(file ? eligibleIndicators(file) : []);
+  const eligibleIds = $derived(new Set(eligible.map((d) => d.id)));
+  /** váhy z appState omezené na ukazatele způsobilé pro skóre (obrana proti ručně upravenému URL) */
+  const scoreWeights = $derived(
+    Object.fromEntries(Object.entries(st.weights).filter(([id]) => eligibleIds.has(id))),
+  );
+  const totalWeight = $derived(Object.values(scoreWeights).reduce((a, b) => a + b, 0));
+  const scores = $derived(file && totalWeight > 0 ? score(file, st.year, scoreWeights) : {});
+  const scoreValues = $derived(
+    Object.fromEntries(Object.entries(scores).map(([code, s]) => [code, s.score])) as Record<
+      AreaCode,
+      number | null
+    >,
+  );
+
+  const scoreFeatures = $derived.by(() => {
+    if (!snap) return [];
+    if (view.level === 'kraj') return areaFeatures(snap.geo.kraje);
+    if (view.level === 'orp') return areaFeatures(snap.geo['kv-orp']);
+    return areaFeatures(snap.geo['kv-obce'], view.orp);
+  });
+  /** skóre omezené na území aktuálně zobrazená na mapě (např. jen obce vybraného ORP) */
+  const scoresInView = $derived.by(() => {
+    const codes = new Set(scoreFeatures.map((f) => f.properties.code));
+    return Object.fromEntries(Object.entries(scores).filter(([code]) => codes.has(code)));
+  });
+
+  function scorePreview(code: AreaCode): string[] {
+    const s = scores[code];
+    if (!s || s.score === null) return ['SKÓRE: N/A'];
+    return [`SKÓRE ${Math.round(s.score)}/100`];
+  }
+
+  function setWeight(id: string, w: number) {
+    appState.update((s) => {
+      const weights = { ...s.weights };
+      if (w > 0) weights[id] = w;
+      else delete weights[id];
+      return { ...s, weights };
+    });
+  }
+  function selectScoreArea(code: AreaCode) {
+    appState.update((s) => ({ ...s, area: code }));
+  }
+
+  /** rozpad skóre vybraného území obohacený o hodnotu/rok každé části - pro HowModal */
+  const selectedParts = $derived.by((): HowPart[] => {
+    if (!file || !view.area) return [];
+    const s = scores[view.area];
+    if (!s) return [];
+    return s.parts.map((p) => {
+      const y = scoreIndicatorYear(file, p.id);
+      const v = y !== null ? (file.values[p.id]?.[view.area as AreaCode]?.[y] ?? null) : null;
+      return { ...p, value: v, year: y };
+    });
+  });
+  const selectedSkippedDefs = $derived.by((): IndicatorDef[] => {
+    if (!file || !view.area) return [];
+    const s = scores[view.area];
+    if (!s) return [];
+    return s.skipped.map((id) => file.indicators[id]).filter((d): d is IndicatorDef => !!d);
+  });
+  const howIndicators = $derived.by(() => {
+    if (!file) return [];
+    return Object.entries(scoreWeights)
+      .filter(([id, w]) => w > 0 && id in file.indicators)
+      .map(([id, weight]) => ({ def: file.indicators[id], year: scoreIndicatorYear(file, id), weight }));
+  });
+
   /** poslední ukazatel zvolený uživatelem – při návratu na úroveň, kde existuje, se obnoví */
   let preferredIndicator: string | null = null;
 
@@ -89,10 +174,15 @@
   function setYear(y: number) {
     appState.update((s) => ({ ...s, year: y }));
   }
+  function toggleMode() {
+    appState.update((s) => ({ ...s, mode: s.mode === 'explore' ? 'score' : 'explore' }));
+  }
 
   let drill = $state<ReturnType<typeof Drilldown> | null>(null);
   let sourcesOpen = $state(false);
   let sourcesTrigger: HTMLElement | null = null;
+  let howOpen = $state(false);
+  let howTrigger: HTMLElement | null = null;
 
   function openSources() {
     sourcesTrigger = document.activeElement as HTMLElement | null;
@@ -102,11 +192,23 @@
     sourcesOpen = false;
     sourcesTrigger?.focus?.();
   }
+  function openHow() {
+    howTrigger = document.activeElement as HTMLElement | null;
+    howOpen = true;
+  }
+  function closeHow() {
+    howOpen = false;
+    howTrigger?.focus?.();
+  }
 
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !booted || !snap) return;
     if (sourcesOpen) {
       closeSources();
+      return;
+    }
+    if (howOpen) {
+      closeHow();
       return;
     }
     drill?.up();
@@ -128,8 +230,10 @@
           indicator={st.indicator}
           {years}
           year={st.year}
+          mode={st.mode}
           onindicator={setIndicator}
           onyear={setYear}
+          onmode={toggleMode}
           onsources={openSources}
         />
       {/if}
@@ -141,15 +245,54 @@
     {:else}
       <main class="layout">
         <section class="map-col" aria-label="Mapa">
-          <Drilldown
-            bind:this={drill}
-            {snap}
-            {view}
-            indicator={st.indicator}
-            year={st.year}
-            names={geoIndex.names}
-            onnavigate={navigate}
-          />
+          {#if st.mode === 'explore'}
+            <Drilldown
+              bind:this={drill}
+              {snap}
+              {view}
+              indicator={st.indicator}
+              year={st.year}
+              names={geoIndex.names}
+              onnavigate={navigate}
+            />
+            <Timeline {years} year={st.year} onyear={setYear} />
+          {:else}
+            <WeightPanel
+              indicators={eligible}
+              weights={scoreWeights}
+              names={geoIndex.names}
+              scores={scoresInView}
+              selected={view.area}
+              onweight={setWeight}
+              onselect={selectScoreArea}
+              onhow={openHow}
+            />
+            {#if totalWeight > 0}
+              <Map
+                features={scoreFeatures}
+                values={scoreValues}
+                def={SCORE_DEF}
+                year={st.year}
+                selected={view.area}
+                preview={scorePreview}
+                onselect={selectScoreArea}
+                label="Mapa skóre"
+              />
+              <Legend
+                values={scoreFeatures.map((f) => scoreValues[f.properties.code] ?? null)}
+                def={SCORE_DEF}
+                year={st.year}
+              />
+            {:else}
+              <div class="ascii-panel">
+                <h2 class="ascii-panel__title">&gt; NASTAV VÁHY KRITÉRIÍ</h2>
+                <p>
+                  Bez alespoň jedné nenulové váhy nemá obarvení mapy smysl. Nastavte váhy kritérií v panelu
+                  vlevo posuvníky 0–5.
+                </p>
+              </div>
+            {/if}
+          {/if}
         </section>
         <section class="panel-col" aria-label="Detail území">
           <p class="sr-only" aria-live="polite">
@@ -179,6 +322,15 @@
       </main>
       {#if sourcesOpen}
         <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
+      {/if}
+      {#if howOpen}
+        <HowModal
+          indicators={howIndicators}
+          selectedName={view.area ? (geoIndex.names[view.area] ?? view.area) : null}
+          parts={selectedParts}
+          skipped={selectedSkippedDefs}
+          onclose={closeHow}
+        />
       {/if}
     {/if}
   </div>

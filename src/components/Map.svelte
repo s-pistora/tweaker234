@@ -110,11 +110,20 @@
   const tipTitle = $derived(
     hoverPoint ? hoverPoint.name : hoveredArea ? hoveredArea.name : null,
   );
+  /** výchozí náhled (bez vlastního `preview`): hodnota, nebo "N/A PRO ROK <rok>" při chybějícím údaji. */
+  function defaultPreview(code: AreaCode): string[] {
+    const area = areas.find((a) => a.code === code);
+    if (!area) return [];
+    const v = values[code] ?? null;
+    if (v === null && def) return [`${area.name}: N/A PRO ROK ${year}`];
+    return [area.aria];
+  }
+
   const tipLines = $derived(
     hoverPoint
       ? [`${hoverPoint.layerLabel}`, `Zdroj: ${hoverPoint.provider}`]
       : hoveredArea
-        ? (preview?.(hoveredArea.code) ?? [hoveredArea.aria])
+        ? (preview?.(hoveredArea.code) ?? defaultPreview(hoveredArea.code))
         : [],
   );
 

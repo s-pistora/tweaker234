@@ -52,4 +52,14 @@ describe('values', () => {
     expect(lines[1]).toMatch(/^Počet obyvatel: 110 osoby \(2021\)$/);
     expect(summaryLines(file, 'B', 'skoly', 2024, 1)).toEqual(['Školy: N/A']);
   });
+
+  it('summaryLines: vybraný ukazatel je rokem přesný (časová osa, Task 17) - má data jinde, ale ne pro vybraný rok → "N/A PRO ROK <rok>"', () => {
+    // 'skoly' má u A data jen za 2024 - posun na rok bez dat u tohoto ukazatele
+    // nesmí tiše ukázat starou hodnotu 2024, ale musí říct, že za TENTO rok chybí.
+    expect(summaryLines(file, 'A', 'skoly', 2020, 1)).toEqual(['Školy: N/A PRO ROK 2020']);
+    // úplně bez jakékoli hodnoty (B má jen null) zůstává obecné N/A (beze změny)
+    expect(summaryLines(file, 'B', 'skoly', 2020, 1)).toEqual(['Školy: N/A']);
+    // ukazatel s nepřerušenou řadou a přesnou hodnotou pro vybraný rok - beze změny
+    expect(summaryLines(file, 'A', 'obyvatele', 2020, 1)).toEqual(['Počet obyvatel: 100 osoby (2020)']);
+  });
 });

@@ -47,6 +47,22 @@ describe('Detail', () => {
     });
     expect(getByTestId('typewriter').getAttribute('aria-label')).toContain('průměrem kraje');
   });
+
+  it('chybějící `national` u ORP/obce (např. absolutní počty bez srovnání s ČR) nespadne, jen vynechá větu vs ČR', () => {
+    const orpNoNational = { ...fx('indicators/orp.json') };
+    delete orpNoNational.national; // simuluje budoucí snapshot bez `national` pro tyto ukazatele
+    const snapNoNational: Snapshot = {
+      ...snap,
+      indicators: { ...snap.indicators, orp: orpNoNational },
+    };
+    const { getByTestId, container } = render(Detail, {
+      props: { snap: snapNoNational, level: 'orp', code: '4103', name: 'KV', indicator: 'obyvatele', year: 2024 },
+    });
+    // pořád se vykreslí (nespadlo) a věta se vůči kraji pořád ukáže (`regional` zůstal)
+    expect(container.querySelector('.rows')).toBeTruthy();
+    expect(getByTestId('typewriter').getAttribute('aria-label')).toContain('průměrem kraje');
+    expect(getByTestId('typewriter').getAttribute('aria-label')).not.toContain('ČR');
+  });
 });
 
 describe('Sources', () => {
