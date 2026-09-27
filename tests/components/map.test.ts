@@ -40,6 +40,14 @@ describe('Map', () => {
     expect(paths[2].getAttribute('fill')).toBe('url(#pna)');
   });
 
+  it('bez vlastního `preview`: chybějící hodnota → tooltip "N/A PRO ROK <rok>"', async () => {
+    // Plzeňský kraj (CZ032) nemá v roce 2024 hodnotu nezaměstnanosti.
+    const { container, getByTestId } = setup();
+    const cz032 = container.querySelector('path[data-code="CZ032"]')!;
+    await fireEvent.mouseEnter(cz032);
+    expect(getByTestId('map-tooltip').textContent).toContain('N/A PRO ROK 2024');
+  });
+
   it('klik i Enter volají onselect; hover plní aria-live náhled', async () => {
     const onselect = vi.fn();
     const { container, getByTestId } = setup({ onselect, preview: (c: string) => [`řádek ${c}`] });

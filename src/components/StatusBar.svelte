@@ -1,5 +1,8 @@
 <script lang="ts">
-  /** Horní lišta: datum snapshotu, výběr ukazatele (obarvuje mapu) a roku, [ZDROJE], CRT přepínač. */
+  /**
+   * Horní lišta: datum snapshotu, výběr ukazatele (obarvuje mapu) a roku,
+   * přepínač režimu PRŮZKUM / KDE BY SE MI DOBŘE ŽILO?, [ZDROJE], CRT přepínač.
+   */
   import type { IndicatorDef } from '../lib/types.ts';
   import CrtToggle from './crt/CrtToggle.svelte';
 
@@ -9,11 +12,14 @@
     indicator: string;
     years: number[];
     year: number;
+    mode: 'explore' | 'score';
     onindicator: (id: string) => void;
     onyear: (y: number) => void;
+    onmode: () => void;
     onsources: () => void;
   }
-  const { updatedAt, indicators, indicator, years, year, onindicator, onyear, onsources }: Props = $props();
+  const { updatedAt, indicators, indicator, years, year, mode, onindicator, onyear, onmode, onsources }: Props =
+    $props();
 
   const updated = $derived.by(() => {
     const d = new Date(updatedAt);
@@ -46,6 +52,9 @@
       </select>
     </label>
   {/if}
+  <button type="button" class="btn" onclick={onmode} aria-pressed={mode === 'score'} data-testid="mode-toggle">
+    [REŽIM: {mode === 'explore' ? 'PRŮZKUM' : 'KDE BY SE MI DOBŘE ŽILO?'}]
+  </button>
   <button type="button" class="btn" onclick={onsources} data-testid="sources-btn">[ZDROJE]</button>
   <CrtToggle />
 </div>
