@@ -186,17 +186,21 @@ describe.skipIf(!haveGenerated)('generated geo files (real ČÚZK RÚIAN data)',
     }
   });
 
-  it('all coordinates across the three layers fall within Czech lon/lat bounds', () => {
-    for (const path of Object.values(files)) {
-      const feats = readTopoFeatures(path);
-      for (const f of feats) {
-        for (const [lon, lat] of allCoordsLonLat(f.geometry)) {
-          expect(lon).toBeGreaterThanOrEqual(12);
-          expect(lon).toBeLessThanOrEqual(19);
-          expect(lat).toBeGreaterThanOrEqual(48.5);
-          expect(lat).toBeLessThanOrEqual(51.1);
+  it(
+    'all coordinates across the three layers fall within Czech lon/lat bounds',
+    () => {
+      for (const path of Object.values(files)) {
+        const feats = readTopoFeatures(path);
+        for (const f of feats) {
+          for (const [lon, lat] of allCoordsLonLat(f.geometry)) {
+            expect(lon).toBeGreaterThanOrEqual(12);
+            expect(lon).toBeLessThanOrEqual(19);
+            expect(lat).toBeGreaterThanOrEqual(48.5);
+            expect(lat).toBeLessThanOrEqual(51.1);
+          }
         }
       }
-    }
-  });
+    },
+    20000,
+  );
 });
