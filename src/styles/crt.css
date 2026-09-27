@@ -93,12 +93,21 @@ body {
   }
 }
 
-/* --- Vypnutí efektů -------------------------------------------------- */
+/* --- Vypnutí efektů ----------------------------------------------------
+ * `.crt-off` (ruční přepínač CrtToggle) a `prefers-reduced-motion: reduce`
+ * (systémové nastavení) musí vypínat efekty STEJNĚ. Pouze pseudo-elementy
+ * (::before/::after – vinětace, zakřivení, scanlines, flicker; prázdný
+ * `content: ''`, žádný reálný text) smí jít na `display: none`. Nikdy
+ * NESMÍ jít na `display: none` cokoliv, co může nést reálný text (např.
+ * `.crt-glow` na <h1 class="crt-glow">…</h1>) – tam se odstraňuje pouze
+ * `text-shadow`/`filter`, text zůstává viditelný beze změny.
+ * Obě podmínky proto sdílí identický deklarační blok níže (jediný zdroj
+ * pravdy pro to, co se při vypnutí ruší – při úpravě měnit na obou místech
+ * stejně).
+ */
 
 .crt-off .crt-screen::before,
-.crt-off .crt-screen::after,
-.crt-off .crt-glow,
-.crt-off .crt-glow-amber {
+.crt-off .crt-screen::after {
   content: none;
   display: none;
 }
@@ -107,6 +116,7 @@ body {
   animation: none !important;
   transition: none !important;
   text-shadow: none !important;
+  filter: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -119,6 +129,8 @@ body {
   * {
     animation: none !important;
     transition: none !important;
+    text-shadow: none !important;
+    filter: none !important;
   }
 }
 

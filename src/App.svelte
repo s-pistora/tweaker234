@@ -3,8 +3,8 @@
 
   // DESIGN DEMO: import stylů + ukázka komponent z src/components/crt.
   // Frontend tento blok nahradí skutečnou aplikací (mapa/detail/…).
-  import '../src/styles/tokens.css';
-  import '../src/styles/crt.css';
+  import './styles/tokens.css';
+  import './styles/crt.css';
   import AsciiPanel from './components/crt/AsciiPanel.svelte';
   import Typewriter from './components/crt/Typewriter.svelte';
   import CrtToggle from './components/crt/CrtToggle.svelte';
