@@ -45,3 +45,32 @@ describe('codes – převodník RÚIAN↔ČSÚ (nad fixture úryvky reálných �
     expect(total).toBe(134);
   });
 });
+
+describe('buildCodes – honoruje platnost číselníku (admplod/admnepo), fix round 1 review finding #4', () => {
+  // Konstruovaný úryvek (reálné sloupce cis65 – CISORP) se DVĚMA řádky pro stejný RÚIAN kód '900':
+  // starým, historicky ZRUŠENÝM (admnepo v minulosti) a aktuálním (admplod v minulosti, bez konce).
+  // Neplatný řádek je záměrně AŽ ZA platným, aby test odhalil naivní "poslední řádek vyhrává".
+  const cis65WithHistory =
+    '"kodjaz","akrcis","kodcis","chodnota","zkrtext","text","admplod","admnepo","kod_ruian"\n' +
+    '"CS","CISORP",65,"9001","Nové ORP","Nové ORP","2010-01-01","9999-09-09","900"\n' +
+    '"CS","CISORP",65,"9000","Staré (zrušené) ORP","Staré (zrušené) ORP","2000-01-01","2009-12-31","900"\n';
+  const cis100Empty =
+    '"kodjaz","akrcis","kodcis","chodnota","zkrtext","text","admplod","admnepo","cznuts","kod_ruian","zkrkraj"\n';
+  const vazbaEmpty =
+    '"kodjaz","typvaz","akrcis1","kodcis1","chodnota1","text1","akrcis2","kodcis2","chodnota2","text2"\n';
+
+  it('u souběhu platného a neplatného (zrušeného) řádku vyhraje platný k `now`, i když je v souboru dřív', () => {
+    const codes = buildCodes(cis65WithHistory, cis100Empty, vazbaEmpty, new Date('2026-01-01'));
+    expect(codes.orpRuianToCsu('900')).toBe('9001');
+  });
+
+  it('k datu před platností nové položky (ale v okně staré) vrátí historickou hodnotu', () => {
+    const codes = buildCodes(cis65WithHistory, cis100Empty, vazbaEmpty, new Date('2005-06-01'));
+    expect(codes.orpRuianToCsu('900')).toBe('9000');
+  });
+
+  it('bez `now` (výchozí = aktuální datum) vrátí aktuálně platnou položku', () => {
+    const codes = buildCodes(cis65WithHistory, cis100Empty, vazbaEmpty);
+    expect(codes.orpRuianToCsu('900')).toBe('9001');
+  });
+});
