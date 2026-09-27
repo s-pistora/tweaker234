@@ -1,13 +1,7 @@
-<script lang="ts" module>
-  /** Vzhled značek vrstvy podle pořadí: střídá amber/fosfor a × / +. */
-  export function styleOf(i: number): { tone: 'amber' | 'phosphor'; glyph: 'x' | '+' } {
-    return { tone: i % 2 === 0 ? 'amber' : 'phosphor', glyph: Math.floor(i / 2) % 2 === 0 ? 'x' : '+' };
-  }
-</script>
-
 <script lang="ts">
   /** Přepínače bodových vrstev (generické přes PointLayer ze snapshotu). */
   import type { PointLayer } from '../lib/types.ts';
+  import { styleOf, GLYPH_CHAR } from '../lib/map/pointStyle.ts';
 
   interface Props {
     layers: PointLayer[];
@@ -32,7 +26,7 @@
         onclick={() => ontoggle(l.id)}
         data-testid="layer-{l.id}"
       >
-        [{active[l.id] ? '■' : ' '}] <span class="glyph glyph--{st.tone}" aria-hidden="true">{st.glyph === 'x' ? '×' : '+'}</span>
+        [{active[l.id] ? '■' : ' '}] <span class="glyph glyph--{st.tone}" aria-hidden="true">{GLYPH_CHAR[st.glyph]}</span>
         {l.label}
         <span class="cnt">({counts[l.id] ?? l.features.length})</span>
       </button>

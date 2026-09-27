@@ -357,6 +357,20 @@ const VOUCHER_SUBS: VoucherSub[] = [
   { itemId: '2ec6469e9f76487f8325504d8313a5f3', layers: 3, dzDataset: 'vch-start2024', title: 'Startovací vouchery v Karlovarském kraji v roce 2024' },
 ];
 
+/**
+ * Rozsah let udelovani vouchery ("2012" nebo "2012–2024") z attrs.rok napric prvky.
+ * Fallback na `fallback` (rok stazeni), kdyz zadny prvek platny rok nema.
+ */
+export function voucherYearRange(features: PointFeature[], fallback: string): string {
+  const roky = features
+    .map((f) => f.attrs.rok)
+    .filter((y): y is number => typeof y === 'number' && Number.isInteger(y) && y > 1900);
+  if (!roky.length) return fallback;
+  const min = Math.min(...roky);
+  const max = Math.max(...roky);
+  return min === max ? String(min) : `${min}–${max}`;
+}
+
 const dzVouchery: SourceAdapter = {
   id: 'dz-vouchery',
   async run(ctx: SourceContext): Promise<SourceResult> {
@@ -366,6 +380,9 @@ const dzVouchery: SourceAdapter = {
       const text = await fetchDzCsv(sub.itemId, sub.layers, `${ctx.rawDir}/dz-vouchery`, sub.dzDataset);
       allFeatures.push(...parseDzCsv(text, sub.dzDataset));
     }
+    // Vrstva sama je "platna" pro roky udeleni vouchery (data), ne pro rok stazeni registru
+    // (viz review finding #5) - zdrojovy zaznam (SourceEntry) si download-rok ponechava.
+    const layerValidFor = voucherYearRange(allFeatures, validFor);
     const primary = VOUCHER_SUBS[0]!;
     const source: SourceEntry = {
       id: 'dz-vouchery',
@@ -380,7 +397,7 @@ const dzVouchery: SourceAdapter = {
         (s) => `${s.title}: https://www.datazapad.cz/api/download/v1/items/${s.itemId}/csv?layers=${s.layers} (CC BY 4.0)`,
       ).join(' | '),
     };
-    return { source, points: [makeLayer('vouchery', 'Vouchery', 'dz-vouchery', validFor, allFeatures)] };
+    return { source, points: [makeLayer('vouchery', 'Vouchery', 'dz-vouchery', layerValidFor, allFeatures)] };
   },
 };
 
