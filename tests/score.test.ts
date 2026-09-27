@@ -32,7 +32,7 @@ describe('percentileRank', () => {
 });
 
 describe('eligibleIndicators', () => {
-  it('vyloučí "obyvatele" a ukazatele s jednotkou "počet" (nejsou kritéria "životní úrovně")', () => {
+  it('vyloučí "obyvatele" a ukazatele s jednotkou "počet" nebo "osoby" (absolutní počty, ne kritéria "životní úrovně", review finding #2)', () => {
     const file: IndicatorFile = {
       level: 'kraj',
       indicators: {
@@ -49,6 +49,14 @@ describe('eligibleIndicators', () => {
           label: 'Počet škol',
           unit: 'počet',
           higherIsBetter: true,
+          sourceId: 's',
+          decimals: 0,
+        },
+        uchazeci: {
+          id: 'uchazeci',
+          label: 'Uchazeči o zaměstnání',
+          unit: 'osoby',
+          higherIsBetter: false,
           sourceId: 's',
           decimals: 0,
         },

@@ -13,7 +13,7 @@
   import WeightPanel from './components/WeightPanel.svelte';
   import HowModal, { type HowPart } from './components/HowModal.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
-  import { appState, initHashSync } from './lib/state.ts';
+  import { appState, initHashSync, linkInvalid } from './lib/state.ts';
   import { areaFeatures } from './lib/map/project.ts';
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
@@ -47,6 +47,13 @@
   onDestroy(() => stopSync?.());
 
   const st = $derived($appState);
+
+  // Varovani "neplatny odkaz" (viz review finding #1) - amber, dismissible; znovu se
+  // ukaze pri kazdem prechodu na (dalsi) nevalidni hash.
+  let linkWarningDismissed = $state(false);
+  $effect(() => {
+    if ($linkInvalid) linkWarningDismissed = false;
+  });
 
   /** kód → název a obec → ORP ze všech geodat */
   const geoIndex = $derived.by(() => {
@@ -238,6 +245,19 @@
         />
       {/if}
     </header>
+    {#if $linkInvalid && !linkWarningDismissed}
+      <p class="link-invalid" role="alert" data-testid="link-invalid">
+        ! NEPLATNÝ ODKAZ – ZOBRAZUJI VÝCHOZÍ POHLED
+        <button
+          type="button"
+          class="link-invalid__close"
+          aria-label="Zavřít upozornění"
+          onclick={() => (linkWarningDismissed = true)}
+        >
+          [x]
+        </button>
+      </p>
+    {/if}
     {#if loadError}
       <p class="error" role="alert">&gt; CHYBA: data nelze načíst ({loadError}).</p>
     {:else if !snap}
@@ -355,6 +375,25 @@
   }
   .error {
     color: var(--amber);
+  }
+  .link-invalid {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 12px;
+    padding: 4px 8px;
+    color: var(--amber);
+    border: 1px solid var(--amber-dim, var(--amber));
+    font-family: var(--font-mono);
+  }
+  .link-invalid__close {
+    background: none;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    padding: 0 6px;
   }
   .layout {
     display: grid;

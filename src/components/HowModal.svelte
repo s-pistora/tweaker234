@@ -91,9 +91,9 @@
       </p>
       <p data-testid="how-excluded">
         Do nabídky kritérií se záměrně <strong>nenabízí počet obyvatel ani jiné čistě velikostní ukazatele</strong>
-        (jednotka „počet“) - vyšší počet obyvatel nebo škol sám o sobě neznamená, že se v území žije lépe nebo hůř,
-        jen že je větší. Taková kritéria by percentil jen podle velikosti území zkreslovala, ne podle kvality
-        života.
+        (jednotka „počet“ nebo „osoby“, např. počet uchazečů o zaměstnání) - vyšší počet obyvatel, škol nebo
+        uchazečů sám o sobě neznamená, že se v území žije lépe nebo hůř, jen že je větší. Taková kritéria by
+        percentil jen podle velikosti území zkreslovala, ne podle kvality života.
       </p>
       <p>
         Každý ukazatel používá <strong>svůj vlastní poslední rok s daty</strong> (ne aktuálně vybraný rok nahoře) -

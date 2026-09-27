@@ -86,13 +86,17 @@ function latestDataYear(file: IndicatorFile, id: string): number | null {
   return latest;
 }
 
+/** Jednotky čistě velikostních (absolutních) ukazatelů - viz `eligibleIndicators`. */
+const ABSOLUTE_UNITS = new Set(['počet', 'osoby']);
+
 /**
  * Ukazatele vhodné jako kritéria "životní úrovně": vylučuje čisté ukazatele
- * velikosti (počet obyvatel, počty jinak jednotky "počet"), protože ty samy
- * o sobě neříkají nic o tom, jestli se v území dobře žije.
+ * velikosti (počet obyvatel, počty jinak jednotky "počet" nebo "osoby" - např.
+ * počet uchazečů o zaměstnání), protože ty samy o sobě neříkají nic o tom,
+ * jestli se v území dobře žije (jen jak je území velké).
  */
 export function eligibleIndicators(file: IndicatorFile): IndicatorDef[] {
-  return Object.values(file.indicators).filter((d) => d.id !== 'obyvatele' && d.unit !== 'počet');
+  return Object.values(file.indicators).filter((d) => d.id !== 'obyvatele' && !ABSOLUTE_UNITS.has(d.unit));
 }
 
 /**

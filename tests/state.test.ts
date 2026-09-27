@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
-import { parseHash, toHash, appState, initHashSync, type AppState } from '../src/lib/state.ts';
+import { parseHash, toHash, appState, initHashSync, linkInvalid, type AppState } from '../src/lib/state.ts';
 import type { Snapshot } from '../src/lib/data/loader.ts';
 import type { Manifest, IndicatorFile } from '../src/lib/types.ts';
 
@@ -114,6 +114,8 @@ describe('parseHash / toHash (cisté funkce)', () => {
   });
 
   it('prazdny hash (#/ nebo "") -> vychozi stav, invalid:false', () => {
+    // vychozi ukazatel je "nezamestnanost" (preferovany default, viz review finding #7),
+    // ne prvni klic v `indicators` ("obyvatele") - a s nim i jiny vychozi rok (posledni s daty).
     const snap = makeSnap();
     for (const h of ['', '#', '#/']) {
       const { state, invalid } = parseHash(h, snap);
@@ -121,8 +123,8 @@ describe('parseHash / toHash (cisté funkce)', () => {
       expect(state).toEqual({
         level: 'kraj',
         area: null,
-        indicator: 'obyvatele',
-        year: 2024,
+        indicator: 'nezamestnanost',
+        year: 2023,
         mode: 'explore',
         weights: {},
       });
@@ -150,11 +152,11 @@ describe('parseHash / toHash (cisté funkce)', () => {
     expect(state.year).toBe(2024);
   });
 
-  it('neznamy ukazatel -> fallback na prvni ukazatel dane urovne, invalid:true', () => {
+  it('neznamy ukazatel -> fallback na preferovany vychozi ukazatel urovne, invalid:true', () => {
     const snap = makeSnap();
     const { state, invalid } = parseHash('#/kraj?u=neexistuje', snap);
     expect(invalid).toBe(true);
-    expect(state.indicator).toBe('obyvatele');
+    expect(state.indicator).toBe('nezamestnanost');
   });
 
   it('neznama uroven -> fallback na kraj, invalid:true', () => {
@@ -169,6 +171,20 @@ describe('parseHash / toHash (cisté funkce)', () => {
     const { state, invalid } = parseHash('#/orp/4103?w=neplatne;;;', snap);
     expect(invalid).toBe(true);
     expect(state.weights).toEqual({});
+  });
+
+  it('vahy z URL se oriznou na cela cisla 0-5 - mimo rozsah/necela se zahodi, invalid:true (review finding #6)', () => {
+    const snap = makeSnap();
+    const { state, invalid } = parseHash('#/orp/4103?w=skoly:7,lekari:5,x:-1,y:2.5', snap);
+    expect(invalid).toBe(true);
+    expect(state.weights).toEqual({ lekari: 5 });
+  });
+
+  it('platne vahy 0-5 (cela cisla) projdou beze zmeny, invalid:false', () => {
+    const snap = makeSnap();
+    const { state, invalid } = parseHash('#/orp/4103?w=skoly:0,lekari:5', snap);
+    expect(invalid).toBe(false);
+    expect(state.weights).toEqual({ skoly: 0, lekari: 5 });
   });
 
   it('neznamy rezim -> fallback na explore, invalid:true', () => {
@@ -215,6 +231,35 @@ describe('initHashSync + appState store', () => {
     location.hash = '#/orp/4102';
     window.dispatchEvent(new Event('hashchange'));
     expect(get(appState).area).toBe('4102');
+    stop();
+  });
+});
+
+describe('linkInvalid store (review finding #1 - varovani "neplatny odkaz")', () => {
+  it('nevalidni hash (neznama oblast + neznamy ukazatel + rok mimo rozsah) -> linkInvalid:true', () => {
+    const snap = makeSnap();
+    location.hash = '#/obec/999999?u=lekari&r=1990';
+    const stop = initHashSync(snap);
+    expect(get(linkInvalid)).toBe(true);
+    stop();
+  });
+
+  it('validni hash -> linkInvalid:false', () => {
+    const snap = makeSnap();
+    location.hash = '#/orp/4103?u=skoly&r=2024';
+    const stop = initHashSync(snap);
+    expect(get(linkInvalid)).toBe(false);
+    stop();
+  });
+
+  it('externi hashchange na nevalidni hash prepne linkInvalid na true', () => {
+    const snap = makeSnap();
+    location.hash = '#/orp/4103?u=skoly&r=2024';
+    const stop = initHashSync(snap);
+    expect(get(linkInvalid)).toBe(false);
+    location.hash = '#/obec/999999?u=lekari&r=1990';
+    window.dispatchEvent(new Event('hashchange'));
+    expect(get(linkInvalid)).toBe(true);
     stop();
   });
 });

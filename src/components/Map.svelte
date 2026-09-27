@@ -1,4 +1,6 @@
 <script lang="ts" module>
+  import type { Tone, Glyph } from '../lib/map/pointStyle.ts';
+
   export interface MapPoint {
     id: string;
     name: string;
@@ -6,9 +8,11 @@
     lat: number;
     layerLabel: string;
     provider: string;
-    tone: 'phosphor' | 'amber';
-    /** tvar značky: 'x' (křížek) nebo '+' */
-    glyph?: 'x' | '+';
+    /** rok/období platnosti vrstvy (`PointLayer.validFor`) - zobrazuje se v tooltipu */
+    validFor?: string;
+    tone: Tone;
+    /** tvar značky - viz `lib/map/pointStyle.ts` */
+    glyph?: Glyph;
   }
 </script>
 
@@ -19,6 +23,12 @@
    * Hover/focus = náhled (Tooltip, aria-live), klik/Enter = onselect, šipky =
    * nejbližší soused ve směru. Dotyk: 1. tap náhled, 2. tap výběr.
    * Esc řeší rodič (globálně), aby nedošlo ke dvojímu kroku.
+   *
+   * Body (`points`) mají `pointer-events: none` - jsou to jen vizuální značky, klik i
+   * hover na území pod nimi musí fungovat i se zapnutými bodovými vrstvami (review
+   * finding #4: průhledné hit-terče bodů dřív klik na území "polykaly"). Hover bodu se
+   * proto řeší delegovaně přes `pointermove` na <svg> (nejbližší bod do 6 px), ne přes
+   * events na jednotlivých bodech.
    *
    * Zoom: `zoomTarget` → animuje viewBox na území (600 ms) a zavolá `onzoomend`;
    * `zoomFrom` → po (pře)kreslení začne na výřezu území a oddálí na celek.
@@ -31,6 +41,7 @@
   import { quantileClass } from '../lib/map/classify.ts';
   import { neighborInDirection, type Direction } from '../lib/map/neighbors.ts';
   import { zoomViewBox, motionAllowed, ZOOM_MS, type ViewBox } from '../lib/map/zoom.ts';
+  import { GLYPH_CHAR } from '../lib/map/pointStyle.ts';
   import { formatValue } from '../lib/sentences.ts';
   import { patternDefs } from './crt/patterns.svg.ts';
   import Tooltip from './Tooltip.svelte';
@@ -121,7 +132,10 @@
 
   const tipLines = $derived(
     hoverPoint
-      ? [`${hoverPoint.layerLabel}`, `Zdroj: ${hoverPoint.provider}`]
+      ? [
+          `${hoverPoint.layerLabel}`,
+          `Zdroj: ${hoverPoint.provider}${hoverPoint.validFor ? ` [${hoverPoint.validFor}]` : ''}`,
+        ]
       : hoveredArea
         ? (preview?.(hoveredArea.code) ?? defaultPreview(hoveredArea.code))
         : [],
@@ -162,13 +176,42 @@
     }
   }
 
-  // body: delegace z <svg> (tisíce bodů → žádné handlery na jednotlivých prvcích)
-  function onPointOver(e: PointerEvent) {
-    const id = (e.target as Element | null)?.closest?.('[data-pt]')?.getAttribute('data-pt');
-    if (id) hoverPoint = projectedPoints.find((p) => p.id === id) ?? null;
+  // Body mají `pointer-events: none` (ať klik/hover na území pod nimi vždy projde – viz
+  // review finding #4), takže se nedají hoverovat přímo. Místo toho jeden delegovaný
+  // `pointermove` na <svg>, který najde nejbližší bod do 6 px od kurzoru (prostý loop –
+  // v pořádku i pro řádově tisíce bodů).
+  const HOVER_PX = 6;
+  function onSvgPointerMove(e: PointerEvent) {
+    if (!projectedPoints.length) {
+      hoverPoint = null;
+      return;
+    }
+    const svg = e.currentTarget as SVGSVGElement;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      hoverPoint = null;
+      return;
+    }
+    const scaleX = vb[2] / rect.width;
+    const scaleY = vb[3] / rect.height;
+    const userX = vb[0] + (e.clientX - rect.left) * scaleX;
+    const userY = vb[1] + (e.clientY - rect.top) * scaleY;
+    const thresholdUser = HOVER_PX * Math.max(scaleX, scaleY);
+    let nearest: (typeof projectedPoints)[number] | null = null;
+    let bestDist2 = Infinity;
+    for (const p of projectedPoints) {
+      const dx = p.x - userX;
+      const dy = p.y - userY;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestDist2) {
+        bestDist2 = d2;
+        nearest = p;
+      }
+    }
+    hoverPoint = nearest && bestDist2 <= thresholdUser * thresholdUser ? nearest : null;
   }
-  function onPointOut(e: PointerEvent) {
-    if ((e.target as Element | null)?.closest?.('[data-pt]')) hoverPoint = null;
+  function onSvgPointerLeave() {
+    hoverPoint = null;
   }
 
   // --- zoom -------------------------------------------------------------
@@ -251,8 +294,8 @@
     role="group"
     aria-label={label}
     class:animating
-    onpointerover={onPointOver}
-    onpointerout={onPointOut}
+    onpointermove={onSvgPointerMove}
+    onpointerleave={onSvgPointerLeave}
   >
     <defs>{@html patternDefs()}</defs>
     <g class="areas">
@@ -281,10 +324,15 @@
     {#if projectedPoints.length}
       <g class="points" aria-hidden="true">
         {#each projectedPoints as p (p.id)}
-          <g class="pt pt--{p.tone}" transform="translate({p.x},{p.y})" data-pt={p.id}>
-            <circle r="5" class="pt__hit" />
-            <path d={p.glyph === '+' ? 'M-3.2,0L3.2,0M0,-3.2L0,3.2' : 'M-2.5,-2.5L2.5,2.5M-2.5,2.5L2.5,-2.5'} />
-          </g>
+          <text
+            class="pt pt--{p.tone}"
+            class:pt--hover={hoverPoint?.id === p.id}
+            x={p.x}
+            y={p.y}
+            text-anchor="middle"
+            dominant-baseline="central"
+            data-pt={p.id}>{GLYPH_CHAR[p.glyph ?? 'x']}</text
+          >
         {/each}
       </g>
     {/if}
@@ -349,23 +397,25 @@
     stroke-dasharray: 6 3;
     box-shadow: none;
   }
-  .pt path {
-    stroke-width: 1.6;
-    vector-effect: non-scaling-stroke;
-    fill: none;
+  .points {
+    /* Body jsou jen vizuální značky - klik/hover na území pod nimi musí projít i se
+       zapnutými bodovými vrstvami (viz review finding #4). Hover bodu samotného se řeší
+       delegovaně přes `pointermove` na <svg> (viz `onSvgPointerMove`). */
+    pointer-events: none;
   }
-  .pt--phosphor path {
-    stroke: var(--phosphor-100);
-  }
-  .pt--amber path {
-    stroke: var(--amber);
-  }
-  .pt__hit {
-    fill: transparent;
+  .pt {
+    font-size: 9px;
+    font-family: var(--font-mono);
     stroke: none;
   }
-  .pt:hover path {
-    stroke-width: 3;
+  .pt--phosphor {
+    fill: var(--phosphor-100);
+  }
+  .pt--amber {
+    fill: var(--amber);
+  }
+  .pt--hover {
+    font-size: 13px;
   }
   .sweep {
     stroke: var(--phosphor-100);

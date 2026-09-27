@@ -32,9 +32,16 @@ function yearsWithData(snap: Snapshot, level: Level, indicator: string): number[
   return [...years].sort((a, b) => a - b);
 }
 
+/** Preferované výchozí ukazatele (v pořadí priority) – použije se první, který na dané úrovni existuje. */
+const PREFERRED_DEFAULT_INDICATORS = ['nezamestnanost'];
+
 function defaultIndicatorFor(snap: Snapshot, level: Level): string {
   const file = snap.indicators[level];
-  return file ? (Object.keys(file.indicators)[0] ?? '') : '';
+  if (!file) return '';
+  for (const id of PREFERRED_DEFAULT_INDICATORS) {
+    if (id in file.indicators) return id;
+  }
+  return Object.keys(file.indicators)[0] ?? '';
 }
 
 function defaultYearFor(snap: Snapshot, level: Level, indicator: string): number {
@@ -64,18 +71,28 @@ function areasAvailable(snap: Snapshot, level: Level): Set<string> {
   return set;
 }
 
-/** Parsuje `w=id:vaha,id:vaha,...`. Vraci null, pokud format neodpovida (aspon jeden par je poskozeny). */
-function parseWeights(raw: string): Record<string, number> | null {
+/**
+ * Parsuje `w=id:vaha,id:vaha,...`. Vaha musi byt cele cislo 0-5 (jinak se jen zahodi tenhle
+ * jeden par a `invalid` se nastavi na true, aby ostatni platne vahy zustaly pouzitelne).
+ */
+function parseWeights(raw: string): { weights: Record<string, number>; invalid: boolean } {
   const result: Record<string, number> = {};
+  let invalid = false;
   for (const pair of raw.split(',')) {
     const m = /^([\w-]+):(-?\d+(?:\.\d+)?)$/.exec(pair.trim());
-    if (!m) return null;
+    if (!m) {
+      invalid = true;
+      continue;
+    }
     const [, id, wRaw] = m;
     const w = Number(wRaw);
-    if (!Number.isFinite(w)) return null;
+    if (!Number.isInteger(w) || w < 0 || w > 5) {
+      invalid = true;
+      continue;
+    }
     result[id] = w;
   }
-  return result;
+  return { weights: result, invalid };
 }
 
 export function parseHash(hash: string, snap: Snapshot): { state: AppState; invalid: boolean } {
@@ -150,12 +167,9 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   let weights: Record<string, number> = {};
   const wParam = params.get('w');
   if (wParam !== null && wParam !== '') {
-    const parsed = parseWeights(wParam);
-    if (parsed) {
-      weights = parsed;
-    } else {
-      invalid = true;
-    }
+    const { weights: parsed, invalid: wInvalid } = parseWeights(wParam);
+    weights = parsed;
+    if (wInvalid) invalid = true;
   }
 
   return { state: { level, area, indicator, year, mode, weights }, invalid };
@@ -188,13 +202,20 @@ const PLACEHOLDER_STATE: AppState = {
 export const appState = writable<AppState>(PLACEHOLDER_STATE);
 
 /**
+ * true, kdyz posledni naparsovany hash (pri startu nebo pri `hashchange`) mel nejakou
+ * nevalidni cast (viz `parseHash().invalid`) – App.svelte na to ukazuje varovnou hlasku.
+ */
+export const linkInvalid = writable<boolean>(false);
+
+/**
  * Napoji `appState` na `location.hash`: naparsuje aktualni hash, drzi store a hash v sync
  * (zmeny store -> `history.replaceState`, zmeny hashe zvenku -> `hashchange` -> store).
  * Vraci cistici funkci (odregistruje listenery).
  */
 export function initHashSync(snap: Snapshot): () => void {
   const applyFromHash = () => {
-    const { state } = parseHash(location.hash, snap);
+    const { state, invalid } = parseHash(location.hash, snap);
+    linkInvalid.set(invalid);
     appState.set(state);
   };
 

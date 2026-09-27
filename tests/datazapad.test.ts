@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parseDzCsv, datazapadAdapters } from '../scripts/sources/datazapad.ts';
+import { parseDzCsv, datazapadAdapters, voucherYearRange } from '../scripts/sources/datazapad.ts';
 import { perThousand } from '../scripts/aggregate.ts';
 import { isPointLayer } from '../src/lib/types.ts';
 
@@ -127,6 +127,26 @@ describe('parseDzCsv – zdravotnictví (nemocnice, pohotovost, ZZS)', () => {
       expect(f.lon).toBeGreaterThan(10);
       expect(f.lon).toBeLessThan(16);
     }
+  });
+});
+
+describe('voucherYearRange (review finding #5 - validFor vrstvy vouchery = rok udeleni, ne rok stazeni)', () => {
+  it('vrati rozsah min-max attrs.rok napric vsemi podtypy vouchery', () => {
+    const inovacni = parseDzCsv(fx('dz-vouchery.csv'), 'vch-inovacni');
+    const start2023 = parseDzCsv(fx('dz-vouchery-start2023.csv'), 'vch-start2023');
+    const start2024 = parseDzCsv(fx('dz-vouchery-start2024.csv'), 'vch-start2024');
+    const range = voucherYearRange([...inovacni, ...start2023, ...start2024], '2026');
+    expect(range).toMatch(/^\d{4}–\d{4}$/);
+    expect(range.endsWith('2024')).toBe(true);
+  });
+
+  it('jediny rok napric prvky -> jen ten rok (bez pomlcky)', () => {
+    const features = parseDzCsv(fx('dz-vouchery-start2024.csv'), 'vch-start2024');
+    expect(voucherYearRange(features, '2026')).toBe('2024');
+  });
+
+  it('zadny prvek s platnym rokem -> fallback (rok stazeni)', () => {
+    expect(voucherYearRange([], '2026')).toBe('2026');
   });
 });
 

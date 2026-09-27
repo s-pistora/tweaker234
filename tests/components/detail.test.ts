@@ -65,6 +65,46 @@ describe('Detail', () => {
   });
 });
 
+describe('Detail – obec nezaměstnanost (prosincová hodnota vs roční průměr kraje/ČR)', () => {
+  it('sourceId csu-obec-nezamestnanost -> věta má poznámku o rozdílných obdobích (review finding #8)', () => {
+    const obecNez = {
+      ...fx('indicators/obec.json'),
+      indicators: {
+        ...fx('indicators/obec.json').indicators,
+        nezamestnanost: {
+          id: 'nezamestnanost',
+          label: 'Podíl nezaměstnaných osob (obec, prosinec)',
+          unit: '%',
+          higherIsBetter: false,
+          sourceId: 'csu-obec-nezamestnanost',
+          decimals: 1,
+        },
+      },
+      values: {
+        ...fx('indicators/obec.json').values,
+        nezamestnanost: { '554961': { 2024: 5 } },
+      },
+      national: { nezamestnanost: { 2024: 4 } },
+      regional: { ...fx('indicators/obec.json').regional, nezamestnanost: { 2024: 4.5 } },
+    };
+    const snapNez: Snapshot = { ...snap, indicators: { ...snap.indicators, obec: obecNez } };
+    const { getByTestId } = render(Detail, {
+      props: { snap: snapNez, level: 'obec', code: '554961', name: 'Karlovy Vary', indicator: 'nezamestnanost', year: 2024 },
+    });
+    expect(getByTestId('typewriter').getAttribute('aria-label')).toContain(
+      '(obec: stav k prosinci, kraj/ČR: roční průměr)',
+    );
+  });
+
+  it('jiny sourceId (ne csu-obec-nezamestnanost) -> zadna poznamka', () => {
+    // vychozi fixture "obyvatele" ma sourceId "fixture" - poznamka se nesmi objevit
+    const { getByTestId } = render(Detail, {
+      props: { snap, level: 'obec', code: '554961', name: 'Karlovy Vary', indicator: 'obyvatele', year: 2024 },
+    });
+    expect(getByTestId('typewriter').getAttribute('aria-label')).not.toContain('roční průměr');
+  });
+});
+
 describe('Sources', () => {
   it('tabulka zdrojů, STALE amber, zavření', async () => {
     const onclose = vi.fn();

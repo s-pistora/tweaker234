@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup, fireEvent } from '@testing-library/svelte';
 import { readFileSync } from 'node:fs';
-import Map from '../../src/components/Map.svelte';
-import { areaFeatures } from '../../src/lib/map/project.ts';
+import Map, { type MapPoint } from '../../src/components/Map.svelte';
+import { areaFeatures, makeProjector } from '../../src/lib/map/project.ts';
 import { valuesFor } from '../../src/lib/map/values.ts';
 import type { IndicatorFile } from '../../src/lib/types.ts';
 
@@ -70,6 +70,48 @@ describe('Map', () => {
     const active = document.activeElement as Element;
     expect(active.getAttribute('data-code')).not.toBe('CZ041');
     expect(active.getAttribute('data-code')).toMatch(/^CZ0(42|32)$/);
+  });
+
+  it('bodová vrstva neblokuje klik na území pod ní - klik i s aktivní vrstvou volá onselect (review finding #4)', async () => {
+    const onselect = vi.fn();
+    const points: MapPoint[] = [
+      { id: 'pt:1', name: 'Škola X', lon: 12.87, lat: 50.23, layerLabel: 'Školy', provider: 'ACME', tone: 'phosphor', glyph: 'x' },
+    ];
+    const { container } = setup({ onselect, points });
+    // bod je vykreslen (aria-hidden, žádný handler) a zároveň klik na území pod ním pořád
+    // volá onselect - značky jsou čistě vizuální (`pointer-events: none`, viz styl komponenty).
+    expect(container.querySelectorAll('[data-pt]')).toHaveLength(1);
+    const kv = container.querySelector('path[data-code="CZ041"]')!;
+    await fireEvent.click(kv);
+    expect(onselect).toHaveBeenCalledWith('CZ041');
+  });
+
+  it('tooltip bodu obsahuje rok/období (validFor) vedle zdroje; hover funguje přes delegovaný pointermove (review finding #5 + #4)', async () => {
+    const features = areaFeatures(kraje);
+    const projector = makeProjector(features, 600, 420);
+    const lon = 12.87;
+    const lat = 50.23;
+    const [px, py] = projector.project([lon, lat]);
+    const points: MapPoint[] = [
+      { id: 'pt:1', name: 'Škola X', lon, lat, layerLabel: 'Školy', provider: 'ACME', validFor: '2012–2024', tone: 'phosphor', glyph: 'x' },
+    ];
+    const { container, getByTestId } = setup({ points });
+    const svg = container.querySelector('svg')!;
+    vi.spyOn(svg, 'getBoundingClientRect').mockReturnValue({
+      left: 0,
+      top: 0,
+      right: 600,
+      bottom: 420,
+      width: 600,
+      height: 420,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    } as DOMRect);
+    await fireEvent.pointerMove(svg, { clientX: px, clientY: py });
+    const tip = getByTestId('map-tooltip');
+    expect(tip.textContent).toContain('Škola X');
+    expect(tip.textContent).toContain('[2012–2024]');
   });
 
   it('zoomTarget bez animace (reduced motion) hned volá onzoomend', async () => {

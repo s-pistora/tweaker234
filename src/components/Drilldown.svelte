@@ -15,7 +15,8 @@
   import { selectArea, levelUp, KV, type View } from '../lib/map/drill.ts';
   import Map, { type MapPoint } from './Map.svelte';
   import Legend from './Legend.svelte';
-  import PointLayers, { styleOf } from './PointLayers.svelte';
+  import PointLayers from './PointLayers.svelte';
+  import { styleOf } from '../lib/map/pointStyle.ts';
 
   interface Props {
     snap: Snapshot;
@@ -66,6 +67,7 @@
             lat: f.lat,
             layerLabel: l.label,
             provider,
+            validFor: l.validFor,
             tone,
             glyph,
           }));

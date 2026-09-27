@@ -51,16 +51,34 @@
       : [],
   );
 
+  // Obecní "nezaměstnanost" (zdroj csu-obec-nezamestnanost) je prosincová hodnota, zatímco
+  // ČR/kraj u tohoto ukazatele je roční průměr - bez poznámky by srovnání vypadalo jako
+  // jablka s hruškami (review finding #8).
+  const OBEC_MONTHLY_SOURCE = 'csu-obec-nezamestnanost';
+  const OBEC_MONTHLY_NOTE = ' (obec: stav k prosinci, kraj/ČR: roční průměr)';
+
   const sentence = $derived.by(() => {
     if (!def || !file) return '';
     const vsCR = describe(def, series, file.national?.[def.id], fit.year, 'průměrem ČR');
-    if (level === 'kraj') return vsCR;
-    const reg = file.regional?.[def.id];
-    if (!reg) return vsCR;
-    const base = describe(def, series, undefined, fit.year);
-    const vsKV = describe(def, series, reg, fit.year, 'průměrem kraje');
-    const extra = vsKV.startsWith(base) ? vsKV.slice(base.length).trim() : '';
-    return extra ? `${vsCR} ${extra}` : vsCR;
+    let result: string;
+    if (level === 'kraj') {
+      result = vsCR;
+    } else {
+      const reg = file.regional?.[def.id];
+      if (!reg) {
+        result = vsCR;
+      } else {
+        const base = describe(def, series, undefined, fit.year);
+        const vsKV = describe(def, series, reg, fit.year, 'průměrem kraje');
+        const extra = vsKV.startsWith(base) ? vsKV.slice(base.length).trim() : '';
+        result = extra ? `${vsCR} ${extra}` : vsCR;
+      }
+    }
+    const hasValue = series[fit.year] !== undefined && series[fit.year] !== null;
+    if (level === 'obec' && hasValue && def.sourceId === OBEC_MONTHLY_SOURCE) {
+      result += OBEC_MONTHLY_NOTE;
+    }
+    return result;
   });
 
   const refSeries = $derived(def ? (file?.national?.[def.id] ?? (level !== 'kraj' ? file?.regional?.[def.id] : undefined)) : undefined);
