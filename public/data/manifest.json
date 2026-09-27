@@ -1,0 +1,134 @@
+{
+ "updatedAt": "2026-09-27T22:14:50.672Z",
+ "sources": [
+  {
+   "id": "csu-datastat",
+   "provider": "Český statistický úřad",
+   "title": "ČSÚ DataStat – obyvatelstvo, nezaměstnanost, mzdy (kraje, ORP a obce KV kraje)",
+   "url": "https://data.csu.gov.cz/api/dotaz/v1/data/sady/PORKR01/vlastni",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2025",
+   "status": "ok",
+   "note": "Sady PORKR01/02/03/04, OBY02E, OBY01B, NEZ01 od 2000 (otevřený rozsah, server vrací co má – NEZ01 reálně 2005–2024, MZDR reálně 2011–2025); MZDR se ZJIST=2 \"pracovištní metoda\" (výchozí ZJIST=1 nemá krajová data). Obce (OBY01B01/OBY02E): roky 2020–2025 (server odmítá víc než ~1 rok najednou pro stovky obcí)."
+  },
+  {
+   "id": "csu-obec-nezamestnanost",
+   "provider": "Český statistický úřad",
+   "title": "Uchazeči o zaměstnání dosažitelní a podíl nezaměstnaných osob podle obcí (produkt 250169)",
+   "url": "https://csu.gov.cz/docs/107508/0640906c-5e28-b2e6-4e03-327b9b64ad97/250169-24data011425.zip",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2024",
+   "status": "ok",
+   "note": "Produkt ČSÚ 250169 byl zrušen (data dál na data.mpsv.cz/portal); poslední vydaná edice 250169-24 (14.1.2025) obsahuje měsíční data do prosince 2024 – použita prosincová hodnota (ne roční průměr). Jen úroveň obcí (uzemi_cis=43) – ORP/kraj se nedopočítávají (chyběl by oficiální jmenovatel), viz review finding #3."
+  },
+  {
+   "id": "krok",
+   "provider": "Český statistický úřad (KROK)",
+   "title": "KROK – krajská a okresní data (obyvatelé, nezaměstnanost, mzda – doplňkový zdroj a cross-check)",
+   "url": "https://opendata.czso.cz/data/od_krok01/krok_data_2025.csv",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2025",
+   "status": "ok",
+   "note": "Roky 2000–2025. Ukazatel mzda (kód 111211) je v KROK dostupný jen pro stavební podniky se sídlem na území s 50+ zaměstnanci – užší definice než ČSÚ DataStat MZDR, cross-check proto u mzdy očekává vyšší odchylku (viz report). Doplněny chybějící roky do krajských ukazatelů ČSÚ DataStat: nezamestnanost 2025."
+  },
+  {
+   "id": "dz-skoly",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Seznam škol a školských zařízení do stupně VOŠ v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/api/download/v1/items/11796bcb67ee47bd8d38c0ec271b2787/csv?layers=3",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026",
+   "status": "ok",
+   "note": "Pipeline: ukazatel skoly_na_1000 = počet bodů podle stavu registru k datu stažení (2026-09-27) na 1000 obyvatel podle ČSÚ k 31. 12. 2025 (poslední dostupný rok)."
+  },
+  {
+   "id": "dz-socialni",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Poskytovatelé sociálních služeb v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/api/download/v1/items/8a71d71444f14acd8d43023ce9c3fb95/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026",
+   "status": "ok",
+   "note": "Pipeline: ukazatel socialni_na_1000 = počet bodů podle stavu registru k datu stažení (2026-09-27) na 1000 obyvatel podle ČSÚ k 31. 12. 2025 (poslední dostupný rok)."
+  },
+  {
+   "id": "dz-zastavky",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Autobusové zastávky v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/api/download/v1/items/979283f4b7ec4b778b8eed7aab6917c3/csv?layers=0",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026",
+   "status": "ok",
+   "note": "Pipeline: vrstva zastavky – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 7 z 1840 bodů. Pipeline: ukazatel zastavky_na_1000 = počet bodů podle stavu registru k datu stažení (2026-09-27) na 1000 obyvatel podle ČSÚ k 31. 12. 2025 (poslední dostupný rok)."
+  },
+  {
+   "id": "dz-vouchery",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Vouchery Karlovarského kraje (inovační, kreativní, asistenční, startovací 2023/2024)",
+   "url": "https://www.datazapad.cz/api/download/v1/items/b59dc439b86147e4aefba8d94fc6aa9e/csv?layers=3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026",
+   "status": "ok",
+   "note": "Inovační vouchery 2020 - 2022: https://www.datazapad.cz/api/download/v1/items/b59dc439b86147e4aefba8d94fc6aa9e/csv?layers=3 (CC BY 4.0) | Kreativní vouchery 2020 - 2022: https://www.datazapad.cz/api/download/v1/items/387d1403bddb48b09ba4e3cd3b7894f8/csv?layers=0 (CC BY 4.0) | Asistenční vouchery 2020 - 2022 v Karlovarském kraji: https://www.datazapad.cz/api/download/v1/items/6cd2b71c45184327aab9375661268f5d/csv?layers=3 (CC BY 4.0) | Startovací vouchery v Karlovarském kraji v roce 2023: https://www.datazapad.cz/api/download/v1/items/7974da466d594bdea7953f3542ef5ca9/csv?layers=3 (CC BY 4.0) | Startovací vouchery v Karlovarském kraji v roce 2024: https://www.datazapad.cz/api/download/v1/items/2ec6469e9f76487f8325504d8313a5f3/csv?layers=3 (CC BY 4.0) Pipeline: vrstva vouchery – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 5 z 341 bodů. Pipeline: ukazatel vouchery_kc_na_obyv = souhrn za roky 2012–2024 (podle roku v datech) na obyvatele podle ČSÚ k 31. 12. 2024; hodnota uložena pod rokem 2024."
+  },
+  {
+   "id": "dz-zdravotnictvi-kraj",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Zdravotnictví Karlovarského kraje (nemocnice, pohotovost, výjezdové základny ZZS)",
+   "url": "https://www.datazapad.cz/api/download/v1/items/03dbe5719ab64960ae70ee90af4790c6/csv?layers=3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026",
+   "status": "ok",
+   "note": "Nemocnice v Karlovarském kraji: https://www.datazapad.cz/api/download/v1/items/03dbe5719ab64960ae70ee90af4790c6/csv?layers=3 (CC BY 4.0) | Lékařská a lékárenská pohotovostní služba v Karlovarském kraji: https://www.datazapad.cz/api/download/v1/items/72aa9de6abc94f949f3959e70e0d241d/csv?layers=0 (CC0 1.0) | Výjezdové základny zdravotnické záchranné služby v Karlovarském kraji: https://www.datazapad.cz/api/download/v1/items/4d7d80fc1d5f4f6bbb61a10b26d2a2aa/csv?layers=0 (CC0 1.0) | ZZS export neobsahuje kódy ORP/obce, orp i obec proto ponechány jako \"\". Pipeline: vrstva zdravotnictvi-kraj – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 13 z 33 bodů."
+  },
+  {
+   "id": "nrpzs",
+   "provider": "ÚZIS ČR – Národní registr poskytovatelů zdravotních služeb (NRPZS)",
+   "title": "Národní registr poskytovatelů zdravotních služeb – místa poskytování",
+   "url": "https://nrpzs.uzis.cz/res/file/export/export-2026-09.csv",
+   "license": "neuvedeno poskytovatelem",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026-09",
+   "status": "ok",
+   "note": "Licence nenalezena na nrpzs.uzis.cz ani v NKOD (SPARQL data.gov.cz) – ověřeno 2026-09-27. Export neobsahuje ČSÚ kód obce (jen RÚIAN kód adresního místa a textový název); adaptér proto ponechává pole obec prázdné a obec (i ORP) doplňuje až pipeline prostorovým přiřazením bodů s GPS k hranicím obcí RÚIAN. Počty na úrovni ORP (ORPKod z registru) zahrnují i místa bez GPS, počty obcí jen místa s GPS. Pipeline: vrstva zdravotnictvi – obec/ORP doplněny prostorovým přiřazením k hranicím obcí RÚIAN u 1377 z 1377 bodů. Pipeline: ukazatel zdravotnicka_mista_na_1000 = počet bodů podle stavu registru k datu stažení (2026-09-27) na 1000 obyvatel podle ČSÚ k 31. 12. 2025 (poslední dostupný rok)."
+  },
+  {
+   "id": "cuzk-ruian-hranice",
+   "provider": "Český úřad zeměměřický a katastrální (ČÚZK)",
+   "title": "RÚIAN – hranice krajů, ORP a obcí (SHP, EPSG:5514)",
+   "url": "https://services.cuzk.gov.cz/shp/stat/epsg-5514/1.zip",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-09-27T22:14:50.672Z",
+   "validFor": "2026-09-27",
+   "status": "ok"
+  }
+ ],
+ "files": {
+  "indicators": {
+   "kraj": "indicators/kraj.json",
+   "orp": "indicators/orp.json",
+   "obec": "indicators/obec.json"
+  },
+  "points": {
+   "skoly": "points/skoly.json",
+   "socialni": "points/socialni.json",
+   "zastavky": "points/zastavky.json",
+   "vouchery": "points/vouchery.json",
+   "zdravotnictvi-kraj": "points/zdravotnictvi-kraj.json",
+   "zdravotnictvi": "points/zdravotnictvi.json"
+  },
+  "geo": {
+   "kraje": "geo/kraje.topo.json",
+   "kv-orp": "geo/kv-orp.topo.json",
+   "kv-obce": "geo/kv-obce.topo.json"
+  }
+ }
+}

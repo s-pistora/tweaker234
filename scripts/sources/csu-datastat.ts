@@ -536,7 +536,7 @@ export const csuDataStat: SourceAdapter = {
         status: 'ok',
         note:
           `Sady PORKR01/02/03/04, OBY02E, OBY01B, NEZ01 od ${FROM_YEAR} (otevřený rozsah, server vrací co má – ` +
-          'NEZ01 reálně 2000–2024, MZDR reálně 2011–' + validFor + '); ' +
+          'NEZ01 reálně 2005–2024, MZDR reálně 2011–' + validFor + '); ' +
           'MZDR se ZJIST=2 "pracovištní metoda" (výchozí ZJIST=1 nemá krajová data). ' +
           `Obce (OBY01B01/OBY02E): roky ${YEARS_OBEC[0]}–${YEARS_OBEC[YEARS_OBEC.length - 1]} ` +
           '(server odmítá víc než ~1 rok najednou pro stovky obcí).',
