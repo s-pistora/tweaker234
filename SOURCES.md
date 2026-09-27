@@ -1,6 +1,6 @@
 # Zdroje dat
 
-Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.json` (poslední běh: 2026-09-27T22:14:50.672Z). Neupravujte ručně.
+Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.json` (poslední běh: 2026-09-27T22:21:55.540Z). Neupravujte ručně.
 
 | Poskytovatel | Datová sada | URL | Licence | Staženo | Platnost | Stav |
 |---|---|---|---|---|---|---|

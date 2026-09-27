@@ -172,7 +172,7 @@ describe('runPipeline – úspěšný běh', () => {
     expect(obec.values.skoly_na_1000['500000']).toEqual({ 2026: 2 });
     expect(obec.values.skoly_na_1000['500001']).toEqual({ 2026: 0 });
     expect(obec.regional.skoly_na_1000[2026]).toBeCloseTo((3 / (7 * 19142)) * 1000, 5); // populace KV z ORP
-    expect(obec.regional.obyvatele).toEqual({ 2010: 90000, 2024: 100000, 2025: 100000 }); // = CZ041 z kraj souboru (vč. roku doplněného z KROK)
+    expect(obec.regional.obyvatele).toBeUndefined(); // absolutní počet nemá „průměr kraje“
 
     const orp = read(join(outDir, 'indicators/orp.json'));
     expect(orp.values.skoly_na_1000['4101'][2026]).toBeCloseTo((2 / 19142) * 1000, 5);

@@ -16,7 +16,8 @@ const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
 function fetchFromPublic(): typeof fetch {
   return (async (input: RequestInfo | URL) => {
-    const url = String(input);
+    // App čte DATA_BASE='data'; test běží nad malými fixtures.
+    const url = String(input).replace(/^(\.\/)?data\//, 'data/_fixtures/');
     const full = path.join(PUBLIC_DIR, url);
     if (!existsSync(full)) return new Response('not found', { status: 404 });
     return new Response(readFileSync(full, 'utf8'), { status: 200 });

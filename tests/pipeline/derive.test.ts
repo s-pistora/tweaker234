@@ -120,7 +120,8 @@ describe('completeRegionalNational', () => {
     const f = completeRegionalNational(obec, kraj);
     // absolutní počty (osoby/počet) se do orp/obec national nekopírují (M7)
     expect(f.national).toEqual({ podil_65: { 2024: 20.1 } });
-    expect(f.regional!.obyvatele).toEqual({ 2024: 290000 });
+    // absolutní počty nemají „průměr kraje“ (hodnota CZ041 je součet, ne průměr)
+    expect(f.regional!.obyvatele).toBeUndefined();
     expect(f.regional!.podil_65).toEqual({ 2024: 22.5 });
     expect(f.regional!.nezam_obec).toEqual({ 2023: (2 * 100 + 6 * 300) / 400 });
     expect(f.regional!.pocet_neceho).toBeUndefined();

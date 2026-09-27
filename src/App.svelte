@@ -21,7 +21,7 @@
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
-  const DATA_BASE = 'data/_fixtures';
+  const DATA_BASE = 'data';
 
   let booted = $state(false);
   let snap = $state<Snapshot | null>(null);

@@ -183,7 +183,7 @@ function isRate(id: string, unit: string): boolean {
 /**
  * Doplní chybějící `national` (kopie z kraj souboru při shodě id) a `regional` (KV kraj):
  * ukazatel existuje na úrovni kraje → hodnota CZ041; jinak podíl/míra → průměr vážený populací
- * téhož roku; jinak (absolutní počty) se neuvádí. Existující hodnoty se nepřepisují.
+ * téhož roku; absolutní počty (osoby/počet) regional nemají vůbec. Existující hodnoty se nepřepisují.
  */
 export function completeRegionalNational(input: IndicatorFile, kraj: IndicatorFile | undefined): IndicatorFile {
   const file: IndicatorFile = structuredClone(input);
@@ -192,6 +192,11 @@ export function completeRegionalNational(input: IndicatorFile, kraj: IndicatorFi
     const nat = kraj?.national?.[id];
     // Absolutní počty (osoby/počet) za ČR nejsou pro ORP/obec srovnatelné – nekopírují se.
     if (nat && !ABSOLUTE_UNITS.has(d.unit) && !file.national?.[id]) (file.national ??= {})[id] = { ...nat };
+    // Absolutní počty nemají „průměr kraje“ – hodnota CZ041 je součet, ne průměr.
+    if (ABSOLUTE_UNITS.has(d.unit)) {
+      if (file.regional?.[id]) delete file.regional[id];
+      continue;
+    }
     if (file.regional?.[id]) continue;
 
     const krajSeries = kraj?.values[id]?.[KV_KRAJ];
