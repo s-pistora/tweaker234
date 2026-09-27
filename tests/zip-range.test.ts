@@ -22,7 +22,13 @@ interface FileSpec {
   method: 0 | 8;
 }
 
-function buildParts(files: FileSpec[]) {
+/**
+ * @param zip64Names names of entries whose CENTRAL DIRECTORY record should use 0xFFFFFFFF
+ *   sentinels for compressed/uncompressed size and local header offset, with the real
+ *   values carried instead in a Zip64 extended-information extra field (id 0x0001) — this
+ *   is legal per-entry regardless of actual size, and is how parseZip64Extra gets exercised.
+ */
+function buildParts(files: FileSpec[], zip64Names: Set<string> = new Set()) {
   const localParts: Buffer[] = [];
   const centralParts: Buffer[] = [];
   let offset = 0;
@@ -30,6 +36,7 @@ function buildParts(files: FileSpec[]) {
     const nameBuf = Buffer.from(f.name, 'utf8');
     const compressed = f.method === 8 ? deflateRawSync(f.data) : f.data;
     const crc = crc32(f.data);
+    const localOffset = offset;
 
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
@@ -45,6 +52,17 @@ function buildParts(files: FileSpec[]) {
     local.writeUInt16LE(0, 28);
     localParts.push(local, nameBuf, compressed);
 
+    const useZip64 = zip64Names.has(f.name);
+    let zip64Extra = Buffer.alloc(0);
+    if (useZip64) {
+      zip64Extra = Buffer.alloc(4 + 24);
+      zip64Extra.writeUInt16LE(0x0001, 0); // Zip64 extended information header id
+      zip64Extra.writeUInt16LE(24, 2); // data size: uncompressed + compressed + local offset (8 each)
+      zip64Extra.writeBigUInt64LE(BigInt(f.data.length), 4);
+      zip64Extra.writeBigUInt64LE(BigInt(compressed.length), 12);
+      zip64Extra.writeBigUInt64LE(BigInt(localOffset), 20);
+    }
+
     const central = Buffer.alloc(46);
     central.writeUInt32LE(0x02014b50, 0);
     central.writeUInt16LE(20, 4);
@@ -54,16 +72,16 @@ function buildParts(files: FileSpec[]) {
     central.writeUInt16LE(0, 12);
     central.writeUInt16LE(0, 14);
     central.writeUInt32LE(crc, 16);
-    central.writeUInt32LE(compressed.length, 20);
-    central.writeUInt32LE(f.data.length, 24);
+    central.writeUInt32LE(useZip64 ? 0xffffffff : compressed.length, 20);
+    central.writeUInt32LE(useZip64 ? 0xffffffff : f.data.length, 24);
     central.writeUInt16LE(nameBuf.length, 28);
-    central.writeUInt16LE(0, 30);
+    central.writeUInt16LE(zip64Extra.length, 30);
     central.writeUInt16LE(0, 32);
     central.writeUInt16LE(0, 34);
     central.writeUInt16LE(0, 36);
     central.writeUInt32LE(0, 38);
-    central.writeUInt32LE(offset, 42);
-    centralParts.push(central, nameBuf);
+    central.writeUInt32LE(useZip64 ? 0xffffffff : localOffset, 42);
+    centralParts.push(central, nameBuf, zip64Extra);
 
     offset += local.length + nameBuf.length + compressed.length;
   }
@@ -126,6 +144,27 @@ function buildZip64(files: FileSpec[]): Buffer {
   return Buffer.concat([localBuf, centralBuf, zip64Eocd, locator, eocd]);
 }
 
+/**
+ * A perfectly ordinary (non-Zip64-EOCD) zip, except that the named entries' CENTRAL
+ * DIRECTORY records use 0xFFFFFFFF sentinels + a Zip64 extended-info extra field for
+ * their sizes/offset. Exercises `parseZip64Extra` without needing a huge/many-entry file.
+ */
+function buildZipWithZip64Entry(files: FileSpec[], zip64Names: string[]): Buffer {
+  const { localBuf, centralBuf, count } = buildParts(files, new Set(zip64Names));
+  const cdOffset = localBuf.length;
+  const cdSize = centralBuf.length;
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(0, 4);
+  eocd.writeUInt16LE(0, 6);
+  eocd.writeUInt16LE(count, 8);
+  eocd.writeUInt16LE(count, 10);
+  eocd.writeUInt32LE(cdSize, 12);
+  eocd.writeUInt32LE(cdOffset, 16);
+  eocd.writeUInt16LE(0, 20);
+  return Buffer.concat([localBuf, centralBuf, eocd]);
+}
+
 // --- fake fetch implementations ----------------------------------------------------------
 
 function makeRangeFetch(buf: Buffer, onRange?: () => void): typeof fetch {
@@ -177,6 +216,25 @@ describe('zip-range: listEntries', () => {
     expect(entries.map((e) => e.name)).toEqual(['a.txt', 'b.txt']);
     expect(entries[0].uncompressedSize).toBe('hello zip64 world'.length);
   });
+
+  it('parses a per-entry Zip64 extended-info extra field (0xFFFFFFFF sentinels)', async () => {
+    const bodyA = Buffer.from('plain entry, no zip64 extra field here');
+    const bodyB = Buffer.from('this entry carries a zip64 extended-info extra field '.repeat(10));
+    const zip = buildZipWithZip64Entry(
+      [
+        { name: 'plain.txt', data: bodyA, method: 0 },
+        { name: 'zip64.txt', data: bodyB, method: 8 },
+      ],
+      ['zip64.txt'],
+    );
+    const entries = await listEntries('https://example.test/1.zip', makeRangeFetch(zip));
+    expect(entries.map((e) => e.name)).toEqual(['plain.txt', 'zip64.txt']);
+    const zip64Entry = entries.find((e) => e.name === 'zip64.txt')!;
+    // These would be 0xffffffff (4294967295) if parseZip64Extra hadn't resolved them.
+    expect(zip64Entry.uncompressedSize).toBe(bodyB.length);
+    expect(zip64Entry.compressedSize).toBeLessThan(bodyB.length);
+    expect(zip64Entry.localHeaderOffset).toBe(30 + 'plain.txt'.length + bodyA.length);
+  });
 });
 
 describe('zip-range: extractEntries', () => {
@@ -223,6 +281,46 @@ describe('zip-range: extractEntries', () => {
       await expect(extractEntries('https://example.test/1.zip', ['missing.txt'], dest, makeRangeFetch(zip))).rejects.toThrow(
         /not found/,
       );
+    } finally {
+      rmSync(dest, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts an entry whose central directory record uses a Zip64 extended-info extra field', async () => {
+    const bodyA = Buffer.from('plain entry, no zip64 extra field here');
+    const bodyB = Buffer.from('this entry carries a zip64 extended-info extra field '.repeat(10));
+    const zip = buildZipWithZip64Entry(
+      [
+        { name: 'plain.txt', data: bodyA, method: 0 },
+        { name: 'zip64.txt', data: bodyB, method: 8 },
+      ],
+      ['zip64.txt'],
+    );
+    const dest = mkdtempSync(join(tmpdir(), 'zip-range-test-'));
+    try {
+      const out = await extractEntries('https://example.test/1.zip', ['zip64.txt'], dest, makeRangeFetch(zip));
+      expect(readFileSync(out['zip64.txt'])).toEqual(bodyB);
+    } finally {
+      rmSync(dest, { recursive: true, force: true });
+    }
+  });
+
+  it('throws on a CRC32 mismatch (corrupted entry data)', async () => {
+    const body = Buffer.from('this data will get corrupted somewhere in transit');
+    const zip = buildZip([{ name: 'corrupt.txt', data: body, method: 0 }]);
+    // Flip one byte inside the stored (method=0) data region only, leaving the recorded
+    // CRC32 in the local/central headers untouched, to simulate transport corruption.
+    const corrupted = Buffer.from(zip);
+    const marker = Buffer.from('will get corrupted');
+    const idx = corrupted.indexOf(marker);
+    expect(idx).toBeGreaterThan(-1);
+    corrupted[idx] ^= 0xff;
+
+    const dest = mkdtempSync(join(tmpdir(), 'zip-range-test-'));
+    try {
+      await expect(
+        extractEntries('https://example.test/1.zip', ['corrupt.txt'], dest, makeRangeFetch(corrupted)),
+      ).rejects.toThrow(/CRC32 mismatch/);
     } finally {
       rmSync(dest, { recursive: true, force: true });
     }

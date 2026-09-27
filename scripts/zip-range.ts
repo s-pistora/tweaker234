@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
-import { inflateRawSync } from 'node:zlib';
+import { crc32, inflateRawSync } from 'node:zlib';
 
 export interface ZipEntry {
   name: string;
@@ -258,6 +258,12 @@ export async function extractEntries(
         data = inflateRawSync(raw);
       } else {
         throw new Error(`zip-range: unsupported compression method ${entry.compressionMethod} for ${name}`);
+      }
+      const actualCrc = crc32(data) >>> 0;
+      if (actualCrc !== entry.crc32) {
+        throw new Error(
+          `zip-range: CRC32 mismatch for ${name}: expected 0x${entry.crc32.toString(16)}, got 0x${actualCrc.toString(16)}`,
+        );
       }
       const destPath = join(destDir, basename(name));
       mkdirSync(dirname(destPath), { recursive: true });
