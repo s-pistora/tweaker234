@@ -7,6 +7,8 @@
     layerLabel: string;
     provider: string;
     tone: 'phosphor' | 'amber';
+    /** tvar značky: 'x' (křížek) nebo '+' */
+    glyph?: 'x' | '+';
   }
 </script>
 
@@ -272,7 +274,7 @@
         {#each projectedPoints as p (p.id)}
           <g class="pt pt--{p.tone}" transform="translate({p.x},{p.y})" data-pt={p.id}>
             <circle r="5" class="pt__hit" />
-            <path d="M-2.5,-2.5L2.5,2.5M-2.5,2.5L2.5,-2.5" />
+            <path d={p.glyph === '+' ? 'M-3.2,0L3.2,0M0,-3.2L0,3.2' : 'M-2.5,-2.5L2.5,2.5M-2.5,2.5L2.5,-2.5'} />
           </g>
         {/each}
       </g>

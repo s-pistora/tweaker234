@@ -3,15 +3,15 @@
   import './styles/crt.css';
   import { onDestroy } from 'svelte';
   import Boot from './components/crt/Boot.svelte';
-  import Map from './components/Map.svelte';
-  import Legend from './components/Legend.svelte';
+  import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
   import { appState, initHashSync } from './lib/state.ts';
   import { areaFeatures } from './lib/map/project.ts';
-  import { valuesFor, summaryLines, fitIndicator, yearsWithData } from './lib/map/values.ts';
+  import { fitIndicator, yearsWithData } from './lib/map/values.ts';
+  import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
   import type { AreaCode } from './lib/types.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
@@ -41,21 +41,56 @@
   onDestroy(() => stopSync?.());
 
   const st = $derived($appState);
-  const file = $derived(snap?.indicators[st.level]);
-  const def = $derived(file?.indicators[st.indicator]);
-  const features = $derived(areaFeatures(snap?.geo.kraje));
-  const values = $derived(valuesFor(file, st.indicator, st.year));
 
-  /** kód → název ze všech geodat */
-  const names = $derived(
-    Object.fromEntries(
-      (['kraje', 'kv-orp', 'kv-obce'] as const).flatMap((g) =>
-        areaFeatures(snap?.geo[g]).map((f) => [f.properties.code, f.properties.name] as const),
-      ),
-    ) as Record<AreaCode, string>,
+  /** kód → název a obec → ORP ze všech geodat */
+  const geoIndex = $derived.by(() => {
+    const names: Record<AreaCode, string> = {};
+    const obecParent: Record<AreaCode, AreaCode> = {};
+    for (const g of ['kraje', 'kv-orp', 'kv-obce'] as const) {
+      for (const f of areaFeatures(snap?.geo[g])) {
+        names[f.properties.code] = f.properties.name;
+        if (g === 'kv-obce' && f.properties.parent) obecParent[f.properties.code] = f.properties.parent;
+      }
+    }
+    return { names, obecParent };
+  });
+
+  // Drill-down: ORP, jehož obce se zobrazují, když na úrovni 'obec' není vybraná obec.
+  let localOrp = $state<AreaCode | null>(null);
+  const view = $derived<View>(
+    resolveView(st.level, st.area, localOrp, (c) => geoIndex.obecParent[c] ?? null),
   );
-  const years = $derived(yearsWithData(file, st.indicator));
+  // hash `#/obec` bez obce a bez známého ORP → spadne na mapu ORP
+  $effect(() => {
+    if (snap && view.level !== st.level) navigate(view);
+  });
 
+  const file = $derived(snap?.indicators[view.level]);
+  const years = $derived(yearsWithData(file, st.indicator));
+  const target = $derived(detailTarget(view));
+
+  /** poslední ukazatel zvolený uživatelem – při návratu na úroveň, kde existuje, se obnoví */
+  let preferredIndicator: string | null = null;
+
+  function navigate(v: View) {
+    localOrp = v.orp;
+    const f = snap?.indicators[v.level];
+    appState.update((s) => ({
+      ...s,
+      level: v.level,
+      area: v.area,
+      ...fitIndicator(f, f && preferredIndicator && preferredIndicator in f.indicators ? preferredIndicator : s.indicator, s.year),
+    }));
+  }
+  function setIndicator(id: string) {
+    preferredIndicator = id;
+    appState.update((s) => ({ ...s, ...fitIndicator(file, id, s.year) }));
+  }
+  function setYear(y: number) {
+    appState.update((s) => ({ ...s, year: y }));
+  }
+
+  let drill = $state<ReturnType<typeof Drilldown> | null>(null);
   let sourcesOpen = $state(false);
   let sourcesTrigger: HTMLElement | null = null;
 
@@ -68,26 +103,13 @@
     sourcesTrigger?.focus?.();
   }
 
-  function select(code: AreaCode) {
-    appState.update((s) => ({ ...s, area: code, ...fitIndicator(file, s.indicator, s.year) }));
-  }
-  function setIndicator(id: string) {
-    appState.update((s) => ({ ...s, ...fitIndicator(file, id, s.year) }));
-  }
-  function setYear(y: number) {
-    appState.update((s) => ({ ...s, year: y }));
-  }
-  function levelUpKey() {
-    appState.update((s) => (s.area ? { ...s, area: null } : s));
-  }
-
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !booted || !snap) return;
     if (sourcesOpen) {
       closeSources();
       return;
     }
-    levelUpKey();
+    drill?.up();
   }
 </script>
 
@@ -119,33 +141,38 @@
     {:else}
       <main class="layout">
         <section class="map-col" aria-label="Mapa">
-          <Map
-            {features}
-            {values}
-            {def}
+          <Drilldown
+            bind:this={drill}
+            {snap}
+            {view}
+            indicator={st.indicator}
             year={st.year}
-            selected={st.area}
-            preview={(c) => summaryLines(file, c, st.indicator, st.year)}
-            onselect={select}
-            label="Mapa krajů ČR"
+            names={geoIndex.names}
+            onnavigate={navigate}
           />
-          <Legend values={features.map((f) => values[f.properties.code] ?? null)} {def} year={st.year} />
         </section>
         <section class="panel-col" aria-label="Detail území">
-          <p class="sr-only" aria-live="polite">{st.area ? `Detail: ${names[st.area] ?? st.area}` : ''}</p>
-          {#if st.area}
-            <Detail
-              {snap}
-              level={st.level}
-              code={st.area}
-              name={names[st.area] ?? st.area}
-              indicator={st.indicator}
-              year={st.year}
-            />
+          <p class="sr-only" aria-live="polite">
+            {target ? `Detail: ${geoIndex.names[target.code] ?? target.code}` : ''}
+          </p>
+          {#if target}
+            {#key `${target.level}:${target.code}`}
+              <Detail
+                {snap}
+                level={target.level}
+                code={target.code}
+                name={geoIndex.names[target.code] ?? target.code}
+                indicator={st.indicator}
+                year={st.year}
+              />
+            {/key}
           {:else}
             <div class="ascii-panel">
               <h2 class="ascii-panel__title">&gt; ČEKÁM NA DOTAZ_</h2>
-              <p>Vyberte území na mapě (klik, nebo Tab a Enter). Karlovarský kraj lze rozkliknout na ORP a obce.</p>
+              <p>
+                Vyberte kraj na mapě (klik, nebo Tab a Enter; šipky přeskakují mezi sousedy). Karlovarský kraj
+                lze rozkliknout na ORP a obce. Esc = o úroveň výš.
+              </p>
             </div>
           {/if}
         </section>
@@ -166,7 +193,13 @@
   h1 {
     font-family: var(--font-display);
     color: var(--phosphor-100);
-    margin: 0 0 8px;
+    margin: 0;
+  }
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
   }
   .error {
     color: var(--amber);
@@ -175,12 +208,11 @@
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
     gap: 16px;
+    align-items: start;
   }
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
+  .map-col,
+  .panel-col {
+    min-width: 0;
   }
   .sr-only {
     position: absolute;
@@ -190,18 +222,15 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  .panel-col {
-    min-width: 0;
-  }
-  .map-col {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
   @media (max-width: 800px) {
     .layout {
       grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 480px) {
+    .app {
+      padding: 8px;
+      border-radius: 0;
     }
   }
 </style>
