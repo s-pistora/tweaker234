@@ -130,24 +130,30 @@ export function definiceNastroju(ctx: KontextDat): NastrojDef[] {
     ),
     fn(
       'kde_se_mi_bude_zit',
-      `„Kde by se mi dobře žilo?“ – seřadí obce kraje podle požadavků na bydlení (skóre 0–100, 100 = nejlepší obec kraje). Požadavky (id = význam): ${POZADAVKY.map((p) => `${p.id} = ${p.label}`).join(', ')}.`,
+      '„Kde by se mi dobře žilo?“ – seřadí obce kraje podle požadavků na bydlení (skóre 0–100, 100 = nejlepší obec kraje).',
       obj(
         {
-          pozadavky: idsParam('id požadavků, na kterých uživateli záleží'),
-          velmi_dulezite: idsParam('podmnožina pozadavky, na kterých záleží nejvíc (dvojnásobná váha)'),
-          orp: str('jen obce jednoho ORP (správního obvodu), např. "Sokolov" (volitelné)'),
-          limit: num(`kolik obcí vrátit (výchozí 5, max ${MAX_LIMIT_ZIVOT})`),
+          pozadavky: {
+            type: 'array',
+            items: { type: 'string', enum: POZADAVKY.map((p) => p.id) },
+            description: 'id požadavků, na kterých uživateli záleží',
+          },
+          velmi_dulezite: idsParam('id (ze stejného výčtu), na kterých záleží nejvíc – dvojnásobná váha'),
+          orp: str('jen obce jednoho ORP, např. "Sokolov" (volitelné)'),
+          limit: num(`kolik obcí (výchozí 5, max ${MAX_LIMIT_ZIVOT})`),
         },
         ['pozadavky'],
       ),
     ),
     fn(
       'obec_bydleni',
-      'Jak se žije v jedné obci: věta ke každému požadavku (vzdálenost k lékaři, škole, bazénu…, zastávky, ukazatele), srovnání s ostatními obcemi kraje a nejbližší místo. Bez požadavků vrátí nejbližší základní služby. Ke srovnání obcí ho zavolej pro každou obec.',
+      'Jak se žije v jedné obci: věta ke každému požadavku, srovnání s obcemi kraje a nejbližší místo. Bez požadavků nejbližší základní služby. Ke srovnání obcí volej pro každou.',
       obj(
         {
-          obec: str('název obce (diakritika nevadí)'),
-          pozadavky: idsParam('id požadavků jako u kde_se_mi_bude_zit (volitelné)'),
+          obec: str('název nebo kód obce (diakritika nevadí); stejnojmenné obce rozliš parametrem orp'),
+          orp: str('ORP obce (volitelné)'),
+          pozadavky: idsParam('id požadavků z výčtu u kde_se_mi_bude_zit (volitelné)'),
+          velmi_dulezite: idsParam('id s dvojnásobnou váhou (volitelné)'),
         },
         ['obec'],
       ),
@@ -155,11 +161,8 @@ export function definiceNastroju(ctx: KontextDat): NastrojDef[] {
   ];
 }
 
-const idsParam = (description: string) => ({
-  type: 'array',
-  items: { type: 'string', enum: POZADAVKY.map((p) => p.id) },
-  description,
-});
+/** Pole id požadavků bez výčtu – výčet je jen jednou (u kde_se_mi_bude_zit), šetří tokeny. */
+const idsParam = (description: string) => ({ type: 'array', items: { type: 'string' }, description });
 
 // --- pomocné ---------------------------------------------------------------
 
@@ -169,9 +172,11 @@ function zdroje(ctx: KontextDat, ids: string[]) {
     .map((s) => `${s.title} (${s.provider})`);
 }
 
-function limit(v: unknown, vychozi: number): number {
-  const n = typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : vychozi;
-  return Math.max(1, Math.min(MAX_LIMIT, n));
+/** Limit výsledků; model občas pošle číslo jako text („3“). */
+function limit(v: unknown, vychozi: number, max = MAX_LIMIT): number {
+  const x = typeof v === 'string' && v.trim() ? Number(v) : v;
+  const n = typeof x === 'number' && Number.isFinite(x) ? Math.floor(x) : vychozi;
+  return Math.max(1, Math.min(max, n));
 }
 
 const zaokr = (n: number | null, des = 1) => (n === null ? null : Math.round(n * 10 ** des) / 10 ** des);
@@ -195,7 +200,7 @@ export function kompakt(v: unknown): unknown {
 }
 
 /** Najde obce podle názvu: přesná shoda (bez diakritiky) první, pak začátek, pak výskyt. */
-export function najdiObce(ctx: KontextDat, nazev: string): { kod: AreaCode; nazev: string }[] {
+export function najdiObce(ctx: KontextDat, nazev: string, max = 5): { kod: AreaCode; nazev: string }[] {
   const q = bezDiakritiky(nazev.trim());
   if (!q) return [];
   const all = Object.entries(ctx.obecNames).map(([kod, n]) => ({ kod, nazev: n, k: bezDiakritiky(n) }));
@@ -203,7 +208,7 @@ export function najdiObce(ctx: KontextDat, nazev: string): { kod: AreaCode; naze
   return all
     .filter((o) => rank(o.k) < 3)
     .sort((a, b) => rank(a.k) - rank(b.k) || a.nazev.localeCompare(b.nazev, 'cs'))
-    .slice(0, 5)
+    .slice(0, max)
     .map(({ kod, nazev: n }) => ({ kod, nazev: n }));
 }
 
@@ -443,10 +448,67 @@ function idsZArg(v: unknown): { ok: string[]; nezname: string[] } {
   const ids = [...new Set(arr.map(text).filter(Boolean))];
   return { ok: ids.filter((id) => id in POZADAVKY_BY_ID), nezname: ids.filter((id) => !(id in POZADAVKY_BY_ID)) };
 }
-const bezPozadavku = () => ({
-  chyba: `Žádný platný požadavek. Platná id: ${POZADAVKY.map((p) => `${p.id} = ${p.label}`).join(', ')}.`,
+/** Výběr požadavků: pozadavky ∪ velmi_dulezite, velmi důležité s váhou 2. */
+function vyberZArg(a: Record<string, unknown>): { vybrane: Record<string, Dulezitost>; nezname: string[] } {
+  const zakl = idsZArg(a.pozadavky);
+  const velmi = idsZArg(a.velmi_dulezite);
+  const vybrane: Record<string, Dulezitost> = {};
+  for (const id of zakl.ok) vybrane[id] = 1;
+  for (const id of velmi.ok) vybrane[id] = 2;
+  return { vybrane, nezname: [...new Set([...zakl.nezname, ...velmi.nezname])] };
+}
+const bezPozadavku = (nezname: string[]) => ({
+  chyba: `Žádný platný požadavek${nezname.length ? ` (neznámá id: ${nezname.join(', ')})` : ''}. Platná id jsou ve výčtu parametru pozadavky nástroje kde_se_mi_bude_zit.`,
 });
 const neznameText = (n: string[]) => (n.length ? `${n.join(', ')} – neznámé, vynechány` : null);
+const nazevVahy = (vybrane: Record<string, Dulezitost>) =>
+  Object.keys(vybrane).map((id) => `${POZADAVKY_BY_ID[id].label}${vybrane[id] === 2 ? ' (velmi důležité)' : ''}`);
+
+/** ORP podle názvu (bez diakritiky, i „ORP X“): přesná shoda, jinak jediný začátek názvu. */
+function najdiOrp(orpy: Record<AreaCode, string>, v: unknown): { orp: string } | { chyba: string } {
+  const q = bezDiakritiky(text(v).replace(/^orp\s+/i, ''));
+  const nazvy = [...new Set(Object.values(orpy))].sort((x, y) => x.localeCompare(y, 'cs'));
+  const presne = nazvy.find((n) => bezDiakritiky(n) === q);
+  if (presne) return { orp: presne };
+  const zacatek = q ? nazvy.filter((n) => bezDiakritiky(n).startsWith(q)) : [];
+  if (zacatek.length === 1) return { orp: zacatek[0] };
+  if (zacatek.length > 1) return { chyba: `ORP „${text(v)}“ není jednoznačné: ${zacatek.join(', ')}.` };
+  return { chyba: `ORP „${text(v)}“ v kraji není. ORP kraje: ${nazvy.join(', ')}.` };
+}
+
+type ObecVen = { kod: AreaCode; nazev: string; orp: string | null };
+/**
+ * Obec pro obec_bydleni: kód obce, „Název (ORP)“ nebo název (+ volitelné orp).
+ * Stejnojmenné obce (2× Chodov, 2× Březová) se rozliší ORP nebo kódem.
+ */
+function obecProBydleni(ctx: KontextDat, orpy: Record<AreaCode, string>, a: Record<string, unknown>): ObecVen | { chyba: string; kandidati?: ObecVen[] } {
+  let dotaz = text(a.obec);
+  if (!dotaz) return { chyba: 'Zadejte název obce.' };
+  const ven = (kod: AreaCode): ObecVen => ({ kod, nazev: ctx.obecNames[kod], orp: orpy[kod] ?? null });
+  if (dotaz in ctx.obecNames) return ven(dotaz);
+  let orpArg = text(a.orp);
+  const zav = /^(.+?)\s*\((.+)\)$/.exec(dotaz);
+  if (zav) {
+    dotaz = zav[1];
+    orpArg ||= zav[2].replace(/^(orp|okres)\s+/i, '');
+  }
+  let kandidati = najdiObce(ctx, dotaz, Infinity).map((o) => ven(o.kod));
+  if (!kandidati.length) return nenalezenaObec(dotaz);
+  if (orpArg) {
+    const o = najdiOrp(orpy, orpArg);
+    if ('chyba' in o) return o;
+    kandidati = kandidati.filter((k) => k.orp === o.orp);
+    if (!kandidati.length) return { chyba: `Obec „${dotaz}“ v ORP ${o.orp} není.` };
+  }
+  const q = bezDiakritiky(dotaz);
+  const presne = kandidati.filter((o) => bezDiakritiky(o.nazev) === q);
+  if (presne.length === 1) return presne[0];
+  if (!presne.length && kandidati.length === 1) return kandidati[0];
+  return {
+    chyba: `„${text(a.obec)}“ odpovídá více obcím – zavolej znovu s kódem obce (pole kod) nebo s orp.`,
+    kandidati: (presne.length ? presne : kandidati).slice(0, 8),
+  };
+}
 
 function zdrojePozadavku(ctx: KontextDat, ids: string[]) {
   const src = new Set<string>();
@@ -472,30 +534,27 @@ function zdrojePozadavku(ctx: KontextDat, ids: string[]) {
 const veta = (zc: ZivotKontext, code: AreaCode, c: CastSkore) => vetaPozadavku(zc, c.id, code, c.value);
 
 function kdeSeMiBudeZit(ctx: KontextDat, a: Record<string, unknown>) {
-  const { ok, nezname } = idsZArg(a.pozadavky);
-  if (!ok.length) return bezPozadavku();
-  const velmi = new Set(idsZArg(a.velmi_dulezite).ok);
-  const vybrane: Record<string, Dulezitost> = Object.fromEntries(ok.map((id) => [id, velmi.has(id) ? 2 : 1]));
+  const { vybrane, nezname } = vyberZArg(a);
+  const ok = Object.keys(vybrane);
+  if (!ok.length) return bezPozadavku(nezname);
   const zc = zivotKontext(ctx);
   const orpy = orpObci(ctx);
   let orp: string | null = null;
   if (text(a.orp)) {
-    const q = bezDiakritiky(text(a.orp).replace(/^orp\s+/i, ''));
-    const nazvy = [...new Set(Object.values(orpy))].sort((x, y) => x.localeCompare(y, 'cs'));
-    orp = nazvy.find((n) => bezDiakritiky(n) === q) ?? nazvy.find((n) => bezDiakritiky(n).startsWith(q)) ?? null;
-    if (!orp) return { chyba: `ORP „${text(a.orp)}“ v kraji není. ORP kraje: ${nazvy.join(', ')}.` };
+    const o = najdiOrp(orpy, a.orp);
+    if ('chyba' in o) return o;
+    orp = o.orp;
   }
   const skore = spocitejSkore(zc, vybrane);
   const vsechny = poradi(skore, ctx.obecNames);
-  const n = typeof a.limit === 'number' && Number.isFinite(a.limit) ? Math.floor(a.limit) : 5;
   return {
-    pozadavky: ok.map((id) => `${POZADAVKY_BY_ID[id].label}${vybrane[id] === 2 ? ' (velmi důležité)' : ''}`),
+    pozadavky: nazevVahy(vybrane),
     nezname_pozadavky: neznameText(nezname),
     orp,
     hodnoceno_obci: vsechny.length,
     obce: vsechny
       .filter((r) => !orp || orpy[r.code] === orp)
-      .slice(0, Math.max(1, Math.min(MAX_LIMIT_ZIVOT, n)))
+      .slice(0, limit(a.limit, 5, MAX_LIMIT_ZIVOT))
       .map((r) => {
         const s = skore[r.code];
         // nejsilnější 2 a nejslabší 1 (u jediného požadavku jen silná stránka)
@@ -503,6 +562,7 @@ function kdeSeMiBudeZit(ctx: KontextDat, a: Record<string, unknown>) {
         const slaba = serazene.length >= 2 ? serazene[serazene.length - 1] : null;
         return {
           obec: ctx.obecNames[r.code] ?? r.code,
+          kod: r.code,
           orp: orpy[r.code] ?? null,
           skore: Math.round(r.score),
           poradi: r.rank,
@@ -529,26 +589,24 @@ function nejblizsiBod(zc: ZivotKontext, id: string, code: AreaCode): string | nu
 }
 
 function obecBydleni(ctx: KontextDat, a: Record<string, unknown>) {
-  const dotaz = text(a.obec);
-  if (!dotaz) return { chyba: 'Zadejte název obce.' };
-  const kandidati = najdiObce(ctx, dotaz);
-  if (!kandidati.length) return nenalezenaObec(a.obec);
-  const q = bezDiakritiky(dotaz);
-  const presne = kandidati.filter((o) => bezDiakritiky(o.nazev) === q);
-  const obec = presne.length === 1 ? presne[0] : kandidati.length === 1 ? kandidati[0] : null;
-  if (!obec) return { chyba: `„${dotaz}“ odpovídá více obcím, upřesněte název.`, kandidati: kandidati.map((o) => o.nazev) };
+  const orpy = orpObci(ctx);
+  const obec = obecProBydleni(ctx, orpy, a);
+  if ('chyba' in obec) return obec;
   const zc = zivotKontext(ctx);
-  const orp = orpObci(ctx)[obec.kod] ?? null;
-  if (zc.neobydlene.has(obec.kod)) return { obec: obec.nazev, orp, poznamka: NEOBYDLENA };
-  const { ok, nezname } = idsZArg(a.pozadavky);
-  if (!ok.length && nezname.length) return bezPozadavku();
+  const orp = obec.orp;
+  if (zc.neobydlene.has(obec.kod)) return { obec: obec.nazev, kod: obec.kod, orp, poznamka: NEOBYDLENA };
+  const { vybrane, nezname } = vyberZArg(a);
+  const ok = Object.keys(vybrane);
+  if (!ok.length && nezname.length) return bezPozadavku(nezname);
   const ids = ok.length ? ok : ZAKLADNI_SLUZBY;
-  // se zadanými požadavky i celkové skóre a pořadí obce v kraji
-  const vsechny = ok.length ? poradi(spocitejSkore(zc, Object.fromEntries(ok.map((id) => [id, 1 as Dulezitost]))), ctx.obecNames) : [];
+  // se zadanými požadavky i celkové skóre a pořadí obce v kraji (stejné váhy jako v aplikaci)
+  const vsechny = ok.length ? poradi(spocitejSkore(zc, vybrane), ctx.obecNames) : [];
   const moje = vsechny.find((r) => r.code === obec.kod);
   return {
     obec: obec.nazev,
+    kod: obec.kod,
     orp,
+    velmi_dulezite: ok.filter((id) => vybrane[id] === 2).map((id) => POZADAVKY_BY_ID[id].label),
     skore: moje ? Math.round(moje.score) : null,
     poradi: moje ? `${moje.rank}. z ${vsechny.length}` : null,
     nezname_pozadavky: neznameText(nezname),
