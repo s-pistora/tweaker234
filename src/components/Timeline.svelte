@@ -72,10 +72,16 @@
     if (y !== undefined) onyear(y);
   }
 
-  // změna dostupných let (jiný ukazatel/úroveň) → přehrávání ztrácí smysl, zastavit
+  // změna dostupných let (jiný ukazatel/úroveň) → přehrávání ztrácí smysl, zastavit.
+  // Porovnává se podle hodnot, ne reference: rodič vytváří nové pole `years` při
+  // každé změně stavu (i při změně roku, kterou vyvolal sám časovač), takže
+  // závislost na referenci by přehrávání zastavila hned po prvním kroku.
+  const yearsKey = $derived(years.join(','));
+  let prevYearsKey: string | undefined;
   $effect(() => {
-    void years;
-    stop();
+    const key = yearsKey;
+    if (prevYearsKey !== undefined && key !== prevYearsKey) stop();
+    prevYearsKey = key;
   });
 
   onDestroy(stop);

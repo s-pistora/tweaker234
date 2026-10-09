@@ -52,6 +52,9 @@ describe('App – Esc s otevřeným HowModal', () => {
 
     // přepnout do režimu skóre a otevřít "Jak se to počítá?"
     await fireEvent.click(screen.getByTestId('mode-score'));
+    // výběr ze Statistiky kraje se do skóre nepřenáší – skóre začíná na ORP celého kraje
+    await waitFor(() => expect(location.hash).toMatch(/^#\/orp\?/));
+    expect(location.hash).not.toContain('4103');
     await fireEvent.click(screen.getByTestId('how-btn'));
     expect(screen.getByRole('dialog')).toBeTruthy();
 

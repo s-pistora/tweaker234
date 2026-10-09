@@ -166,6 +166,8 @@
     >,
   );
 
+  // TODO(integrace): skóre zatím čte sdílený `view` (level/area); setMode() ho při vstupu
+  // do skóre resetuje na ORP kraje. Nový režim „Kde by se mi žilo“ má mít vlastní stav.
   const scoreFeatures = $derived.by(() => {
     if (!snap) return [];
     if (view.level === 'kraj') return areaFeatures(snap.geo.kraje);
@@ -240,7 +242,17 @@
   function setYear(y: number) {
     appState.update((s) => ({ ...s, year: y }));
   }
+  // „Statistika kraje“ (explore) a „Kde by se mi žilo“ (score) sdílí level/area
+  // v appState. Výběr ORP/obce ve Statistice se do skóre nepřenáší: při odchodu
+  // ze Statistiky si pohled schováme, skóre začne na ORP celého kraje a při
+  // návratu do Statistiky se původní výběr obnoví.
+  let exploreView: View | null = null;
   function setMode(m: Mode) {
+    if (m !== st.mode) {
+      if (st.mode === 'explore') exploreView = view;
+      if (m === 'score') navigate({ level: 'orp', area: null, orp: null });
+      else if (m === 'explore' && exploreView) navigate(exploreView);
+    }
     appState.update((s) => ({
       ...s,
       mode: m,
@@ -344,9 +356,9 @@
   const MODE_NAV: { m: Mode; label: string }[] = [
     { m: 'skoly', label: 'Kam na střední' },
     { m: 'vylety', label: 'Kam vyrazit' },
-    { m: 'explore', label: 'Mapa kraje' },
     { m: 'score', label: 'Kde by se mi žilo' },
   ];
+  // „Statistika kraje“ (m=explore) není v hlavním menu – odkaz je vedle Zdrojů dat a v patičce.
 
   // --- režim „Kam vyrazit“ -------------------------------------------------
   const vy = $derived<VyletyState>(st.vylety ?? DEFAULT_VYLETY);
@@ -481,8 +493,8 @@
     },
     {
       cil: 'nav',
-      nadpis: 'Čtyři části v jednom menu',
-      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Mapa kraje: čísla o ORP a obcích. Kde by se mi žilo: srovnání podle toho, na čem vám záleží.',
+      nadpis: 'Tři části v jednom menu',
+      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Kde by se mi žilo: srovnání podle toho, na čem vám záleží. Čísla o ORP a obcích najdete ve Statistice kraje vedle Zdrojů dat a v patičce.',
     },
     {
       cil: 'hub',
@@ -601,6 +613,14 @@
             data-testid="mode-{n.m}">{n.label}</button
           >
         {/each}
+        <button
+          type="button"
+          class="mainnav__src"
+          class:on={st.mode === 'explore'}
+          aria-current={st.mode === 'explore' ? 'page' : undefined}
+          onclick={() => setMode('explore')}
+          data-testid="mode-explore">Statistika kraje</button
+        >
         <button type="button" class="mainnav__src" onclick={openSources} data-testid="sources-btn">Zdroje dat</button>
       </nav>
     </div>
@@ -926,12 +946,12 @@
   {:else}
     <section class="hero hero--slim">
       <div class="wrap">
-        <p class="kicker">Karlovarský kraj v číslech</p>
-        <h1>{st.mode === 'score' ? 'Kde by se mi dobře žilo?' : 'Mapa kraje'}</h1>
+        <p class="kicker">{st.mode === 'score' ? 'Karlovarský kraj v číslech' : 'Statistika · Karlovarský kraj'}</p>
+        <h1>{st.mode === 'score' ? 'Kde by se mi dobře žilo?' : 'Statistika kraje'}</h1>
         <p class="perex">
           {st.mode === 'score'
             ? 'Nastavte, na čem vám záleží, a mapa seřadí území podle skóre. U každého výsledku vysvětlujeme, jak vzniklo.'
-            : 'Vyberte ukazatel a rok. Klikněte na ORP (správní obvod) a dál na jednotlivé obce. Číslo vždy srovnáváme s průměrem Česka.'}
+            : 'Data Českého statistického úřadu za správní obvody (ORP) a obce kraje a jejich vývoj v čase. Vyberte ukazatel a rok, klikněte na ORP a dál na obce. Srovnáváme vždy s Českem.'}
         </p>
         <StatusBar
           updatedAt={snap.updatedAt}
@@ -1040,6 +1060,10 @@
       <p>
         Data: Karlovarský kraj (DATAZÁPAD), Krajská hygienická stanice, Český statistický úřad, ČÚZK, ÚZIS – podrobně v
         <button type="button" class="linklike" onclick={openSources}>Zdrojích dat</button>. Vzdálenosti vzdušnou čarou.
+      </p>
+      <p>
+        Čísla o ORP a obcích v čase:
+        <button type="button" class="linklike" onclick={() => setMode('explore')} data-testid="footer-explore">Statistika kraje</button>.
       </p>
     </div>
   </footer>

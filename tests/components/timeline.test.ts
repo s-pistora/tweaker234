@@ -82,3 +82,71 @@ describe('Timeline', () => {
     expect(onyear).toHaveBeenCalledTimes(1); // žádné další volání po zastavení
   });
 });
+
+describe('Timeline – rodič s novým polem let při každé změně roku', () => {
+  // Regrese: App při každé změně stavu (i roku, který posunul sám časovač)
+  // vytvoří nové pole `years` se stejnými hodnotami. Přehrávání se tím nesmí
+  // zastavit po prvním kroku.
+  function renderWithParent(values: number[], start: number) {
+    const calls: number[] = [];
+    const onyear = (y: number) => {
+      calls.push(y);
+      void utils.rerender({ years: [...values], year: y, onyear });
+    };
+    const utils = render(Timeline, {
+      props: { years: [...values], year: start, onyear },
+    });
+    return { ...utils, calls };
+  }
+
+  it('▶ projede všechny roky až na poslední a tam se zastaví', async () => {
+    vi.useFakeTimers();
+    const { getByTestId, calls } = renderWithParent([2020, 2021, 2022, 2023], 2020);
+    await fireEvent.click(getByTestId('timeline-play'));
+    await vi.advanceTimersByTimeAsync(700 * 5);
+    expect(calls).toEqual([2021, 2022, 2023]);
+    expect(getByTestId('timeline-year').textContent).toBe('2023');
+    expect(getByTestId('timeline-play').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('▶ na posledním roce začne znovu od prvního', async () => {
+    vi.useFakeTimers();
+    const { getByTestId, calls } = renderWithParent([2020, 2021, 2022, 2023], 2023);
+    await fireEvent.click(getByTestId('timeline-play'));
+    await vi.advanceTimersByTimeAsync(700 * 5);
+    expect(calls).toEqual([2020, 2021, 2022, 2023]);
+    expect(getByTestId('timeline-play').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('posun posuvníku během přehrávání přehrávání zastaví', async () => {
+    vi.useFakeTimers();
+    const { getByTestId, getByRole, calls } = renderWithParent([2020, 2021, 2022, 2023], 2020);
+    await fireEvent.click(getByTestId('timeline-play'));
+    await vi.advanceTimersByTimeAsync(700);
+    await fireEvent.input(getByRole('slider'), { target: { value: '0' } });
+    expect(getByTestId('timeline-play').getAttribute('aria-pressed')).toBe('false');
+    await vi.advanceTimersByTimeAsync(700 * 3);
+    expect(calls).toEqual([2021, 2020]);
+  });
+
+  it('.crt-off (reduced motion): ▶ skočí rovnou na poslední rok', async () => {
+    document.documentElement.classList.add('crt-off');
+    const { getByTestId, calls } = renderWithParent([2020, 2021, 2022, 2023], 2020);
+    await fireEvent.click(getByTestId('timeline-play'));
+    expect(calls).toEqual([2023]);
+    expect(getByTestId('timeline-play').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('změna sady let (jiný ukazatel) přehrávání zastaví', async () => {
+    vi.useFakeTimers();
+    const onyear = vi.fn();
+    const { getByTestId, rerender } = render(Timeline, {
+      props: { years: [2020, 2021, 2022, 2023], year: 2020, onyear },
+    });
+    await fireEvent.click(getByTestId('timeline-play'));
+    await rerender({ years: [2015, 2016, 2017], year: 2015, onyear });
+    expect(getByTestId('timeline-play').getAttribute('aria-pressed')).toBe('false');
+    await vi.advanceTimersByTimeAsync(700 * 3);
+    expect(onyear).not.toHaveBeenCalled();
+  });
+});
