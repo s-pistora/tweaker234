@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { ROKY, doplnZastavky, normalizujKod, parseRok, slucRoky } from '../scripts/sources/dz-prijimani.ts';
 import {
   agreguj,
+  dostupnostObci,
   asciiBar,
   filtrujObory,
   naplnenost,
@@ -150,6 +151,11 @@ describe('skoly: filtrování a agregace', () => {
     const sk = filtrujObory(obory, { domov: null, typ: 'vse', skupina: '23', maxKm: 1 });
     expect(sk.map((r) => r.obor.nazevOboru)).toEqual(['Učňák']);
     expect(sk[0].km).toBeNull();
+  });
+
+  it('dostupnost obcí počítá jen otevírané obory v dosahu', () => {
+    const d = dostupnostObci(obory, { doma: domov, daleko: { lat: 49, lon: 14 } }, { typ: 'vse', skupina: '', maxKm: 10 });
+    expect(d).toEqual({ doma: 2, daleko: 0 });
   });
 
   it('řazení podle volných míst dá nejméně naplněný první', () => {

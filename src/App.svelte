@@ -12,8 +12,26 @@
   import Legend from './components/Legend.svelte';
   import WeightPanel from './components/WeightPanel.svelte';
   import HowModal, { type HowPart } from './components/HowModal.svelte';
+  import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
+  import OboryList from './components/skoly/OboryList.svelte';
+  import SkolaDetail from './components/skoly/SkolaDetail.svelte';
+  import KrajPrehled from './components/skoly/KrajPrehled.svelte';
+  import type { MapPoint } from './components/Map.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
-  import { appState, initHashSync, linkInvalid } from './lib/state.ts';
+  import { appState, initHashSync, linkInvalid, DEFAULT_SKOLY, type Mode, type SkolyState } from './lib/state.ts';
+  import { centroidy } from './lib/map/centroids.ts';
+  import {
+    TRIDA_LABEL,
+    dostupnostObci,
+    filtrujObory,
+    naplnenostSkoly,
+    procenta,
+    skolyZVysledku,
+    tridaNaplnenosti,
+    vzdalenostKm,
+    type TridaNaplnenosti,
+  } from './lib/skoly.ts';
+  import type { Glyph, Tone } from './lib/map/pointStyle.ts';
   import { areaFeatures } from './lib/map/project.ts';
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
@@ -181,8 +199,70 @@
   function setYear(y: number) {
     appState.update((s) => ({ ...s, year: y }));
   }
-  function toggleMode() {
-    appState.update((s) => ({ ...s, mode: s.mode === 'explore' ? 'score' : 'explore' }));
+  function setMode(m: Mode) {
+    appState.update((s) => ({ ...s, mode: m, skoly: m === 'skoly' ? (s.skoly ?? { ...DEFAULT_SKOLY }) : s.skoly }));
+  }
+
+  // --- režim „Kam na střední“ ---------------------------------------------
+  const sk = $derived<SkolyState>(st.skoly ?? DEFAULT_SKOLY);
+  const obory = $derived(snap?.skoly?.obory ?? []);
+  const obecFeatures = $derived(snap ? areaFeatures(snap.geo['kv-obce']) : []);
+  const obecCentroidy = $derived(centroidy(obecFeatures));
+  const obecNames = $derived(
+    Object.fromEntries(obecFeatures.map((f) => [f.properties.code, f.properties.name])) as Record<AreaCode, string>,
+  );
+  const domov = $derived(sk.domov ? (obecCentroidy[sk.domov] ?? null) : null);
+  const skupinyOboru = $derived([...new Set(obory.map((o) => o.skupina))].sort());
+  const vysledky = $derived(
+    filtrujObory(obory, { domov, typ: sk.typ, skupina: sk.skupina, maxKm: sk.maxKm }, sk.razeni),
+  );
+  const dostupnost = $derived(
+    dostupnostObci(obory, obecCentroidy, { typ: sk.typ, skupina: sk.skupina, maxKm: sk.maxKm }),
+  );
+  const DOSTUPNOST_DEF: IndicatorDef = {
+    id: 'dostupnost',
+    label: 'Oborů v dosahu',
+    unit: 'oborů',
+    higherIsBetter: true,
+    sourceId: 'dz-prijimani-2026',
+    decimals: 0,
+  };
+  const TRIDA_STYLE: Record<TridaNaplnenosti, { tone: Tone; glyph: Glyph }> = {
+    volno: { tone: 'phosphor', glyph: 'o' },
+    ok: { tone: 'phosphor', glyph: 'square' },
+    pretlak: { tone: 'amber', glyph: 'triangle' },
+    na: { tone: 'amber', glyph: 'x' },
+  };
+  const skolaPoints = $derived.by((): MapPoint[] =>
+    skolyZVysledku(vysledky).map((s) => {
+      const n = naplnenostSkoly(obory.filter((o) => o.izo === s.izo));
+      const t = tridaNaplnenosti(n);
+      return {
+        id: `skola:${s.izo}:${s.lat}`,
+        name: s.skola,
+        lon: s.lon,
+        lat: s.lat,
+        layerLabel: `Střední škola · loni ${procenta(n)} (${TRIDA_LABEL[t]})`,
+        provider: 'Karlovarský kraj (datazapad.cz)',
+        validFor: '2025/26–2026/27',
+        ...TRIDA_STYLE[t],
+      };
+    }),
+  );
+  const vybraneObory = $derived(sk.skola ? obory.filter((o) => o.izo === sk.skola) : []);
+  const vybranaKm = $derived(
+    domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
+  );
+  const skolySources = $derived(
+    snap ? snap.manifest.sources.filter((x) => snap?.skoly?.sourceIds.includes(x.id)) : [],
+  );
+
+  function setSkoly(patch: Partial<SkolyState>) {
+    appState.update((s) => ({ ...s, skoly: { ...(s.skoly ?? DEFAULT_SKOLY), ...patch } }));
+  }
+  function dostupnostPreview(code: AreaCode): string[] {
+    const n = dostupnost[code] ?? 0;
+    return [`${n} ${n === 1 ? 'obor' : n >= 2 && n <= 4 ? 'obory' : 'oborů'} do ${sk.maxKm} km`, 'klik = tady bydlím'];
   }
 
   let drill = $state<ReturnType<typeof Drilldown> | null>(null);
@@ -218,6 +298,10 @@
       closeHow();
       return;
     }
+    if (st.mode === 'skoly') {
+      if (sk.skola) setSkoly({ skola: null });
+      return;
+    }
     drill?.up();
   }
 </script>
@@ -240,7 +324,7 @@
           mode={st.mode}
           onindicator={setIndicator}
           onyear={setYear}
-          onmode={toggleMode}
+          onmode={setMode}
           onsources={openSources}
         />
       {/if}
@@ -265,7 +349,35 @@
     {:else}
       <main class="layout">
         <section class="map-col" aria-label="Mapa">
-          {#if st.mode === 'explore'}
+          {#if st.mode === 'skoly'}
+            {#if !snap.skoly}
+              <p class="error" role="alert">&gt; Data o středních školách se nepodařilo načíst.</p>
+            {:else}
+              <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
+              <Map
+                features={obecFeatures}
+                values={dostupnost}
+                def={DOSTUPNOST_DEF}
+                year={2026}
+                selected={sk.domov}
+                preview={dostupnostPreview}
+                points={skolaPoints}
+                onselect={(code) => setSkoly({ domov: code, skola: null })}
+                label="Mapa obcí Karlovarského kraje podle počtu oborů v dosahu"
+              />
+              <Legend
+                values={obecFeatures.map((f) => dostupnost[f.properties.code] ?? null)}
+                def={DOSTUPNOST_DEF}
+                year={2026}
+              />
+              <OboryList
+                {vysledky}
+                vybrana={sk.skola}
+                maDomov={!!domov}
+                onselect={(izo) => setSkoly({ skola: izo })}
+              />
+            {/if}
+          {:else if st.mode === 'explore'}
             <Drilldown
               bind:this={drill}
               {snap}
@@ -318,7 +430,20 @@
           <p class="sr-only" aria-live="polite">
             {target ? `Detail: ${geoIndex.names[target.code] ?? target.code}` : ''}
           </p>
-          {#if target}
+          {#if st.mode === 'skoly'}
+            {#if vybraneObory.length}
+              {#key sk.skola}
+                <SkolaDetail
+                  obory={vybraneObory}
+                  km={vybranaKm}
+                  sources={skolySources}
+                  onclose={() => setSkoly({ skola: null })}
+                />
+              {/key}
+            {:else if snap.skoly}
+              <KrajPrehled obory={obory} names={geoIndex.names} onselect={(izo) => setSkoly({ skola: izo })} />
+            {/if}
+          {:else if target}
             {#key `${target.level}:${target.code}`}
               <Detail
                 {snap}

@@ -1,9 +1,11 @@
 <script lang="ts">
   /**
    * Horní lišta: datum snapshotu, výběr ukazatele (obarvuje mapu) a roku,
-   * přepínač režimu PRŮZKUM / KDE BY SE MI DOBŘE ŽILO?, [ZDROJE], CRT přepínač.
+   * přepínač režimu PRŮZKUM / KDE BY SE MI DOBŘE ŽILO? / KAM NA STŘEDNÍ, [ZDROJE], CRT přepínač.
+   * V režimu „Kam na střední“ se výběr ukazatele a roku skrývá (mapu neobarvují).
    */
   import type { IndicatorDef } from '../lib/types.ts';
+  import type { Mode } from '../lib/state.ts';
   import CrtToggle from './crt/CrtToggle.svelte';
 
   interface Props {
@@ -12,14 +14,21 @@
     indicator: string;
     years: number[];
     year: number;
-    mode: 'explore' | 'score';
+    mode: Mode;
     onindicator: (id: string) => void;
     onyear: (y: number) => void;
-    onmode: () => void;
+    onmode: (m: Mode) => void;
     onsources: () => void;
   }
   const { updatedAt, indicators, indicator, years, year, mode, onindicator, onyear, onmode, onsources }: Props =
     $props();
+
+  const MODE_LABEL: Record<Mode, string> = {
+    explore: 'PRŮZKUM',
+    score: 'KDE BY SE MI DOBŘE ŽILO?',
+    skoly: 'KAM NA STŘEDNÍ',
+  };
+  const MODE_ORDER: Mode[] = ['explore', 'score', 'skoly'];
 
   const updated = $derived.by(() => {
     const d = new Date(updatedAt);
@@ -34,6 +43,7 @@
 
 <div class="bar" role="toolbar" aria-label="Stavová lišta">
   <span class="upd" data-testid="updated-at">Data aktualizována: {updated}</span>
+  {#if mode !== 'skoly'}
   <label>
     <span>UKAZATEL</span>
     <select value={indicator} onchange={(e) => onindicator(e.currentTarget.value)}>
@@ -52,9 +62,21 @@
       </select>
     </label>
   {/if}
-  <button type="button" class="btn" onclick={onmode} aria-pressed={mode === 'score'} data-testid="mode-toggle">
-    [REŽIM: {mode === 'explore' ? 'PRŮZKUM' : 'KDE BY SE MI DOBŘE ŽILO?'}]
-  </button>
+  {/if}
+  <div class="modes" role="group" aria-label="Režim">
+    {#each MODE_ORDER as m (m)}
+      <button
+        type="button"
+        class="btn"
+        class:on={mode === m}
+        aria-pressed={mode === m}
+        onclick={() => onmode(m)}
+        data-testid="mode-{m}"
+      >
+        [{mode === m ? '■' : ' '}] {MODE_LABEL[m]}
+      </button>
+    {/each}
+  </div>
   <button type="button" class="btn" onclick={onsources} data-testid="sources-btn">[ZDROJE]</button>
   <CrtToggle />
 </div>
@@ -104,5 +126,14 @@
     color: var(--amber);
     border-color: var(--amber-dim);
     cursor: pointer;
+  }
+  .modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .btn.on {
+    background: var(--amber-dim);
+    color: var(--bg);
   }
 </style>

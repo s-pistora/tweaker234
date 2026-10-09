@@ -42,14 +42,14 @@ describe('App – Esc s otevřeným HowModal', () => {
     const { container } = render(App);
 
     await fireEvent.click(screen.getByTestId('boot-skip'));
-    await waitFor(() => expect(screen.getByTestId('mode-toggle')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('mode-score')).toBeTruthy());
 
     // z kraje do ORP (klik na Karlovarský kraj) - odsud je kam jít "o úroveň výš"
     await fireEvent.click(container.querySelector('path[data-code="CZ041"]')!);
     await waitFor(() => expect(container.querySelector('[data-testid="level-up"]')).toBeTruthy());
 
     // přepnout do režimu skóre a otevřít "Jak se to počítá?"
-    await fireEvent.click(screen.getByTestId('mode-toggle'));
+    await fireEvent.click(screen.getByTestId('mode-score'));
     await fireEvent.click(screen.getByTestId('how-btn'));
     expect(screen.getByRole('dialog')).toBeTruthy();
 
@@ -58,12 +58,12 @@ describe('App – Esc s otevřeným HowModal', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // pořád v režimu skóre - Esc modál zavřel a nic víc nezměnil
-    expect(screen.getByTestId('mode-toggle').textContent).toContain('KDE BY SE MI DOBŘE ŽILO?');
+    expect(screen.getByTestId('mode-score').getAttribute('aria-pressed')).toBe('true');
 
     // návrat do průzkumu potvrdí, že mapa pořád je na úrovni ORP (kdyby Esc
     // omylem zavolal drill.up(), byli bychom zpět na úrovni krajů a tlačítko
     // [↑ ÚROVEŇ VÝŠ] by chybělo)
-    await fireEvent.click(screen.getByTestId('mode-toggle'));
+    await fireEvent.click(screen.getByTestId('mode-explore'));
     expect(container.querySelector('[data-testid="level-up"]')).toBeTruthy();
   });
 });

@@ -12,6 +12,7 @@ const snap: Snapshot = {
   indicators: { kraj: fx('indicators/kraj.json'), orp: fx('indicators/orp.json'), obec: fx('indicators/obec.json') },
   points: { skoly: fx('points/skoly.json') },
   geo: { kraje: fx('geo/kraje.topo.json'), 'kv-orp': fx('geo/kv-orp.topo.json'), 'kv-obce': fx('geo/kv-obce.topo.json') },
+  skoly: null,
   updatedAt: manifest.updatedAt,
 };
 const names = { CZ041: 'Karlovarský kraj', '4103': 'Karlovy Vary' };

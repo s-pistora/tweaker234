@@ -1,21 +1,52 @@
 // Stav aplikace synchronizovany s `location.hash`.
 //
 // Format URL: #/{uroven}/{kod}?u=<ukazatel>&r=<rok>&m=<rezim>&w=<id:vaha,...>
+//             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>]  (rezim skoly)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
 // (parseHash/toHash nikdy nevyhodi vyjimku) - navic se vrati `invalid:true`.
 
 import { writable } from 'svelte/store';
-import { LEVELS, type Level, type AreaCode } from './types.ts';
+import { LEVELS, type Level, type AreaCode, type TypStudia } from './types.ts';
 import type { Snapshot } from './data/loader.ts';
+
+export type Mode = 'explore' | 'score' | 'skoly';
+export const MODES: readonly Mode[] = ['explore', 'score', 'skoly'];
+
+/** Filtry režimu „Kam na střední“. */
+export interface SkolyState {
+  /** kód obce, kde uživatel bydlí */
+  domov: AreaCode | null;
+  typ: TypStudia | 'vse';
+  /** '' = všechny skupiny oborů */
+  skupina: string;
+  maxKm: number;
+  /** IZO vybrané školy */
+  skola: string | null;
+  razeni: 'vzdalenost' | 'volno';
+}
+
+export const DEFAULT_SKOLY: SkolyState = {
+  domov: null,
+  typ: 'vse',
+  skupina: '',
+  maxKm: 25,
+  skola: null,
+  razeni: 'vzdalenost',
+};
+
+export const KM_MIN = 5;
+export const KM_MAX = 80;
 
 export interface AppState {
   level: Level;
   area: AreaCode | null;
   indicator: string;
   year: number;
-  mode: 'explore' | 'score';
+  mode: Mode;
   weights: Record<string, number>;
+  /** jen když se režim „Kam na střední“ použil (jinak hash ostatních režimů zůstává beze změny) */
+  skoly?: SkolyState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -157,8 +188,8 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   let mode: AppState['mode'] = 'explore';
   const mParam = params.get('m');
   if (mParam !== null) {
-    if (mParam === 'explore' || mParam === 'score') {
-      mode = mParam;
+    if ((MODES as readonly string[]).includes(mParam)) {
+      mode = mParam as Mode;
     } else {
       invalid = true;
     }
@@ -172,7 +203,58 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
     if (wInvalid) invalid = true;
   }
 
-  return { state: { level, area, indicator, year, mode, weights }, invalid };
+  const state: AppState = { level, area, indicator, year, mode, weights };
+  const sk = parseSkoly(params, snap);
+  if (sk.used || mode === 'skoly') state.skoly = sk.state;
+  if (sk.invalid) invalid = true;
+  return { state, invalid };
+}
+
+/** Parametry režimu „Kam na střední“; každá nevalidní hodnota spadne na výchozí. */
+function parseSkoly(params: URLSearchParams, snap: Snapshot): { state: SkolyState; used: boolean; invalid: boolean } {
+  const st: SkolyState = { ...DEFAULT_SKOLY };
+  let used = false;
+  let invalid = false;
+  const obory = snap.skoly?.obory ?? [];
+
+  const d = params.get('d');
+  if (d !== null) {
+    used = true;
+    if (areasAvailable(snap, 'obec').has(d) || obory.some((o) => o.kodObce === d)) st.domov = d;
+    else invalid = true;
+  }
+  const t = params.get('t');
+  if (t !== null) {
+    used = true;
+    if (t === 'vse' || t === 'maturita' || t === 'vyucni' || t === 'jine') st.typ = t;
+    else invalid = true;
+  }
+  const g = params.get('g');
+  if (g !== null) {
+    used = true;
+    if (g === '' || obory.some((o) => o.skupina === g)) st.skupina = g;
+    else invalid = true;
+  }
+  const km = params.get('km');
+  if (km !== null) {
+    used = true;
+    const n = Number(km);
+    if (Number.isInteger(n) && n >= KM_MIN && n <= KM_MAX) st.maxKm = n;
+    else invalid = true;
+  }
+  const sk = params.get('s');
+  if (sk !== null) {
+    used = true;
+    if (obory.some((o) => o.izo === sk)) st.skola = sk;
+    else invalid = true;
+  }
+  const o = params.get('o');
+  if (o !== null) {
+    used = true;
+    if (o === 'vzdalenost' || o === 'volno') st.razeni = o;
+    else invalid = true;
+  }
+  return { state: st, used, invalid };
 }
 
 export function toHash(state: AppState): string {
@@ -184,6 +266,15 @@ export function toHash(state: AppState): string {
   const wEntries = Object.entries(state.weights);
   if (wEntries.length) {
     parts.push(`w=${wEntries.map(([id, w]) => `${id}:${w}`).join(',')}`);
+  }
+  if (state.skoly) {
+    const k = state.skoly;
+    if (k.domov) parts.push(`d=${k.domov}`);
+    parts.push(`t=${k.typ}`);
+    if (k.skupina) parts.push(`g=${k.skupina}`);
+    parts.push(`km=${k.maxKm}`);
+    if (k.skola) parts.push(`s=${k.skola}`);
+    if (k.razeni !== DEFAULT_SKOLY.razeni) parts.push(`o=${k.razeni}`);
   }
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;

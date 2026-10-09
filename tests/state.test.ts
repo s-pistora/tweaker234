@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
-import { parseHash, toHash, appState, initHashSync, linkInvalid, type AppState } from '../src/lib/state.ts';
+import { parseHash, toHash, appState, initHashSync, linkInvalid, DEFAULT_SKOLY, type AppState } from '../src/lib/state.ts';
 import type { Snapshot } from '../src/lib/data/loader.ts';
 import type { Manifest, IndicatorFile } from '../src/lib/types.ts';
 
@@ -79,6 +79,7 @@ function makeSnap(): Snapshot {
     indicators: { kraj: krajFile, orp: orpFile },
     points: {},
     geo: {},
+    skoly: null,
     updatedAt: manifest.updatedAt,
   };
 }
@@ -261,5 +262,48 @@ describe('linkInvalid store (review finding #1 - varovani "neplatny odkaz")', ()
     window.dispatchEvent(new Event('hashchange'));
     expect(get(linkInvalid)).toBe(true);
     stop();
+  });
+});
+
+describe('režim „Kam na střední“ v hashi', () => {
+  const ob = (izo: string, kodObce: string, skupina: string) =>
+    ({ izo, kodObce, skupina }) as unknown as NonNullable<Snapshot['skoly']>['obory'][number];
+  function snapSkoly(): Snapshot {
+    return {
+      ...makeSnap(),
+      skoly: { updatedAt: 'x', sourceIds: [], obory: [ob('600170462', '554481', '18'), ob('1', '554961', '79')] },
+    };
+  }
+
+  it('ostatní režimy hash nemění (žádné pole skoly)', () => {
+    const { state } = parseHash('#/kraj?m=explore', snapSkoly());
+    expect(state.skoly).toBeUndefined();
+    expect(toHash(state)).not.toContain('km=');
+  });
+
+  it('m=skoly bez parametrů → výchozí filtry', () => {
+    const { state, invalid } = parseHash('#/kraj?m=skoly', snapSkoly());
+    expect(invalid).toBe(false);
+    expect(state.mode).toBe('skoly');
+    expect(state.skoly).toEqual(DEFAULT_SKOLY);
+  });
+
+  it('round-trip všech parametrů', () => {
+    const snap = snapSkoly();
+    const { state } = parseHash('#/kraj?m=skoly', snap);
+    state.skoly = { domov: '554481', typ: 'maturita', skupina: '18', maxKm: 30, skola: '600170462', razeni: 'volno' };
+    const back = parseHash(toHash(state), snap);
+    expect(back.invalid).toBe(false);
+    expect(back.state).toEqual(state);
+  });
+
+  it('nevalidní hodnoty spadnou zvlášť na výchozí a označí odkaz jako neplatný', () => {
+    const { state, invalid } = parseHash('#/kraj?m=skoly&d=999&t=xx&g=55&km=500&s=nic&o=zle', snapSkoly());
+    expect(invalid).toBe(true);
+    expect(state.skoly).toEqual(DEFAULT_SKOLY);
+    const ok = parseHash('#/kraj?m=skoly&d=554481&km=500', snapSkoly());
+    expect(ok.invalid).toBe(true);
+    expect(ok.state.skoly?.domov).toBe('554481');
+    expect(ok.state.skoly?.maxKm).toBe(DEFAULT_SKOLY.maxKm);
   });
 });

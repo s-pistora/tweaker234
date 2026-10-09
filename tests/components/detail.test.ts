@@ -13,6 +13,7 @@ const snap: Snapshot = {
   indicators: { kraj: fx('indicators/kraj.json'), orp: fx('indicators/orp.json'), obec: fx('indicators/obec.json') },
   points: {},
   geo: {},
+  skoly: null,
   updatedAt: manifest.updatedAt,
 };
 

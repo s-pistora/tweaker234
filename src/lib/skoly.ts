@@ -292,3 +292,19 @@ export function vetaDoprava(o: Pick<Obor, 'zastavky500m' | 'nejblizsiZastavkaM'>
 
 /** Kód obce → [lat, lon] centroidu se počítá ve frontendu z geodat; tady jen typ pro přehlednost. */
 export type CentroidyObci = Record<AreaCode, Domov>;
+
+/** Kolik otevíraných oborů (podle typu/skupiny) je z každého místa do `maxKm` – pro obarvení mapy obcí. */
+export function dostupnostObci(
+  obory: Obor[],
+  mista: Record<AreaCode, Domov>,
+  f: Omit<Filtr, 'domov'>,
+): Record<AreaCode, number> {
+  const kandidati = obory.filter(
+    (o) => (o.zamer[2026] ?? 0) > 0 && (f.typ === 'vse' || o.typ === f.typ) && (!f.skupina || o.skupina === f.skupina),
+  );
+  const out: Record<AreaCode, number> = {};
+  for (const [code, m] of Object.entries(mista)) {
+    out[code] = kandidati.filter((o) => vzdalenostKm(m.lat, m.lon, o.lat, o.lon) <= f.maxKm).length;
+  }
+  return out;
+}

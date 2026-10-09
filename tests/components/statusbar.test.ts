@@ -22,11 +22,11 @@ describe('StatusBar', () => {
         onsources: vi.fn(),
       },
     });
-    const btn = getByTestId('mode-toggle');
-    expect(btn.textContent).toContain('PRŮZKUM');
-    expect(btn.getAttribute('aria-pressed')).toBe('false');
-    await fireEvent.click(btn);
-    expect(onmode).toHaveBeenCalled();
+    expect(getByTestId('mode-explore').getAttribute('aria-pressed')).toBe('true');
+    expect(getByTestId('mode-score').getAttribute('aria-pressed')).toBe('false');
+    expect(getByTestId('mode-skoly').textContent).toContain('KAM NA STŘEDNÍ');
+    await fireEvent.click(getByTestId('mode-skoly'));
+    expect(onmode).toHaveBeenCalledWith('skoly');
 
     await rerender({
       updatedAt: '2026-01-01T00:00:00.000Z',
@@ -40,7 +40,8 @@ describe('StatusBar', () => {
       onmode,
       onsources: vi.fn(),
     });
-    expect(getByTestId('mode-toggle').textContent).toContain('KDE BY SE MI DOBŘE ŽILO?');
-    expect(getByTestId('mode-toggle').getAttribute('aria-pressed')).toBe('true');
+    expect(getByTestId('mode-score').textContent).toContain('KDE BY SE MI DOBŘE ŽILO?');
+    expect(getByTestId('mode-score').getAttribute('aria-pressed')).toBe('true');
+    expect(getByTestId('mode-explore').getAttribute('aria-pressed')).toBe('false');
   });
 });
