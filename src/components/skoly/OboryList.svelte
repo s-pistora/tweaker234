@@ -91,7 +91,7 @@
               <span class="obor">{o.nazevOboru}</span>
               {#if r.km !== null}<span class="km">{kmTxt(r.km)}</span>{/if}
             </span>
-            <span class="skola">{kratce(o.skola)}, {o.obec}</span>
+            <span class="skola">{kratce(o.skola)}{kratce(o.skola).includes(o.obec) ? '' : `, ${o.obec}`}</span>
             <span class="facts">
               <span><b>{TYP_TXT[o.typ]}</b> · {o.delka}{o.forma !== 'denní' ? ` · ${o.forma}` : ''}</span>
               <span>

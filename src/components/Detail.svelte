@@ -57,8 +57,14 @@
   const OBEC_MONTHLY_SOURCE = 'csu-obec-nezamestnanost';
   const OBEC_MONTHLY_NOTE = ' (obec: stav k prosinci, kraj/ČR: roční průměr)';
 
+  /** Absolutní počty (obyvatelé, počet zařízení) se s ČR/krajem nesrovnávají – kraj nemá
+   *  „o 97 % méně obyvatel než ČR“ v žádném užitečném smyslu. Jen vývoj v čase. */
+  const ABSOLUTE_UNITS = new Set(['osoby', 'počet']);
+  const absolutni = $derived(!!def && (def.id === 'obyvatele' || ABSOLUTE_UNITS.has(def.unit)));
+
   const sentence = $derived.by(() => {
     if (!def || !file) return '';
+    if (absolutni) return describe(def, series, undefined, fit.year);
     const vsCR = describe(def, series, file.national?.[def.id], fit.year, 'průměrem ČR');
     let result: string;
     if (level === 'kraj') {
@@ -81,7 +87,9 @@
     return result;
   });
 
-  const refSeries = $derived(def ? (file?.national?.[def.id] ?? (level !== 'kraj' ? file?.regional?.[def.id] : undefined)) : undefined);
+  const refSeries = $derived(
+    def && !absolutni ? (file?.national?.[def.id] ?? (level !== 'kraj' ? file?.regional?.[def.id] : undefined)) : undefined,
+  );
   const refLabel = $derived(def && file?.national?.[def.id] ? 'ČR' : 'průměr kraje');
 </script>
 

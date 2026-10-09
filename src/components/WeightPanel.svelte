@@ -56,7 +56,7 @@
   <button type="button" class="btn-secondary" onclick={onhow} data-testid="how-btn">Jak se skóre počítá</button>
 
   <div class="top5">
-    <h3>TOP 5</h3>
+    <h3>Nejlépe vychází</h3>
     {#if totalWeight === 0}
       <p class="hint">Nastavte alespoň jednu váhu výše - mapa a žebříček se pak naplní.</p>
     {:else if top5.length === 0}
@@ -72,7 +72,9 @@
               onclick={() => onselect(code)}
               data-testid="top5-{code}"
             >
-              {i + 1}. {names[code] ?? code} — {Math.round(s.score)}/100
+              <span class="pos">{i + 1}.</span>
+              <span class="nm">{names[code] ?? code}</span>
+              <span class="sc"><strong>{Math.round(s.score)}</strong> ze 100</span>
             </button>
           </li>
         {/each}
@@ -154,5 +156,47 @@
   .rank.selected {
     border-color: var(--amber);
     color: var(--amber);
+  }
+  ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rank {
+    display: grid !important;
+    grid-template-columns: 2em minmax(0, 1fr) auto;
+    align-items: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 0 12px !important;
+    margin: 0 0 4px !important;
+    font: inherit !important;
+    font-size: 1rem !important;
+    text-align: left;
+    background: #fff !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 4px;
+    color: var(--text) !important;
+    cursor: pointer;
+  }
+  .rank:hover,
+  .rank.selected {
+    border-color: var(--brand) !important;
+    background: var(--brand-ice) !important;
+  }
+  .pos {
+    color: var(--text-muted);
+  }
+  .nm {
+    font-weight: 500;
+    color: var(--brand-dark);
+  }
+  .sc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .sc strong {
+    color: var(--brand);
+    font-size: 1.1rem;
   }
 </style>

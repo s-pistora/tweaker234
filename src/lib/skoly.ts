@@ -54,6 +54,8 @@ export function skupinaZKodu(kod: string): string {
  */
 export function typStudia(druh: string, kod: string): TypStudia {
   const d = druh.toLowerCase();
+  // „střední bez maturitní zkoušky“ obsahuje slovo maturit – musí se odchytit dřív
+  if (d.includes('bez maturit')) return 'jine';
   if (d.includes('maturit')) return 'maturita';
   if (d.includes('výuční')) return 'vyucni';
   if (d.includes('nástavb')) return 'maturita';
@@ -63,6 +65,20 @@ export function typStudia(druh: string, kod: string): TypStudia {
     if ('EH'.includes(m[1])) return 'vyucni';
   }
   return 'jine';
+}
+
+/**
+ * Obor, kam se hlásí žák po základní škole. Vyřazuje vyšší odborné školy (po maturitě),
+ * nástavbové studium (po výučním listu) a dálkové studium (pro pracující dospělé) –
+ * datová sada „středních škol“ obsahuje i je.
+ */
+export function proZakyZeZs(o: Pick<Obor, 'druh' | 'kodOboru'> & { forma?: string }): boolean {
+  const d = o.druh.toLowerCase();
+  if ((o.forma ?? '').toLowerCase() === 'dálková') return false;
+  if (d.includes('vyšší odborn') || d.includes('nástavb')) return false;
+  // fallback podle kódu: N = VOŠ, L/5x = nástavba
+  if (/^\d{2}-\d{2}-N\//.test(o.kodOboru) || /^\d{2}-\d{2}-L\/5/.test(o.kodOboru)) return false;
+  return true;
 }
 
 export const TYP_LABEL: Record<TypStudia, string> = {

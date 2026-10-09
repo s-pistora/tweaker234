@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { ROKY, doplnZastavky, normalizujKod, parseRok, slucRoky } from '../scripts/sources/dz-prijimani.ts';
+import { ROKY, doplnZastavky, normalizujKod, parseRok, slucRoky, vycistiText } from '../scripts/sources/dz-prijimani.ts';
 import {
   agreguj,
   dostupnostObci,
+  proZakyZeZs,
   asciiBar,
   filtrujObory,
   naplnenost,
@@ -102,6 +103,22 @@ describe('skoly: pomocné funkce', () => {
     expect(typStudia('', '79-41-K/41')).toBe('maturita');
     expect(typStudia('', '69-54-E/01')).toBe('vyucni');
     expect(typStudia('', 'nesmysl')).toBe('jine');
+    // regrese: „bez maturitní zkoušky“ nesmí skončit jako maturita
+    expect(typStudia('střední bez maturitní zkoušky', '78-62-C/02')).toBe('jine');
+  });
+
+  it('VOŠ a nástavby nejsou pro žáky ze ZŠ', () => {
+    expect(proZakyZeZs({ druh: 'vyšší odborné', kodOboru: '53-41-N/11' })).toBe(false);
+    expect(proZakyZeZs({ druh: 'nástavbové', kodOboru: '64-41-L/51' })).toBe(false);
+    expect(proZakyZeZs({ druh: '', kodOboru: '75-31-N/..' })).toBe(false);
+    expect(proZakyZeZs({ druh: 'střední s maturitní zkouškou', kodOboru: '79-41-K/41' })).toBe(true);
+    expect(proZakyZeZs({ druh: 'střední s výučním listem', kodOboru: '23-68-H/01' })).toBe(true);
+    expect(proZakyZeZs({ druh: 'střední s maturitní zkouškou', kodOboru: '63-41-M/02', forma: 'dálková' })).toBe(false);
+  });
+
+  it('úklid názvů z exportu', () => {
+    expect(vycistiText('Gymnázium  (""Vzdělání je kompasem života"")')).toBe('Gymnázium („Vzdělání je kompasem života“)');
+    expect(vycistiText(' Obchodní akademie ')).toBe('Obchodní akademie');
   });
 
   it('vzdálenost Cheb – Karlovy Vary je cca 40 km', () => {

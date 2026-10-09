@@ -63,6 +63,10 @@
     label?: string;
     /** nápověda pod mapou, když nic není pod kurzorem */
     hint?: string;
+    /** klik na bod (nejbližší do 6 px) místo na území pod ním */
+    onpointselect?: (id: string) => void;
+    /** kružnice dosahu kolem bodu (km vzdušnou čarou) + značka středu */
+    circle?: { lat: number; lon: number; km: number; label?: string } | null;
   }
 
   const {
@@ -79,6 +83,8 @@
     onhover,
     onselect,
     label = 'Mapa',
+    onpointselect,
+    circle = null,
     hint = 'Najeďte na území (nebo Tab a šipky). Enter otevře detail, Esc vrací o úroveň výš.',
   }: Props = $props();
 
@@ -115,6 +121,14 @@
     }),
   );
 
+  /** kružnice dosahu v souřadnicích SVG (projekce je lokálně ekvidistantní → kruh) */
+  const circ = $derived.by(() => {
+    if (!circle) return null;
+    const [cx, cy] = projector.project([circle.lon, circle.lat]);
+    const [, ny] = projector.project([circle.lon, circle.lat + circle.km / 111.32]);
+    return { cx, cy, r: Math.abs(cy - ny), label: circle.label ?? '' };
+  });
+
   let hovered = $state<AreaCode | null>(null);
   let hoverPoint = $state<(MapPoint & { x: number; y: number }) | null>(null);
   let lastPointer = 'mouse';
@@ -150,6 +164,10 @@
   }
 
   function handleClick(code: AreaCode) {
+    if (hoverPoint && onpointselect) {
+      onpointselect(hoverPoint.id);
+      return;
+    }
     if (lastPointer === 'touch' && hovered !== code) {
       // mobil: první tap = náhled
       setHover(code);
@@ -324,6 +342,15 @@
         />
       {/each}
     </g>
+    {#if circ}
+      <g class="reach" aria-hidden="true">
+        <circle class="reach__ring" cx={circ.cx} cy={circ.cy} r={circ.r} />
+        <circle class="reach__home" cx={circ.cx} cy={circ.cy} r="5" />
+        {#if circ.label}
+          <text class="reach__lbl" x={circ.cx} y={circ.cy - 10} text-anchor="middle">{circ.label}</text>
+        {/if}
+      </g>
+    {/if}
     {#if projectedPoints.length}
       <g class="points" aria-hidden="true">
         {#each projectedPoints as p (p.id)}
@@ -338,18 +365,6 @@
           >
         {/each}
       </g>
-    {/if}
-    {#if sweep !== null}
-      {@const cx = vb[0] + vb[2] / 2}
-      {@const cy = vb[1] + vb[3] / 2}
-      {@const r = Math.hypot(vb[2], vb[3])}
-      <line
-        class="sweep"
-        x1={cx}
-        y1={cy}
-        x2={cx + r * Math.cos((sweep * Math.PI) / 180)}
-        y2={cy + r * Math.sin((sweep * Math.PI) / 180)}
-      />
     {/if}
   </svg>
   <Tooltip
@@ -425,10 +440,28 @@
   .pt--hover {
     font-size: 18px;
   }
-  .sweep {
-    stroke: var(--phosphor-100);
+  .reach {
+    pointer-events: none;
+  }
+  .reach__ring {
+    fill: rgba(250, 180, 19, 0.08);
+    stroke: var(--brand-dark);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    vector-effect: non-scaling-stroke;
+  }
+  .reach__home {
+    fill: var(--accent);
+    stroke: var(--brand-dark);
     stroke-width: 2;
     vector-effect: non-scaling-stroke;
-    opacity: 0.7;
+  }
+  .reach__lbl {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--brand-dark);
+    stroke: #fff;
+    stroke-width: 3px;
+    paint-order: stroke;
   }
 </style>

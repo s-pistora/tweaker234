@@ -4,7 +4,14 @@
    * podle oborů a území, a kde je nejvíc volno / přetlak.
    */
   import type { AreaCode, Obor } from '../../lib/types.ts';
-  import { agreguj, nazevSkupiny, naplnenost, oboryPodleNaplnenosti, procenta } from '../../lib/skoly.ts';
+  import {
+    agreguj,
+    nazevSkupiny,
+    naplnenost,
+    oboryPodleNaplnenosti,
+    procenta,
+    tridaNaplnenosti,
+  } from '../../lib/skoly.ts';
   import Naplnenost from './Naplnenost.svelte';
 
   interface Props {
@@ -58,20 +65,38 @@
     {#if pohled === 'skupiny' || pohled === 'orp'}
       {@const rows = pohled === 'skupiny' ? skupiny : orp}
       <p class="hint">Jak byla loni obsazená první místa – od nejméně obsazených.</p>
-      <table>
+      <table class="chart">
+        <caption class="sr-only">
+          Obsazenost prvních ročníků 2025 {pohled === 'skupiny' ? 'podle skupin oborů' : 'podle území ORP'}
+        </caption>
         <thead>
-          <tr><th>{pohled === 'skupiny' ? 'Skupina oborů' : 'Území (ORP)'}</th><th>Obsazenost</th><th class="num">Nastoupilo / míst</th></tr>
+          <tr>
+            <th scope="col">{pohled === 'skupiny' ? 'Skupina oborů' : 'Území (ORP)'}</th>
+            <th scope="col">Obsazeno (100 % = plný plán)</th>
+            <th scope="col" class="num">Nastoupilo z míst</th>
+          </tr>
         </thead>
         <tbody>
           {#each rows as a (a.klic)}
+            {@const t = tridaNaplnenosti(a.naplnenost)}
             <tr>
-              <td>{a.nazev}</td>
-              <td><Naplnenost podil={a.naplnenost} compact /></td>
-              <td class="num"><strong>{procenta(a.naplnenost)}</strong> · {a.prijato2025}/{a.zamer2025}</td>
+              <th scope="row">{a.nazev}</th>
+              <td>
+                <span class="track">
+                  <span class="bg"><span class="fill fill--{t}" style="width: {Math.min(100, (a.naplnenost ?? 0) * 100)}%"></span></span>
+                  <span class="pct">{procenta(a.naplnenost)}</span>
+                </span>
+              </td>
+              <td class="num">{a.prijato2025} z {a.zamer2025}</td>
             </tr>
           {/each}
         </tbody>
       </table>
+      <p class="legend">
+        <span class="sw sw--ok"></span> obsazená místa
+        <span class="sw sw--bg"></span> volná místa
+        <span class="sw sw--pretlak"></span> přijali víc žáků, než plánovali
+      </p>
     {:else}
       {@const list = pohled === 'volno' ? volno : plno}
       <p class="hint">
@@ -84,7 +109,7 @@
           <li>
             <button type="button" onclick={() => onselect(o.izo)}>
               <span class="obor">{o.nazevOboru}</span>
-              <span class="skola">{kratce(o.skola)}, {o.obec}</span>
+              <span class="skola">{kratce(o.skola)}{kratce(o.skola).includes(o.obec) ? '' : `, ${o.obec}`}</span>
               <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
             </button>
           </li>
@@ -152,6 +177,110 @@
     background: var(--brand-ice);
     border-bottom: 1px solid var(--line);
   }
+  tbody th {
+    text-align: left;
+    font-weight: 400;
+    color: var(--text);
+    background: none;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 8px;
+  }
+  .chart thead th:nth-child(2) {
+    width: 45%;
+  }
+  @media (max-width: 640px) {
+    .chart thead {
+      display: none;
+    }
+    .chart tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 0;
+    }
+    .chart tbody th,
+    .chart tbody td {
+      border: 0;
+      padding: 2px 0;
+    }
+    .chart tbody td.num {
+      grid-column: 2;
+      grid-row: 1;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+    }
+    .chart tbody td:nth-child(2) {
+      grid-column: 1 / -1;
+    }
+  }
+  .track {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 22px;
+  }
+  .bg {
+    flex: 1;
+    display: block;
+    height: 14px;
+    background: #e3edf8;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .fill {
+    display: block;
+    height: 100%;
+  }
+  .fill--volno,
+  .fill--ok {
+    background: var(--data-1);
+  }
+  .fill--pretlak {
+    background: var(--data-6);
+  }
+  .fill--na {
+    background: var(--data-rest);
+  }
+  .pct {
+    min-width: 3.2em;
+    text-align: right;
+    font-weight: 700;
+    color: var(--brand-dark);
+    white-space: nowrap;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin: 12px 0 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .sw {
+    display: inline-block;
+    width: 14px;
+    height: 10px;
+    border-radius: 2px;
+    margin-left: 6px;
+  }
+  .sw--ok {
+    background: var(--data-1);
+  }
+  .sw--bg {
+    background: #e3edf8;
+  }
+  .sw--pretlak {
+    background: var(--data-6);
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
   td {
     padding: 10px 8px;
     border-bottom: 1px solid var(--line);
@@ -163,9 +292,6 @@
   .num {
     text-align: right;
     white-space: nowrap;
-  }
-  .num strong {
-    color: var(--brand-dark);
   }
   ol {
     margin: 0;

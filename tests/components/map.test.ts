@@ -122,4 +122,24 @@ describe('Map', () => {
     expect(onzoomend).toHaveBeenCalledTimes(1);
     document.documentElement.classList.remove('crt-off');
   });
+
+  it('kružnice dosahu: střed na zadaném bodě, poloměr roste s km, popisek obce', () => {
+    const features = areaFeatures(kraje);
+    const proj = makeProjector(features, 600, 420);
+    const [cx, cy] = proj.project([12.87, 50.23]);
+    const { container, rerender } = setup({ circle: { lat: 50.23, lon: 12.87, km: 10, label: 'Karlovy Vary' } });
+    const ring = container.querySelector('.reach__ring')!;
+    expect(Number(ring.getAttribute('cx'))).toBeCloseTo(cx, 3);
+    expect(Number(ring.getAttribute('cy'))).toBeCloseTo(cy, 3);
+    const r10 = Number(ring.getAttribute('r'));
+    expect(r10).toBeGreaterThan(0);
+    expect(container.querySelector('.reach__lbl')?.textContent).toBe('Karlovy Vary');
+    void rerender;
+    cleanup();
+    const { container: c2 } = setup({ circle: { lat: 50.23, lon: 12.87, km: 20 } });
+    expect(Number(c2.querySelector('.reach__ring')!.getAttribute('r'))).toBeCloseTo(r10 * 2, 1);
+    cleanup();
+    const { container: c3 } = setup({ circle: null });
+    expect(c3.querySelector('.reach')).toBeNull();
+  });
 });

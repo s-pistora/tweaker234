@@ -71,8 +71,8 @@ describe('WeightPanel', () => {
     await fireEvent.input(slider, { target: { value: '5' } });
     expect(onweight).toHaveBeenCalledWith('nezamestnanost', 5);
 
-    expect(getByTestId('top5-CZ041').textContent).toContain('1. Karlovarský kraj — 80/100');
-    expect(getByTestId('top5-CZ042').textContent).toContain('2. Ústecký kraj — 40/100');
+    expect(getByTestId('top5-CZ041').textContent?.replace(/\s+/g, ' ')).toContain('1. Karlovarský kraj 80 ze 100');
+    expect(getByTestId('top5-CZ042').textContent?.replace(/\s+/g, ' ')).toContain('2. Ústecký kraj 40 ze 100');
     await fireEvent.click(getByTestId('top5-CZ041'));
     expect(onselect).toHaveBeenCalledWith('CZ041');
   });

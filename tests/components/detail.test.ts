@@ -42,11 +42,20 @@ describe('Detail', () => {
     expect(row.textContent).toContain('Údaj za rok 2024 není k dispozici.');
   });
 
-  it('ORP: věta i vs průměr kraje', () => {
+  it('ORP: věta i vs průměr kraje (relativní ukazatel)', () => {
+    const { getByTestId } = render(Detail, {
+      props: { snap, level: 'orp', code: '4103', name: 'KV', indicator: 'skoly', year: 2024 },
+    });
+    expect(getByTestId('typewriter').getAttribute('aria-label')).toContain('průměrem kraje');
+  });
+
+  it('absolutní počet (obyvatelé) se s ČR ani krajem nesrovnává – jen hodnota a vývoj', () => {
     const { getByTestId } = render(Detail, {
       props: { snap, level: 'orp', code: '4103', name: 'KV', indicator: 'obyvatele', year: 2024 },
     });
-    expect(getByTestId('typewriter').getAttribute('aria-label')).toContain('průměrem kraje');
+    const veta = getByTestId('typewriter').getAttribute('aria-label') ?? '';
+    expect(veta).toContain('Počet obyvatel');
+    expect(veta).not.toContain('průměrem');
   });
 
   it('chybějící `national` u ORP/obce (např. absolutní počty bez srovnání s ČR) nespadne, jen vynechá větu vs ČR', () => {
@@ -57,7 +66,7 @@ describe('Detail', () => {
       indicators: { ...snap.indicators, orp: orpNoNational },
     };
     const { getByTestId, container } = render(Detail, {
-      props: { snap: snapNoNational, level: 'orp', code: '4103', name: 'KV', indicator: 'obyvatele', year: 2024 },
+      props: { snap: snapNoNational, level: 'orp', code: '4103', name: 'KV', indicator: 'skoly', year: 2024 },
     });
     // pořád se vykreslí (nespadlo) a věta se vůči kraji pořád ukáže (`regional` zůstal)
     expect(container.querySelector('.rows')).toBeTruthy();

@@ -23,6 +23,7 @@
     TRIDA_LABEL,
     agreguj,
     dostupnostObci,
+    proZakyZeZs,
     filtrujObory,
     naplnenostSkoly,
     procenta,
@@ -213,7 +214,8 @@
 
   // --- režim „Kam na střední“ ---------------------------------------------
   const sk = $derived<SkolyState>(st.skoly ?? DEFAULT_SKOLY);
-  const obory = $derived(snap?.skoly?.obory ?? []);
+  /** jen obory pro žáky ze ZŠ (bez VOŠ a nástaveb, které sada také obsahuje) */
+  const obory = $derived((snap?.skoly?.obory ?? []).filter(proZakyZeZs));
   const obecFeatures = $derived(snap ? areaFeatures(snap.geo['kv-obce']) : []);
   const obecCentroidy = $derived(centroidy(obecFeatures));
   const obecNames = $derived(
@@ -246,7 +248,7 @@
       const n = naplnenostSkoly(obory.filter((o) => o.izo === s.izo));
       const t = tridaNaplnenosti(n);
       return {
-        id: `skola:${s.izo}:${s.lat}`,
+        id: `skola:${s.izo}`,
         name: s.skola,
         lon: s.lon,
         lat: s.lat,
@@ -437,7 +439,8 @@
             <section class="mapcard" aria-label="Mapa">
               <h2>Kolik oborů je v dosahu</h2>
               <p class="mapcard__hint">
-                Tmavší obec = víc oborů do {sk.maxKm} km. Kliknutím na obec nastavíte, kde bydlíte.
+                Tmavší obec = víc oborů do {sk.maxKm} km. Kliknutím na obec nastavíte, kde bydlíte,
+                kliknutím na značku školy otevřete její detail.
               </p>
               <Map
                 features={obecFeatures}
@@ -448,6 +451,8 @@
                 preview={dostupnostPreview}
                 points={skolaPoints}
                 onselect={(code) => setSkoly({ domov: code, skola: null })}
+                onpointselect={(id) => setSkoly({ skola: id.replace(/^skola:/, '') })}
+                circle={domov ? { ...domov, km: sk.maxKm, label: domovNazev } : null}
                 label="Mapa obcí Karlovarského kraje podle počtu oborů v dosahu"
                 hint="Najeďte na obec a uvidíte, kolik oborů je odtud v dosahu. Kliknutím ji vyberete jako bydliště."
               />
@@ -898,6 +903,21 @@
   @media (max-width: 560px) {
     .wrap {
       padding: 0 16px;
+    }
+    .topbar__in {
+      min-height: 0;
+      padding-top: 10px;
+    }
+    .mainnav {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      width: 100%;
+      margin: 0 -8px;
+      scrollbar-width: none;
+    }
+    .mainnav button {
+      white-space: nowrap;
+      padding: 0 10px;
     }
     .kpi__value {
       font-size: 1.75rem;

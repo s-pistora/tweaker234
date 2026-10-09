@@ -20,7 +20,15 @@ nabídka mění**. Režim `[KAM NA STŘEDNÍ]` to ukazuje na jednom místě:
 - detail školy s větami lidskou řečí („Loni na obor … nastoupilo 14 z 17 plánovaných míst (82 %)…“),
 - **přehled pro kraj** (užitek pro veřejnou správu): naplněnost podle skupin oborů a území ORP,
   TOP 10 poloprázdných oborů a TOP 10 oborů, kde zájem převýšil nabídku,
-- stav filtrů je v adrese – odkaz jde poslat kamarádovi nebo výchovné poradkyni.
+- stav filtrů je v adrese – odkaz jde poslat kamarádovi nebo výchovné poradkyni,
+- na mapě je kružnice dosahu kolem bydliště, klik na značku školy otevře její detail.
+
+### Vzhled
+
+Celá aplikace (všechny tři pohledy) je navržená podle brandbooku vycházejícího z Gov.cz design
+systému a jednotného vizuálního stylu státu: státní modrá `#00469B`, tmavě modrá `#0C1838`,
+ledová `#F2F6FC`, žlutý fokus, písmo Roboto, datová paleta pro grafy, tlačítka a pole vysoká 44 px,
+texty „číslo první, vždy se srovnáním“. Logo ani název žádného úřadu nepoužíváme – jde o prototyp.
 
 Vzdálenosti jsou vzdušnou čarou: kraj jízdní řády jako otevřená data nezveřejňuje (proto počítáme
 jen zastávky v okolí školy).
@@ -35,8 +43,12 @@ jen zastávky v okolí školy).
 | Autobusové zastávky v Karlovarském kraji | [CSV](https://www.datazapad.cz/api/download/v1/items/979283f4b7ec4b778b8eed7aab6917c3/csv?layers=0) | CC BY 4.0 |
 | Hranice obcí a ORP – ČÚZK RÚIAN | viz [SOURCES.md](SOURCES.md) | CC BY 4.0 |
 
+Pro žáky ze ZŠ ukazujeme jen obory, kam se po 9. třídě opravdu hlásí: sada obsahuje i vyšší
+odborné školy, nástavbové a dálkové studium – ty z výběru i ze součtů vyřazujeme.
+
 Úpravy dat: tři ročníky mají každý jiné záhlaví (např. překlep „Froma vzdělávání“) – sjednocujeme
-je a spojujeme podle IZO školy + kódu oboru + formy; opravujeme překlep v kódu oboru `23-68/H/01`.
+je a spojujeme podle IZO školy + kódu oboru + formy; opravujeme překlep v kódu oboru `23-68/H/01`
+a zdvojené uvozovky v názvech.
 Naplněnost = nově přijatí k 30. 9. 2025 ÷ záměr 2025/26. Aktualizace: `npm run data:skoly`.
 
 ## Použití AI
@@ -50,10 +62,10 @@ Naplněnost = nově přijatí k 30. 9. 2025 ÷ záměr 2025/26. Aktualizace: `np
 ## Co vzniklo před hackathonem a co během něj
 
 Upřímně: základ aplikace **KRAJ-TERM** (mapa krajů/ORP/obcí, datová pipeline ČSÚ/ČÚZK/DATAZÁPAD,
-režim „Kde by se mi dobře žilo?“, CRT vzhled) napsal člen týmu před akcí (commity z 27.–28. 9. 2026).
+režim „Kde by se mi dobře žilo?“, původně v retro CRT vzhledu) napsal člen týmu před akcí (commity z 27.–28. 9. 2026).
 **Během hackathonu (9.–10. 10. 2026)** vznikl režim **„Kam na střední“** – nová data záměrů
 přijímání SŠ, výpočty naplněnosti, mapa dostupnosti, seznam, detail školy a přehled pro kraj
-(viz historie commitů od 9. 10. 2026).
+a nový vzhled celé aplikace podle brandbooku (viz historie commitů od 9. 10. 2026).
 
 ## Tým
 
@@ -67,7 +79,7 @@ přijímání SŠ, výpočty naplněnosti, mapa dostupnosti, seznam, detail ško
 
 ## Původní funkce KRAJ-TERM
 
-Webová „GIS stanice z 90. let“ nad otevřenými daty krajů ČR s detailem **Karlovarského kraje**
+Webová mapa nad otevřenými daty krajů ČR s detailem **Karlovarského kraje**
 až na úroveň ORP a obcí. Hackathon Karlovarského kraje, 2026.
 
 - mapa 14 krajů ČR (hover = náhled, klik / Enter = detail, šipky = pohyb mezi kraji, Esc = zpět),
@@ -76,7 +88,7 @@ až na úroveň ORP a obcí. Hackathon Karlovarského kraje, 2026.
 - detail území s větami „lidskou řečí“ (šablony, bez AI), grafem časové řady a věkovou strukturou,
 - režim **„Kde by se mi dobře žilo?“** – vážené skóre podle posuvníků, s vysvětlením výpočtu,
 - časová osa (data od roku 2000, kde existují), sdílitelný odkaz (stav je v URL),
-- přepínač CRT efektů, respektuje `prefers-reduced-motion`, ovládání klávesnicí.
+- respektuje `prefers-reduced-motion`, ovládání klávesnicí.
 
 ## Spuštění
 
@@ -116,7 +128,7 @@ datem stažení a rokem platnosti je v [SOURCES.md](SOURCES.md) a v aplikaci pod
 4. Když některý zdroj nejde stáhnout, zůstane jeho poslední platná verze a v aplikaci je označen `STALE`.
 
 Snapshot v `public/data/` je zároveň **offline záloha** – aplikace běží i bez připojení k API.
-Při startu (boot sekvence) se skutečně načítá manifest a všechny soubory snapshotu.
+Při startu se načítá manifest a všechny soubory snapshotu.
 
 ### Známá omezení dat
 
