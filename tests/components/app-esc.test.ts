@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
 //
-// Regrese: HowModal dřív zavíralo Esc lokálně (volalo `onclose()`), ale
-// událost NEzastavilo, takže probublala až na globální `onKey` v App.svelte.
-// Ten viděl `howOpen` už `false` (lokální handler ho stihl vypnout dřív, ve
-// stejném synchronním průchodu) a spadl na `drill.up()` - omylem šel o úroveň
-// výš, i když uživatel jen zavíral modál. Oprava: Esc řeší VÝHRADNĚ App
-// (stejně jako u Sources.svelte); tenhle test to ověřuje na celé aplikaci.
+// Regrese: Esc řeší VÝHRADNĚ globální `onKey` v App.svelte. V režimu „Kde by se
+// mi dobře žilo?“ zavře detail obce, ale nesmí spadnout na `drill.up()` mapy kraje
+// (dřív se to stalo u modálu HowModal) – režim skóre má vlastní stav a drill-down
+// Statistiky nesmí měnit.
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/svelte';
 import { readFileSync, existsSync } from 'node:fs';
@@ -37,8 +35,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('App – Esc s otevřeným HowModal', () => {
-  it('zavře modál, ale NEPROVEDE o úroveň výš (drill.up race)', async () => {
+describe('App – Esc s otevřeným detailem obce v režimu skóre', () => {
+  it('zavře detail, ale NEPROVEDE o úroveň výš v mapě kraje', async () => {
     location.hash = '#/kraj?m=explore'; // výchozí stránka je „Kam na střední“ (bez boot sekvence)
     const { container } = render(App);
 
@@ -50,16 +48,17 @@ describe('App – Esc s otevřeným HowModal', () => {
     await fireEvent.click(container.querySelector('path[data-code="4103"]')!);
     await waitFor(() => expect(container.querySelector('[data-testid="level-up"]')).toBeTruthy());
 
-    // přepnout do režimu skóre a otevřít "Jak se to počítá?"
+    // přepnout do režimu skóre a otevřít detail obce kliknutím do jeho mapy
     await fireEvent.click(screen.getByTestId('mode-score'));
-    await fireEvent.click(screen.getByTestId('how-btn'));
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    const obec = screen.getByTestId('zivot-mapa').querySelector('path[data-code]')!;
+    await fireEvent.click(obec);
+    expect(screen.getByTestId('zivot-detail')).toBeTruthy();
 
-    // Esc vyvolaný UVNITŘ dialogu - probublá až na window, kde ho zachytí App
-    await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    // Esc vyvolaný UVNITŘ detailu - probublá až na window, kde ho zachytí App
+    await fireEvent.keyDown(screen.getByTestId('zivot-detail'), { key: 'Escape' });
 
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    // pořád v režimu skóre - Esc modál zavřel a nic víc nezměnil
+    await waitFor(() => expect(screen.queryByTestId('zivot-detail')).toBeNull());
+    // pořád v režimu skóre - Esc detail zavřel a nic víc nezměnil
     expect(screen.getByTestId('mode-score').getAttribute('aria-current')).toBe('page');
 
     // návrat do průzkumu potvrdí, že mapa pořád je na úrovni obcí (kdyby Esc

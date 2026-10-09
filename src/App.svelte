@@ -10,8 +10,9 @@
   import Timeline from './components/Timeline.svelte';
   import Map from './components/Map.svelte';
   import Legend from './components/Legend.svelte';
-  import WeightPanel from './components/WeightPanel.svelte';
-  import HowModal, { type HowPart } from './components/HowModal.svelte';
+  import ZivotPanel from './components/zivot/ZivotPanel.svelte';
+  import ZivotTop from './components/zivot/ZivotTop.svelte';
+  import ZivotDetail from './components/zivot/ZivotDetail.svelte';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
@@ -31,10 +32,23 @@
     linkInvalid,
     DEFAULT_SKOLY,
     DEFAULT_VYLETY,
+    DEFAULT_ZIVOT,
     type Mode,
     type SkolyState,
     type VyletyState,
+    type ZivotState,
   } from './lib/state.ts';
+  import {
+    DOPORUCENY_VYBER,
+    POZADAVKY,
+    POZADAVKY_BY_ID,
+    bodyPozadavku,
+    kratkaHodnota,
+    poradi,
+    silneStranky,
+    spocitejSkore,
+    vytvorKontext,
+  } from './lib/zivot.ts';
   import {
     KATEGORIE,
     KATEGORIE_BY_ID,
@@ -61,7 +75,6 @@
   import { areaFeatures } from './lib/map/project.ts';
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
-  import { eligibleIndicators, score, scoreIndicatorYear } from './lib/score.ts';
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
@@ -129,10 +142,11 @@
   $effect(() => {
     if (snap && view.level !== st.level) navigate(view);
   });
-  // Aplikace mluví jen o Karlovarském kraji: mapa i skóre začínají jeho 7 ORP (mapa krajů ČR
+  // Aplikace mluví jen o Karlovarském kraji: mapa začíná jeho 7 ORP (mapa krajů ČR
   // se nenabízí; data ČR zůstávají jen jako srovnávací základna v Detailu).
+  // Režim „Kde by se mi dobře žilo?“ má vlastní mapu obcí a drill-down nepoužívá.
   $effect(() => {
-    if (snap && (st.mode === 'explore' || st.mode === 'score') && view.level === 'kraj') {
+    if (snap && st.mode === 'explore' && view.level === 'kraj') {
       navigate({ level: 'orp', area: null, orp: null });
     }
   });
@@ -140,85 +154,6 @@
   const file = $derived(snap?.indicators[view.level]);
   const years = $derived(yearsWithData(file, st.indicator));
   const target = $derived(detailTarget(view));
-
-  // --- režim „Kde by se mi dobře žilo?“ (Task 16) -------------------------
-  const SCORE_DEF: IndicatorDef = {
-    id: 'score',
-    label: 'Skóre',
-    unit: '/100',
-    higherIsBetter: true,
-    sourceId: 'score',
-    decimals: 0,
-  };
-
-  const eligible = $derived(file ? eligibleIndicators(file) : []);
-  const eligibleIds = $derived(new Set(eligible.map((d) => d.id)));
-  /** váhy z appState omezené na ukazatele způsobilé pro skóre (obrana proti ručně upravenému URL) */
-  const scoreWeights = $derived(
-    Object.fromEntries(Object.entries(st.weights).filter(([id]) => eligibleIds.has(id))),
-  );
-  const totalWeight = $derived(Object.values(scoreWeights).reduce((a, b) => a + b, 0));
-  const scores = $derived(file && totalWeight > 0 ? score(file, st.year, scoreWeights) : {});
-  const scoreValues = $derived(
-    Object.fromEntries(Object.entries(scores).map(([code, s]) => [code, s.score])) as Record<
-      AreaCode,
-      number | null
-    >,
-  );
-
-  const scoreFeatures = $derived.by(() => {
-    if (!snap) return [];
-    if (view.level === 'kraj') return areaFeatures(snap.geo.kraje);
-    if (view.level === 'orp') return areaFeatures(snap.geo['kv-orp']);
-    return areaFeatures(snap.geo['kv-obce'], view.orp);
-  });
-  /** skóre omezené na území aktuálně zobrazená na mapě (např. jen obce vybraného ORP) */
-  const scoresInView = $derived.by(() => {
-    const codes = new Set(scoreFeatures.map((f) => f.properties.code));
-    return Object.fromEntries(Object.entries(scores).filter(([code]) => codes.has(code)));
-  });
-
-  function scorePreview(code: AreaCode): string[] {
-    const s = scores[code];
-    if (!s || s.score === null) return ['SKÓRE: N/A'];
-    return [`SKÓRE ${Math.round(s.score)}/100`];
-  }
-
-  function setWeight(id: string, w: number) {
-    appState.update((s) => {
-      const weights = { ...s.weights };
-      if (w > 0) weights[id] = w;
-      else delete weights[id];
-      return { ...s, weights };
-    });
-  }
-  function selectScoreArea(code: AreaCode) {
-    appState.update((s) => ({ ...s, area: code }));
-  }
-
-  /** rozpad skóre vybraného území obohacený o hodnotu/rok každé části - pro HowModal */
-  const selectedParts = $derived.by((): HowPart[] => {
-    if (!file || !view.area) return [];
-    const s = scores[view.area];
-    if (!s) return [];
-    return s.parts.map((p) => {
-      const y = scoreIndicatorYear(file, p.id);
-      const v = y !== null ? (file.values[p.id]?.[view.area as AreaCode]?.[y] ?? null) : null;
-      return { ...p, value: v, year: y };
-    });
-  });
-  const selectedSkippedDefs = $derived.by((): IndicatorDef[] => {
-    if (!file || !view.area) return [];
-    const s = scores[view.area];
-    if (!s) return [];
-    return s.skipped.map((id) => file.indicators[id]).filter((d): d is IndicatorDef => !!d);
-  });
-  const howIndicators = $derived.by(() => {
-    if (!file) return [];
-    return Object.entries(scoreWeights)
-      .filter(([id, w]) => w > 0 && id in file.indicators)
-      .map(([id, weight]) => ({ def: file.indicators[id], year: scoreIndicatorYear(file, id), weight }));
-  });
 
   /** poslední ukazatel zvolený uživatelem – při návratu na úroveň, kde existuje, se obnoví */
   let preferredIndicator: string | null = null;
@@ -250,6 +185,7 @@
         m === 'vylety'
           ? (s.vylety ?? { ...DEFAULT_VYLETY, tagy: [], domov: s.skoly?.domov ?? null })
           : s.vylety,
+      zivot: m === 'score' ? (s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }) : s.zivot,
     }));
     toTop();
   }
@@ -418,6 +354,70 @@
   }
   const vySources = $derived(snap ? snap.manifest.sources : []);
 
+  // --- režim „Kde by se mi dobře žilo?“ ------------------------------------
+  // Vlastní stav (st.zivot) a vlastní mapa všech obcí kraje – nezávisle na drill-downu
+  // Statistiky (st.level/st.area). Metriky a percentily se počítají jednou na požadavek
+  // (memo v kontextu), přepočet skóre při změně výběru je jen vážený průměr.
+  const ZIVOT_DEF: IndicatorDef = {
+    id: 'zivot-skore',
+    label: 'Skóre',
+    unit: '/100',
+    higherIsBetter: true,
+    sourceId: 'zivot',
+    decimals: 0,
+  };
+  const zi = $derived<ZivotState>(st.zivot ?? DEFAULT_ZIVOT);
+  const ziCtx = $derived(snap ? vytvorKontext(snap, obecCentroidy, obecNames) : null);
+  const ziSkore = $derived(ziCtx ? spocitejSkore(ziCtx, zi.pozadavky) : {});
+  const ziPoradi = $derived(poradi(ziSkore, obecNames));
+  const ziRank = $derived(Object.fromEntries(ziPoradi.map((r) => [r.code, r.rank])) as Record<AreaCode, number>);
+  const ziValues = $derived(
+    Object.fromEntries(obecFeatures.map((f) => [f.properties.code, ziSkore[f.properties.code]?.score ?? null])) as Record<
+      AreaCode,
+      number | null
+    >,
+  );
+  const ziPocetBodu = $derived(
+    ziCtx ? Object.fromEntries(POZADAVKY.map((p) => [p.id, bodyPozadavku(ziCtx, p.id).length])) : {},
+  );
+  /** obec → název ORP (pro seznam a detail) */
+  const ziOrp = $derived(
+    Object.fromEntries(
+      obecFeatures.map((f) => [f.properties.code, geoIndex.names[geoIndex.obecParent[f.properties.code]] ?? '']),
+    ) as Record<AreaCode, string>,
+  );
+  const ziUkaz = $derived(zi.ukaz ? POZADAVKY_BY_ID[zi.ukaz] : undefined);
+  const ziPoints = $derived.by((): MapPoint[] => {
+    if (!ziCtx || !ziUkaz) return [];
+    const u = ziUkaz;
+    return bodyPozadavku(ziCtx, u.id).map((b) => ({
+      id: b.id,
+      name: b.nazev,
+      lon: b.lon,
+      lat: b.lat,
+      layerLabel: `${u.label}${b.obecNazev ? ` · ${b.obecNazev}` : ''}`,
+      provider: b.provider,
+      tone: 'phosphor',
+      glyph: 'o',
+      color: u.barva,
+    }));
+  });
+  const ziRok = $derived(snap ? new Date(snap.updatedAt).getFullYear() : 0);
+  const ziVybrano = $derived(Object.keys(zi.pozadavky).length);
+  function ziPreview(code: AreaCode): string[] {
+    const s = ziSkore[code];
+    if (!ziVybrano) return ['Vyberte, na čem vám záleží.'];
+    if (!s || s.score === null) return ['Skóre nelze spočítat, chybí údaje.'];
+    return [
+      `Skóre ${Math.round(s.score)}/100 · ${ziRank[code]}. z ${ziPoradi.length}`,
+      ...silneStranky(s, 2).map((p) => `+ ${POZADAVKY_BY_ID[p.id]?.label}: ${kratkaHodnota(p.id, p.value)}`),
+      'klik = detail obce',
+    ];
+  }
+  function setZivot(patch: Partial<ZivotState>) {
+    appState.update((s) => ({ ...s, zivot: { ...(s.zivot ?? DEFAULT_ZIVOT), ...patch } }));
+  }
+
   // --- sdílení odkazu --------------------------------------------------------
   let toast = $state<string | null>(null);
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -529,8 +529,6 @@
   let drill = $state<ReturnType<typeof Drilldown> | null>(null);
   let sourcesOpen = $state(false);
   let sourcesTrigger: HTMLElement | null = null;
-  let howOpen = $state(false);
-  let howTrigger: HTMLElement | null = null;
 
   function openSources() {
     sourcesTrigger = document.activeElement as HTMLElement | null;
@@ -540,23 +538,11 @@
     sourcesOpen = false;
     sourcesTrigger?.focus?.();
   }
-  function openHow() {
-    howTrigger = document.activeElement as HTMLElement | null;
-    howOpen = true;
-  }
-  function closeHow() {
-    howOpen = false;
-    howTrigger?.focus?.();
-  }
 
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !snap || tourOpen) return;
     if (sourcesOpen) {
       closeSources();
-      return;
-    }
-    if (howOpen) {
-      closeHow();
       return;
     }
     if (st.mode === 'skoly') {
@@ -566,6 +552,12 @@
     if (st.mode === 'vylety') {
       if (vy.misto) setVylety({ misto: null });
       else if (vy.kat) openKat(null);
+      return;
+    }
+    if (st.mode === 'score') {
+      // nejdřív zavřít detail obce, pak skrýt body na mapě
+      if (zi.obec) setZivot({ obec: null });
+      else if (zi.ukaz) setZivot({ ukaz: null });
       return;
     }
     drill?.up();
@@ -923,15 +915,91 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'score'}
+    <section class="hero hero--slim">
+      <div class="wrap">
+        <p class="kicker">Bydlení · Karlovarský kraj</p>
+        <h1>Kde by se mi dobře žilo?</h1>
+        <p class="perex">
+          Vyberte, na čem vám záleží. Mapa obarví všech {obecFeatures.length} obcí kraje podle toho, jak vašim požadavkům
+          vyhovují. U každé obce vysvětlíme proč.
+        </p>
+      </div>
+    </section>
+    <main class="wrap main zivot">
+      <div class="zivot__panel">
+        <ZivotPanel
+          pozadavky={zi.pozadavky}
+          ukaz={zi.ukaz}
+          pocetBodu={ziPocetBodu}
+          onchange={(p) => setZivot({ pozadavky: p })}
+          onukaz={(id) => setZivot({ ukaz: id })}
+          ondoporuceny={() => setZivot({ pozadavky: { ...DOPORUCENY_VYBER } })}
+        />
+      </div>
+      <section class="mapcard zivot__map" aria-label="Mapa obcí podle skóre" data-tour="zivot-mapa" data-testid="zivot-mapa">
+        <h2>
+          {#if ziPoradi.length}
+            Nejlépe vychází {obecNames[ziPoradi[0].code] ?? ''} ({Math.round(ziPoradi[0].score)}/100)
+          {:else}
+            Vyberte, na čem vám záleží
+          {/if}
+        </h2>
+        <p class="mapcard__hint">
+          Tmavší obec = lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
+          Klikněte na obec a uvidíte proč.
+        </p>
+        <Map
+          features={obecFeatures}
+          values={ziValues}
+          def={ZIVOT_DEF}
+          year={ziRok}
+          selected={zi.obec}
+          preview={ziPreview}
+          points={ziPoints}
+          onselect={(code) => setZivot({ obec: code })}
+          label="Mapa obcí Karlovarského kraje podle skóre bydlení"
+          hint="Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail."
+        />
+        <Legend values={obecFeatures.map((f) => ziValues[f.properties.code] ?? null)} def={ZIVOT_DEF} year={ziRok} />
+        {#if ziUkaz}
+          <p class="zivot__ukaz" data-testid="zivot-ukaz">
+            <span class="dot" style="background: {ziUkaz.barva ?? 'var(--brand)'}" aria-hidden="true"></span>
+            <span>Na mapě: {ziUkaz.label} ({ziPoints.length})</span>
+            <button type="button" onclick={() => setZivot({ ukaz: null })}>Skrýt</button>
+          </p>
+        {/if}
+      </section>
+      <div class="zivot__side">
+        <p class="sr-only" aria-live="polite">{zi.obec ? `Detail obce ${obecNames[zi.obec] ?? ''}` : ''}</p>
+        {#if zi.obec && ziCtx}
+          <ZivotDetail
+            ctx={ziCtx}
+            code={zi.obec}
+            name={obecNames[zi.obec] ?? zi.obec}
+            orpName={ziOrp[zi.obec] ?? ''}
+            skore={ziSkore[zi.obec]}
+            rank={ziRank[zi.obec] ?? null}
+            celkem={obecFeatures.length}
+            onclose={() => setZivot({ obec: null })}
+          />
+        {/if}
+        <ZivotTop
+          poradi={ziPoradi}
+          names={obecNames}
+          orp={ziOrp}
+          selected={zi.obec}
+          onselect={(code) => setZivot({ obec: code })}
+        />
+      </div>
+    </main>
   {:else}
     <section class="hero hero--slim">
       <div class="wrap">
         <p class="kicker">Karlovarský kraj v číslech</p>
-        <h1>{st.mode === 'score' ? 'Kde by se mi dobře žilo?' : 'Mapa kraje'}</h1>
+        <h1>Mapa kraje</h1>
         <p class="perex">
-          {st.mode === 'score'
-            ? 'Nastavte, na čem vám záleží, a mapa seřadí území podle skóre. U každého výsledku vysvětlujeme, jak vzniklo.'
-            : 'Vyberte ukazatel a rok. Klikněte na ORP (správní obvod) a dál na jednotlivé obce. Číslo vždy srovnáváme s průměrem Česka.'}
+          Vyberte ukazatel a rok. Klikněte na ORP (správní obvod) a dál na jednotlivé obce. Číslo vždy srovnáváme s průměrem Česka.
         </p>
         <StatusBar
           updatedAt={snap.updatedAt}
@@ -957,41 +1025,6 @@
             onnavigate={navigate}
           />
           <Timeline {years} year={st.year} onyear={setYear} />
-        {:else}
-          <WeightPanel
-            indicators={eligible}
-            weights={scoreWeights}
-            names={geoIndex.names}
-            scores={scoresInView}
-            selected={view.area}
-            onweight={setWeight}
-            onselect={selectScoreArea}
-            onhow={openHow}
-          />
-          {#if totalWeight > 0}
-            <div class="ascii-panel">
-              <Map
-                features={scoreFeatures}
-                values={scoreValues}
-                def={SCORE_DEF}
-                year={st.year}
-                selected={view.area}
-                preview={scorePreview}
-                onselect={selectScoreArea}
-                label="Mapa skóre"
-              />
-              <Legend
-                values={scoreFeatures.map((f) => scoreValues[f.properties.code] ?? null)}
-                def={SCORE_DEF}
-                year={st.year}
-              />
-            </div>
-          {:else}
-            <div class="ascii-panel">
-              <h2 class="ascii-panel__title">Nastavte, na čem vám záleží</h2>
-              <p>Posuňte aspoň jeden posuvník výš než 0. Teprve pak má obarvení mapy smysl.</p>
-            </div>
-          {/if}
         {/if}
       </section>
       <section class="panel-col" aria-label="Detail území">
@@ -1020,15 +1053,6 @@
         {/if}
       </section>
     </main>
-    {#if howOpen}
-      <HowModal
-        indicators={howIndicators}
-        selectedName={view.area ? (geoIndex.names[view.area] ?? view.area) : null}
-        parts={selectedParts}
-        skipped={selectedSkippedDefs}
-        onclose={closeHow}
-      />
-    {/if}
   {/if}
 
   <footer class="footer">
@@ -1332,6 +1356,77 @@
     border-radius: 50%;
     margin-right: 5px;
     vertical-align: -1px;
+  }
+  /* „Kde by se mi dobře žilo?“: požadavky | mapa | detail + TOP 10 */
+  .zivot {
+    display: grid;
+    grid-template-columns: minmax(0, 320px) minmax(0, 1fr) minmax(0, 330px);
+    grid-template-areas: 'panel map side';
+    gap: 24px;
+    align-items: start;
+  }
+  .zivot__panel {
+    grid-area: panel;
+    min-width: 0;
+  }
+  .zivot__map {
+    grid-area: map;
+  }
+  .zivot__side {
+    grid-area: side;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .zivot__ukaz {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 10px 0 0;
+    font-size: 0.9rem;
+    color: var(--brand-dark);
+  }
+  .zivot__ukaz .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .zivot__ukaz button {
+    font: inherit;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: var(--bg-panel);
+    color: var(--brand);
+    cursor: pointer;
+  }
+  .zivot__ukaz button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  @media (max-width: 1240px) {
+    .zivot {
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      grid-template-areas:
+        'panel map'
+        'panel side';
+    }
+    /* mapa by se při posunu přesouvala přes pravý sloupec pod ní */
+    .zivot .zivot__map {
+      position: static;
+    }
+  }
+  @media (max-width: 1000px) {
+    .zivot {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        'map'
+        'side'
+        'panel';
+    }
   }
   /* úvodní pruh */
   .hero {

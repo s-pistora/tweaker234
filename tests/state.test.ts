@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
-import { parseHash, toHash, appState, initHashSync, linkInvalid, DEFAULT_SKOLY, DEFAULT_VYLETY, type AppState } from '../src/lib/state.ts';
+import {
+  parseHash,
+  toHash,
+  appState,
+  initHashSync,
+  linkInvalid,
+  DEFAULT_SKOLY,
+  DEFAULT_VYLETY,
+  DEFAULT_ZIVOT,
+  type AppState,
+} from '../src/lib/state.ts';
 import type { Snapshot } from '../src/lib/data/loader.ts';
 import type { Manifest, IndicatorFile } from '../src/lib/types.ts';
 
@@ -351,5 +361,57 @@ describe('režim „Kam vyrazit“ v hashi', () => {
     expect(state.skoly).toBeUndefined();
     expect(state.vylety?.domov).toBe('554961');
     expect(state.vylety?.maxKm).toBe(20);
+  });
+});
+
+describe('režim „Kde by se mi dobře žilo?“ v hashi', () => {
+  function snapZivot(): Snapshot {
+    const obec = {
+      level: 'obec',
+      indicators: {},
+      values: { obyvatele: { '554961': { 2025: 1 }, '554481': { 2025: 1 } } },
+      regional: {},
+      national: {},
+    } as unknown as IndicatorFile;
+    return { ...makeSnap(), indicators: { ...makeSnap().indicators, obec } };
+  }
+
+  it('m=score bez parametrů → doporučený výběr; jiné režimy pole zivot nemají', () => {
+    const { state, invalid } = parseHash('#/kraj?m=score', snapZivot());
+    expect(invalid).toBe(false);
+    expect(state.zivot).toEqual(DEFAULT_ZIVOT);
+    expect(Object.keys(state.zivot!.pozadavky).length).toBeGreaterThan(0);
+    expect(parseHash('#/kraj?m=explore', snapZivot()).state.zivot).toBeUndefined();
+  });
+
+  it('round-trip požadavků s důležitostí, obce a bodů na mapě', () => {
+    const snap = snapZivot();
+    const { state } = parseHash('#/kraj?m=score', snap);
+    state.zivot = { pozadavky: { lekarna: 2, 'blizko-kv': 1 }, obec: '554481', ukaz: 'lekarna' };
+    const hash = toHash(state);
+    expect(hash).toContain('zp=lekarna:2,blizko-kv:1');
+    expect(hash).toContain('zo=554481');
+    expect(hash).toContain('zu=lekarna');
+    const back = parseHash(hash, snap);
+    expect(back.invalid).toBe(false);
+    expect(back.state).toEqual(state);
+  });
+
+  it('prázdné zp= (vše zrušeno) přežije round-trip', () => {
+    const snap = snapZivot();
+    const { state } = parseHash('#/kraj?m=score&zp=', snap);
+    expect(state.zivot?.pozadavky).toEqual({});
+    expect(parseHash(toHash(state), snap).state.zivot?.pozadavky).toEqual({});
+  });
+
+  it('nevalidní hodnoty spadnou na výchozí (platné páry zůstanou) a označí odkaz jako neplatný', () => {
+    const { state, invalid } = parseHash('#/kraj?m=score&zp=lekarna:3,neexistuje:1,zubar:2&zo=999&zu=nic', snapZivot());
+    expect(invalid).toBe(true);
+    expect(state.zivot).toEqual({ pozadavky: { zubar: 2 }, obec: null, ukaz: null });
+  });
+
+  it('starý parametr w= se dál parsuje beze změny', () => {
+    const { state } = parseHash('#/orp/4103?m=score&w=skoly:3', snapZivot());
+    expect(state.weights).toEqual({ skoly: 3 });
   });
 });

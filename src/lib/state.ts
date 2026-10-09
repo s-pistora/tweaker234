@@ -2,6 +2,7 @@
 //
 // Format URL: #/{uroven}/{kod}?u=<ukazatel>&r=<rok>&m=<rezim>&w=<id:vaha,...>
 //             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>]  (rezim skoly)
+//             [&zp=<id:1|2,...>&zo=<obec>&zu=<id pozadavku>]  (rezim score = „Kde by se mi dobře žilo?“)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
 // (parseHash/toHash nikdy nevyhodi vyjimku) - navic se vrati `invalid:true`.
@@ -9,6 +10,7 @@
 import { writable } from 'svelte/store';
 import { LEVELS, KATEGORIE_IDS, type Level, type AreaCode, type TypStudia, type KategorieId } from './types.ts';
 import type { Snapshot } from './data/loader.ts';
+import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
 export type Mode = 'explore' | 'score' | 'skoly' | 'vylety';
 export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety'];
@@ -61,6 +63,23 @@ export const DEFAULT_VYLETY: VyletyState = {
   razeni: 'vzdalenost',
 };
 
+/** Režim „Kde by se mi dobře žilo?“ – vlastní stav, nezávislý na drill-downu Statistiky. */
+export interface ZivotState {
+  /** zvolené požadavky (id z `POZADAVKY`) s důležitostí 1 = důležité, 2 = velmi důležité */
+  pozadavky: Record<string, Dulezitost>;
+  /** obec otevřená v detailu */
+  obec: AreaCode | null;
+  /** požadavek, jehož body se ukazují na mapě */
+  ukaz: string | null;
+}
+
+/** Výchozí stav: doporučený výběr (zastávka, lékař, ZŠ, nezaměstnanost), ať mapa není prázdná. */
+export const DEFAULT_ZIVOT: ZivotState = {
+  pozadavky: { ...DOPORUCENY_VYBER },
+  obec: null,
+  ukaz: null,
+};
+
 export const KM_MIN = 5;
 export const KM_MAX = 80;
 
@@ -75,6 +94,8 @@ export interface AppState {
   skoly?: SkolyState;
   /** jen když se režim „Kam vyrazit“ použil */
   vylety?: VyletyState;
+  /** jen když se režim „Kde by se mi dobře žilo?“ použil */
+  zivot?: ZivotState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -238,6 +259,9 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const vy = parseVylety(params, snap);
   if (vy.used || mode === 'vylety') state.vylety = vy.state;
   if (vy.invalid) invalid = true;
+  const zi = parseZivot(params, snap);
+  if (zi.used || mode === 'score') state.zivot = zi.state;
+  if (zi.invalid) invalid = true;
   return { state, invalid };
 }
 
@@ -348,6 +372,42 @@ function parseVylety(params: URLSearchParams, snap: Snapshot): { state: VyletySt
   return { state: st, used, invalid };
 }
 
+/**
+ * Parametry režimu „Kde by se mi dobře žilo?“ (prefix z). `zp` chybí → doporučený výběr;
+ * `zp=` (prázdné) = uživatel vše zrušil. Neznámý požadavek nebo důležitost se zahodí zvlášť.
+ */
+function parseZivot(params: URLSearchParams, snap: Snapshot): { state: ZivotState; used: boolean; invalid: boolean } {
+  const st: ZivotState = { ...DEFAULT_ZIVOT, pozadavky: { ...DEFAULT_ZIVOT.pozadavky } };
+  let used = false;
+  let invalid = false;
+
+  const zp = params.get('zp');
+  if (zp !== null) {
+    used = true;
+    st.pozadavky = {};
+    if (zp !== '') {
+      for (const pair of zp.split(',')) {
+        const m = /^([a-z0-9-]+):([12])$/.exec(pair.trim());
+        if (m && POZADAVEK_IDS.includes(m[1])) st.pozadavky[m[1]] = Number(m[2]) as Dulezitost;
+        else invalid = true;
+      }
+    }
+  }
+  const zo = params.get('zo');
+  if (zo !== null) {
+    used = true;
+    if (areasAvailable(snap, 'obec').has(zo)) st.obec = zo;
+    else invalid = true;
+  }
+  const zu = params.get('zu');
+  if (zu !== null) {
+    used = true;
+    if (POZADAVEK_IDS.includes(zu)) st.ukaz = zu;
+    else invalid = true;
+  }
+  return { state: st, used, invalid };
+}
+
 export function toHash(state: AppState): string {
   const area = state.area ? `/${state.area}` : '';
   const parts: string[] = [];
@@ -377,6 +437,13 @@ export function toHash(state: AppState): string {
     if (v.misto) parts.push(`vp=${encodeURIComponent(v.misto)}`);
     if (v.q) parts.push(`vq=${encodeURIComponent(v.q)}`);
     if (v.razeni !== DEFAULT_VYLETY.razeni) parts.push(`vo=${v.razeni}`);
+  }
+  if (state.zivot) {
+    const z = state.zivot;
+    // zp vždy (i prázdné), aby „Zrušit vše“ přežilo obnovení stránky
+    parts.push(`zp=${Object.entries(z.pozadavky).map(([id, w]) => `${id}:${w}`).join(',')}`);
+    if (z.obec) parts.push(`zo=${z.obec}`);
+    if (z.ukaz) parts.push(`zu=${z.ukaz}`);
   }
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;
