@@ -16,9 +16,12 @@
     srovnani,
     textSrovnani,
     vetaPozadavku,
+    type BodZivota,
     type ZivotKontext,
     type ZivotSkore,
   } from '../../lib/zivot.ts';
+  import { chybejiciVObci, mapyCzOdkaz } from '../../lib/zivot-mapa.ts';
+  import { fmtKm } from '../../lib/vylety.ts';
 
   interface Props {
     ctx: ZivotKontext;
@@ -33,9 +36,33 @@
     vsech: number;
     /** přesunout fokus do detailu (uživatel ho právě otevřel) */
     fokus?: boolean;
+    /** id vybraných požadavků (pro „v obci není, nejbližší je…“) */
+    pozadavky?: readonly string[];
+    /** bod vybraný klikem na mapě */
+    vybranyBod?: { bod: BodZivota; vrstva: string; km: number } | null;
+    /** přepnout detail (a mapu) na jinou obec */
+    onobec?: (code: AreaCode) => void;
     onclose: () => void;
   }
-  const { ctx, code, name, orpName, skore, rank, celkem, vsech, fokus = false, onclose }: Props = $props();
+  const {
+    ctx,
+    code,
+    name,
+    orpName,
+    skore,
+    rank,
+    celkem,
+    vsech,
+    fokus = false,
+    pozadavky = [],
+    vybranyBod = null,
+    onobec,
+    onclose,
+  }: Props = $props();
+
+  /** konec věty bez zdvojené tečky („s.r.o.“ + „.“) */
+  const bezTecky = (t: string) => t.replace(/.+$/, '');
+  const chybi = $derived(skore?.neobydlena ? [] : chybejiciVObci(ctx, pozadavky, code));
 
   const casti = $derived(
     [...(skore?.parts ?? [])]
@@ -134,6 +161,41 @@
     <p class="empty" data-testid="zivot-neobydlena">Obec nemá stálé obyvatele, nehodnotíme ji.</p>
   {:else}
     <p class="empty">Pro tuto obec nemáme k vybraným požadavkům žádné údaje, skóre proto nepočítáme.</p>
+  {/if}
+
+  {#if vybranyBod}
+    {@const b = vybranyBod.bod}
+    <div class="misto" data-testid="zivot-misto" aria-live="polite">
+      <p class="misto__k">Vybrané místo · {POZADAVKY_BY_ID[vybranyBod.vrstva]?.label ?? ''}</p>
+      <p class="misto__n">{b.nazev}</p>
+      <p class="misto__a">
+        {b.adresa ?? b.obecNazev}{#if b.adresa && b.obecNazev && !b.adresa.includes(b.obecNazev)}, {b.obecNazev}{/if}
+        · {fmtKm(vybranyBod.km)} od středu obce {name}
+      </p>
+      <a href={mapyCzOdkaz(b)} target="_blank" rel="noopener noreferrer">Ukázat na Mapy.cz<span class="sr"> (otevře se v novém okně)</span></a>
+    </div>
+  {/if}
+
+  {#if chybi.length}
+    <h3>Co v obci není</h3>
+    <ul class="chybi" data-testid="zivot-chybi">
+      {#each chybi as c (c.id)}
+        <li>
+          <strong>{c.label}:</strong> v obci {name} není.
+          {#if c.nejblizsi}
+            Nejbližší je
+            {#if c.nejblizsi.obec && c.nejblizsi.obec !== code && onobec}
+              v obci <button type="button" class="obec" onclick={() => onobec?.(c.nejblizsi!.obec!)}>{c.nejblizsi.obecNazev}</button>
+            {:else if c.nejblizsi.obecNazev}
+              v obci {c.nejblizsi.obecNazev}
+            {/if}
+            ({fmtKm(c.nejblizsi.km)}): {bezTecky(`${c.nejblizsi.bod.nazev}${c.nejblizsi.bod.adresa ? `, ${c.nejblizsi.bod.adresa}` : ''}`)}.
+          {:else}
+            V datech kraje žádné není.
+          {/if}
+        </li>
+      {/each}
+    </ul>
   {/if}
 
   {#if casti.length}
@@ -320,6 +382,70 @@
     margin: 12px 0 0;
     font-size: 0.88rem;
     color: var(--text-muted);
+  }
+  .misto {
+    margin: 12px 0 4px;
+    padding: 10px 12px;
+    border-left: 4px solid var(--accent);
+    background: var(--brand-ice);
+    border-radius: var(--radius);
+  }
+  .misto p {
+    margin: 0;
+  }
+  .misto__k {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+  .misto__n {
+    font-weight: 700;
+    margin-top: 2px !important;
+  }
+  .misto__a {
+    font-size: 0.9rem;
+    color: var(--text);
+    margin: 2px 0 6px !important;
+  }
+  .misto a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--brand);
+    font-weight: 500;
+  }
+  .misto a:focus-visible,
+  .obec:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .chybi {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text);
+    line-height: 1.5;
+    font-size: 0.95rem;
+  }
+  .chybi li + li {
+    margin-top: 6px;
+  }
+  .obec {
+    font: inherit;
+    color: var(--brand);
+    font-weight: 500;
+    text-decoration: underline;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    min-height: 24px;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .how {
     margin-top: 14px;

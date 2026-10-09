@@ -404,6 +404,10 @@ export interface BodZivota {
   lon: number;
   /** kde bod leží (název obce), může být '' */
   obecNazev: string;
+  /** kód obce, ve které bod leží; null = v datech chybí */
+  obec: AreaCode | null;
+  /** adresa místa (jen místa pro volný čas); bodové vrstvy ji nemají */
+  adresa: string | null;
   provider: string;
 }
 
@@ -472,6 +476,8 @@ export function bodyPozadavku(ctx: ZivotKontext, id: string): BodZivota[] {
           lat: f.lat,
           lon: f.lon,
           obecNazev: String(f.attrs.obecNazev ?? ctx.names[f.obec] ?? ''),
+          obec: f.obec || null,
+          adresa: null,
           provider,
         }));
     } else {
@@ -483,6 +489,8 @@ export function bodyPozadavku(ctx: ZivotKontext, id: string): BodZivota[] {
           lat: x.lat,
           lon: x.lon,
           obecNazev: x.obecNazev,
+          obec: x.obec,
+          adresa: x.adresa,
           provider: 'Karlovarský kraj (datazapad.cz)',
         }));
     }

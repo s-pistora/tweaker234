@@ -102,6 +102,45 @@ describe('App – Kde by se mi dobře žilo?', () => {
     expect(detail.contains(document.activeElement)).toBe(false);
   }, 20000);
 
+  it('přiblížená obec: vrstvy všech požadavků, chybějící služba s odkazem na jinou obec, vybrané místo', async () => {
+    // Milhostov (malá obec u Chebu): nemocnice ani lékárna v obci není
+    location.hash = '#/kraj?m=score&zp=nemocnice:1,lekarna:1,mlada-obec:1&zo=554651';
+    render(App);
+    const detail = await screen.findByTestId('zivot-detail', {}, { timeout: 8000 });
+    const mapa = screen.getByTestId('zivot-mapa');
+
+    // legenda: jen požadavky s body, přepínač s aria-pressed a počtem v obci
+    const vrstvy = screen.getByTestId('zivot-vrstvy');
+    expect(vrstvy.querySelectorAll('button[aria-pressed]')).toHaveLength(2);
+    expect(screen.getByTestId('zv-nemocnice').textContent).toMatch(/v obci 0/);
+    // body obou vrstev, každá jiný tvar značky; nejbližší nemocnice je na mapě i mimo výřez
+    const znacky = () => [...mapa.querySelectorAll('[data-pt]')].map((e) => e.getAttribute('data-pt')!);
+    await waitFor(() => expect(znacky().some((id) => id.startsWith('nemocnice|'))).toBe(true));
+    expect(znacky().some((id) => id.startsWith('lekarna|'))).toBe(true);
+    const tvary = new Set([...mapa.querySelectorAll('[data-pt]')].map((e) => e.textContent));
+    expect(tvary.size).toBe(2);
+
+    // skrýt vrstvu
+    await fireEvent.click(screen.getByTestId('zv-lekarna'));
+    expect(screen.getByTestId('zv-lekarna').getAttribute('aria-pressed')).toBe('false');
+    expect(znacky().some((id) => id.startsWith('lekarna|'))).toBe(false);
+
+    // „V obci A není. Nejbližší je v obci B (x km): …“ a B je tlačítko
+    const chybi = screen.getByTestId('zivot-chybi');
+    expect(chybi.textContent).toMatch(/Nemocnice.*v obci Milhostov není\. Nejbližší je\s+v obci\s+\S+.*\(\d+(,\d)? km\)/s);
+    expect(detail.textContent).not.toMatch(/NaN|undefined|null/);
+    const obecB = chybi.querySelector('button')!;
+    const nazevB = obecB.textContent!;
+    await fireEvent.click(obecB);
+    await waitFor(() => expect(screen.getByTestId('zivot-detail').querySelector('h2')!.textContent).toBe(nazevB));
+    expect(location.hash).not.toContain('zo=554651');
+
+    // „Celý kraj“ oddálí mapu, detail zůstane
+    await fireEvent.click(screen.getByTestId('zivot-cely-kraj'));
+    expect(screen.getByTestId('zivot-priblizit')).toBeTruthy();
+    expect(screen.getByTestId('zivot-detail')).toBeTruthy();
+  }, 30000);
+
   it('obec bez stálých obyvatel: v detailu jen poznámka, v pořadí chybí', async () => {
     location.hash = '#/kraj?m=score&zp=klidna-obec:1&zo=555177';
     render(App);

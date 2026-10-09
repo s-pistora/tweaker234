@@ -17,28 +17,16 @@ Uživatel píše česky a chce, aby ses průběžně ptal na podrobnosti.
 - Průvodce pro nové uživatele (`src/components/Pruvodce.svelte`), tlačítko Sdílet, mobilní menu bez ořezu.
 - Testy: `npm test` (372 prošlo), `npm run check` (0 chyb), `npm run build` OK.
 
-## TODO 1 – Kde by se mi žilo: přiblížení obce a nejbližší služby (rozpracováno, NEDOKONČENO)
+## TODO 1 – Kde by se mi žilo: přiblížení obce a nejbližší služby – HOTOVO (10. 10.)
 
-Úloha byla přerušena kvůli limitu. Nic z ní není ve větvi, začni znovu. Zadání od uživatele, odpovědi už dal:
-
-1. Klik na obec (mapa, TOP 10, odkaz `zo=`) **přiblíží mapu na tu obec**. Na mapě je tlačítko „Celý kraj“
-   a zavření detailu (✕/Esc) mapu oddálí. Respektuj `prefers-reduced-motion`.
-   `src/components/Map.svelte` už má `zoomTarget` + `onzoomend` (viz `Drilldown.svelte`).
-2. V přiblížené obci ukázat body **všech vybraných požadavků** (ne jen jednoho). Každý požadavek má jinou barvu
-   i tvar značky a v legendě pod mapou je přepínač, kterým jde vrstvu skrýt (`aria-pressed`) a počet „v obci N“.
-   Kreslit jen body ve výřezu + nejbližší bod každého požadavku (zastávek je 1840).
-3. Když služba v obci není (např. praktický lékař je o vesnici dál), detail obce ukáže
-   **„V obci A není. Nejbližší je v obci B (3,2 km): název, adresa“**. Obec B je tlačítko, které přepne detail
-   i mapu na B. Uživatel zvolil **název + adresu místa** a **odkaz na sousední obec**; čáru na mapě nechce.
-4. Klik na bod na mapě: v detailu box „Vybrané místo“ s názvem, adresou, obcí, vzdáleností od středu obce a odkazem
-   `https://mapy.cz/zakladni?q=<název>&x=<lon>&y=<lat>&z=17`.
-5. Čisté funkce (např. `src/lib/zivot-mapa.ts`): body požadavku, nejbližší bod, počet v obci, výřez pro zoom,
-   s testy nad `public/data`. App test podle `tests/components/app-zivot.test.ts` (nezapomeň stub `ResizeObserver`).
-6. Adresy: `snap.vylety.mista` mají `adresa`. Bodové vrstvy (`snap.points`) mají jen `name`, `obec` a `attrs`,
-   proto zkontroluj, co v `attrs` je, a jinak použij název obce.
-
-Postup, který se osvědčil: implementace (případně subagent v worktree **založeném ze `Stepaisbestcz`**, protože
-worktree jinak vzniká z `main`), pak revizní subagent, oprava, druhá revize a teprve potom push.
+- Klik na obec přiblíží mapu (`Map.svelte` prop `zoomTo`), tlačítko „Celý kraj“ / „Přiblížit …“, zavření detailu oddálí.
+- Body všech vybraných požadavků (barva + plný tvar podle pořadí, `src/lib/zivot-mapa.ts`), legenda
+  `ZivotVrstvy.svelte` s `aria-pressed` a „v obci N“; kreslí se jen výřez obce + nejbližší bod.
+- Detail: „Co v obci není“ (nejbližší v obci B jako tlačítko, název + adresa) a „Vybrané místo“ po kliku na značku
+  (odkaz na Mapy.cz). Bodové vrstvy adresu nemají → ukazuje se obec.
+- Testy: `tests/zivot-mapa.test.ts`, nový případ v `tests/components/app-zivot.test.ts`.
+- Známé: na mobilu (≤1000 px) překrývá detail mapu, přiblížení je vidět až po posunutí; nejbližší bod mimo výřez
+  se kreslí, ale je mimo zobrazenou oblast (informace je v detailu).
 
 ## TODO 2 – další nápady (jen po domluvě s uživatelem)
 

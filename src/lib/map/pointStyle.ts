@@ -3,7 +3,7 @@
 // zdravotnictvi-kraj, zdravotnictvi) slo vizualne rozlisit, ktery bod patri ke ktere
 // vrstve (viz review finding #3 - puvodne jen 4 kombinace tón×glyf na 6 vrstev).
 export type Tone = 'amber' | 'phosphor';
-export type Glyph = 'x' | '+' | 'o' | 'square' | 'diamond' | 'triangle';
+export type Glyph = 'x' | '+' | 'o' | 'square' | 'diamond' | 'triangle' | 'dot' | 'block' | 'gem';
 
 export interface PointStyle {
   tone: Tone;
@@ -32,4 +32,8 @@ export const GLYPH_CHAR: Record<Glyph, string> = {
   square: '□',
   diamond: '◇',
   triangle: '▲',
+  // plné tvary – čitelnější na barevném podkladu přiblížené obce
+  dot: '●',
+  block: '■',
+  gem: '◆',
 };

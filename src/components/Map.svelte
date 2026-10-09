@@ -60,6 +60,8 @@
     points?: MapPoint[];
     zoomTarget?: AreaCode | null;
     zoomFrom?: AreaCode | null;
+    /** trvalé přiblížení: území = přiblížit a zůstat, null = celé území (obojí animovaně) */
+    zoomTo?: AreaCode | null;
     onzoomend?: () => void;
     onhover?: (code: AreaCode | null) => void;
     onselect?: (code: AreaCode) => void;
@@ -84,6 +86,7 @@
     points = [],
     zoomTarget = null,
     zoomFrom = null,
+    zoomTo = null,
     onzoomend,
     onhover,
     onselect,
@@ -314,7 +317,21 @@
     return animate(box, [...FULL]);
   });
 
+  // trvalé přiblížení (`zoomTo`): po prvním vykreslení jen reaguje na změnu cíle
+  let zoomToPrev: AreaCode | null = null;
+  $effect(() => {
+    const target = zoomTo;
+    void features;
+    if (target === zoomToPrev) return;
+    zoomToPrev = target;
+    const box = target ? untrack(() => boxOf(target)) : null;
+    const from = untrack(() => [...vb] as ViewBox);
+    return animate(from, box ?? [...FULL]);
+  });
+
   const animating = $derived(sweep !== null);
+  /** značky bodů mají stálou velikost na obrazovce i v přiblížení */
+  const ptScale = $derived(vb[2] / W);
 </script>
 
 <div class="map" data-testid="map">
@@ -333,6 +350,7 @@
     role="group"
     aria-label={label}
     class:animating
+    style="--pt-k: {ptScale}"
     onpointermove={onSvgPointerMove}
     onpointerdown={onSvgPointerMove}
     onpointerleave={onSvgPointerLeave}
@@ -488,11 +506,11 @@
     pointer-events: none;
   }
   .pt {
-    font-size: 13px;
+    font-size: calc(13px * var(--pt-k, 1));
     font-weight: 900;
     font-family: var(--font-mono);
     stroke: #fff;
-    stroke-width: 3px;
+    stroke-width: calc(3px * var(--pt-k, 1));
     paint-order: stroke;
     stroke-linejoin: round;
   }
@@ -503,12 +521,12 @@
     fill: var(--data-6);
   }
   .pt--hover {
-    font-size: 18px;
+    font-size: calc(18px * var(--pt-k, 1));
   }
   .pt--sel {
-    font-size: 22px;
+    font-size: calc(22px * var(--pt-k, 1));
     stroke: var(--accent);
-    stroke-width: 4px;
+    stroke-width: calc(4px * var(--pt-k, 1));
   }
   .labels {
     pointer-events: none;

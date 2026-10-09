@@ -13,6 +13,8 @@
   import ZivotPanel from './components/zivot/ZivotPanel.svelte';
   import ZivotTop from './components/zivot/ZivotTop.svelte';
   import ZivotDetail from './components/zivot/ZivotDetail.svelte';
+  import ZivotVrstvy from './components/zivot/ZivotVrstvy.svelte';
+  import { bodyProMapu, bodyVObci, vrstvyPozadavku, vyrezObce } from './lib/zivot-mapa.ts';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
@@ -396,7 +398,68 @@
     ) as Record<AreaCode, string>,
   );
   const ziUkaz = $derived(zi.ukaz ? POZADAVKY_BY_ID[zi.ukaz] : undefined);
+  // přiblížená obec: body všech vybraných požadavků (každý jiná barva i tvar), vrstvy jdou skrýt
+  /** mapa je přiblížená na vybranou obec (tlačítko „Celý kraj“ ji oddálí, detail zůstane) */
+  let ziPriblizeno = $state(true);
+  let ziSkryte = $state<Set<string>>(new Set());
+  /** vybraný bod na mapě: `<vrstva>|<id bodu>` */
+  let ziBod = $state<string | null>(null);
+  let ziObecPrev: AreaCode | null = null;
+  $effect(() => {
+    const o = zi.obec;
+    if (o === ziObecPrev) return;
+    ziObecPrev = o;
+    ziPriblizeno = true;
+    ziBod = null;
+  });
+  const ziVrstvy = $derived.by(() => {
+    if (!ziCtx || !zi.obec) return [];
+    const ids = Object.keys(zi.pozadavky);
+    if (zi.ukaz && !ids.includes(zi.ukaz)) ids.push(zi.ukaz);
+    const ctx = ziCtx;
+    const obec = zi.obec;
+    return vrstvyPozadavku(ids).map((v) => ({ ...v, vObci: bodyVObci(ctx, v.id, obec).length }));
+  });
+  const ziObecPoints = $derived.by((): MapPoint[] => {
+    const f = zi.obec ? obecFeatures.find((x) => x.properties.code === zi.obec) : undefined;
+    if (!ziCtx || !zi.obec || !f) return [];
+    const vyrez = vyrezObce(f);
+    const ctx = ziCtx;
+    const obec = zi.obec;
+    return ziVrstvy
+      .filter((v) => !ziSkryte.has(v.id))
+      .flatMap((v) =>
+        bodyProMapu(ctx, v.id, obec, vyrez).map((b) => ({
+          id: `${v.id}|${b.id}`,
+          name: b.nazev,
+          lon: b.lon,
+          lat: b.lat,
+          layerLabel: `${v.label}${b.obecNazev ? ` · ${b.obecNazev}` : ''}`,
+          provider: b.provider,
+          tone: 'phosphor' as const,
+          glyph: v.glyph,
+          color: v.barva,
+        })),
+      );
+  });
+  const ziVybranyBod = $derived.by(() => {
+    if (!ziBod || !ziCtx || !zi.obec) return null;
+    const i = ziBod.indexOf('|');
+    const vrstva = ziBod.slice(0, i);
+    const id = ziBod.slice(i + 1);
+    const bod = bodyPozadavku(ziCtx, vrstva).find((b) => b.id === id);
+    const c = obecCentroidy[zi.obec];
+    return bod && c ? { bod, vrstva, km: vzdalenostKm(c.lat, c.lon, bod.lat, bod.lon) } : null;
+  });
+  function ziToggleVrstva(id: string) {
+    const n = new Set(ziSkryte);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    ziSkryte = n;
+    if (ziBod?.startsWith(`${id}|`)) ziBod = null;
+  }
   const ziPoints = $derived.by((): MapPoint[] => {
+    if (zi.obec) return ziObecPoints;
     if (!ziCtx || !ziUkaz) return [];
     const u = ziUkaz;
     return bodyPozadavku(ziCtx, u.id).map((b) => ({
@@ -983,6 +1046,18 @@
           Tmavší obec = lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
           Klikněte na obec a uvidíte proč.
         </p>
+        <div class="zivot__mapa">
+        {#if zi.obec}
+          <div class="zivot__zoom">
+            {#if ziPriblizeno}
+              <button type="button" onclick={() => (ziPriblizeno = false)} data-testid="zivot-cely-kraj">Celý kraj</button>
+            {:else}
+              <button type="button" onclick={() => (ziPriblizeno = true)} data-testid="zivot-priblizit">
+                Přiblížit {obecNames[zi.obec] ?? 'obec'}
+              </button>
+            {/if}
+          </div>
+        {/if}
         <Map
           features={obecFeatures}
           values={ziValues}
@@ -992,9 +1067,23 @@
           preview={ziPreview}
           points={ziPoints}
           onselect={openZivotObec}
+          zoomTo={zi.obec && ziPriblizeno ? zi.obec : null}
+          onpointselect={zi.obec ? (id) => (ziBod = id) : undefined}
+          selectedPoint={ziBod}
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"
-          hint="Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail."
+          hint={zi.obec
+            ? 'Najeďte na značku a uvidíte, co to je. Klik na značku ji ukáže v detailu obce.'
+            : 'Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail.'}
         />
+        </div>
+        {#if zi.obec}
+          <ZivotVrstvy
+            vrstvy={ziVrstvy}
+            skryte={ziSkryte}
+            obecNazev={obecNames[zi.obec] ?? ''}
+            ontoggle={ziToggleVrstva}
+          />
+        {/if}
         <Legend values={obecFeatures.map((f) => ziValues[f.properties.code] ?? null)} def={ZIVOT_DEF} year={null} />
         {#if ziUkaz}
           <p class="zivot__ukaz" data-testid="zivot-ukaz">
@@ -1017,6 +1106,9 @@
             celkem={ziPoradi.length}
             vsech={obecFeatures.length}
             fokus={ziFokus}
+            pozadavky={Object.keys(zi.pozadavky)}
+            vybranyBod={ziVybranyBod}
+            onobec={openZivotObec}
             onclose={() => {
               ziFokus = false;
               setZivot({ obec: null });
@@ -1421,6 +1513,33 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+  }
+  .zivot__mapa {
+    position: relative;
+  }
+  .zivot__zoom {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+  }
+  .zivot__zoom button {
+    min-height: 44px;
+    padding: 0 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--bg-panel);
+    color: var(--brand);
+    font: 500 0.9rem/1 var(--font-display);
+    box-shadow: var(--shadow);
+    cursor: pointer;
+  }
+  .zivot__zoom button:hover {
+    border-color: var(--brand);
+  }
+  .zivot__zoom button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
   }
   .zivot__ukaz {
     display: flex;
