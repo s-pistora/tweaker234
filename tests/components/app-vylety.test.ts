@@ -21,6 +21,15 @@ function fetchFromPublic(): typeof fetch {
 beforeEach(() => {
   document.documentElement.classList.add('crt-off');
   vi.stubGlobal('fetch', fetchFromPublic());
+  // jsdom nemá ResizeObserver (mapa škol jím měří svou velikost)
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 afterEach(() => {
   cleanup();

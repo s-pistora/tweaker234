@@ -88,7 +88,7 @@ export function summaryLines(
       const hasAnyData = latestValue(series) !== null;
       if (!hasAnyData) return `${def.label}: N/A`;
       const v = series?.[year];
-      if (typeof v !== 'number' || !Number.isFinite(v)) return `${def.label}: N/A PRO ROK ${year}`;
+      if (typeof v !== 'number' || !Number.isFinite(v)) return `${def.label}: údaj za rok ${year} chybí`;
       return `${def.label}: ${formatValue(v, def)} ${def.unit} (${year})`;
     }
     const lv = latestValue(file.values[id]?.[code]);

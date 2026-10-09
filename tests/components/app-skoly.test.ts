@@ -22,6 +22,15 @@ beforeEach(() => {
   document.documentElement.classList.add('crt-off');
   sessionStorage.setItem('kraj-term:boot-seen', '1');
   vi.stubGlobal('fetch', fetchFromPublic());
+  // jsdom nemá ResizeObserver (mapa jím měří svou velikost)
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
 });
 afterEach(() => {
   cleanup();
@@ -38,12 +47,14 @@ describe('App – Kam na střední', () => {
     expect(screen.queryByTestId('boot')).toBeNull();
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
     expect(location.hash).toContain('m=skoly');
-    // bez domova: obory celého kraje (zobrazuje se po 12)
+    // bez domova: školy celého kraje (karty po 8, uvnitř obory)
     const nadpis = () => screen.getByTestId('obory-list').querySelector('h2')!.textContent ?? '';
-    expect(nadpis()).toMatch(/oborů v celém kraji/);
+    expect(nadpis()).toMatch(/škol v kraji/);
     const vse = Number(nadpis().match(/\d+/)![0]);
-    expect(vse).toBeGreaterThan(100);
-    expect(screen.getAllByTestId('obor-row')).toHaveLength(12);
+    expect(vse).toBeGreaterThan(20);
+    expect(screen.getAllByTestId('obor-row')).toHaveLength(8);
+    // mapa: značka pro každou školu ve výsledcích
+    expect(screen.getByTestId('skoly-mapa').querySelectorAll('circle.skola')).toHaveLength(vse);
 
     const domov = screen.getByTestId('skoly-domov') as HTMLSelectElement;
     await fireEvent.change(domov, { target: { value: '554481' } }); // Cheb
@@ -53,7 +64,9 @@ describe('App – Kam na střední', () => {
 
     const rows = screen.getAllByTestId('obor-row');
     expect(rows.length).toBeGreaterThan(0);
-    expect(nadpis()).toMatch(/od obce Cheb/);
+    expect(nadpis()).toMatch(/od Cheb/);
+    // kružnice dosahu kolem domova
+    expect(screen.getByTestId('skoly-mapa').querySelector('.kruh')).toBeTruthy();
     expect(Number(nadpis().match(/\d+/)![0])).toBeLessThan(vse);
     expect(rows[0].textContent).toMatch(/Cheb/);
 
@@ -80,5 +93,11 @@ describe('App – Kam na střední', () => {
     expect((screen.getByTestId('skoly-domov') as HTMLSelectElement).value).toBe('554481');
     expect(screen.getByTestId('skoly-typ-vyucni').getAttribute('aria-checked')).toBe('true');
     expect(screen.queryByTestId('link-invalid')).toBeNull();
+
+    // klik na značku školy v mapě otevře detail
+    const znacka = screen.getByTestId('skoly-mapa').querySelector('circle.skola')!;
+    await fireEvent.click(znacka);
+    const detail = await screen.findByTestId('skola-detail');
+    expect(detail.textContent).toContain(znacka.getAttribute('aria-label')!.split(',')[0].replace(/,?\s*příspěvková organizace$/i, ''));
   }, 20000);
 });

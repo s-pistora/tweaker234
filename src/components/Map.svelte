@@ -134,6 +134,7 @@
     return { cx, cy, r: Math.abs(cy - ny), label: circle.label ?? '' };
   });
 
+  let tipPos = $state<{ x: number; y: number; w: number } | null>(null);
   let hovered = $state<AreaCode | null>(null);
   let hoverPoint = $state<(MapPoint & { x: number; y: number }) | null>(null);
   let lastPointer = 'mouse';
@@ -148,7 +149,7 @@
     const area = areas.find((a) => a.code === code);
     if (!area) return [];
     const v = values[code] ?? null;
-    if (v === null && def) return [`${area.name}: N/A PRO ROK ${year}`];
+    if (v === null && def) return [`${area.name}: údaj za rok ${year} chybí`];
     return [area.aria];
   }
 
@@ -156,7 +157,7 @@
     hoverPoint
       ? [
           `${hoverPoint.layerLabel}`,
-          `Zdroj: ${hoverPoint.provider}${hoverPoint.validFor ? ` [${hoverPoint.validFor}]` : ''}`,
+          `Zdroj: ${hoverPoint.provider}${hoverPoint.validFor ? ` (${hoverPoint.validFor})` : ''}`,
         ]
       : hoveredArea
         ? (preview?.(hoveredArea.code) ?? defaultPreview(hoveredArea.code))
@@ -316,6 +317,15 @@
 </script>
 
 <div class="map" data-testid="map">
+  <div
+    class="map__stage"
+    onpointermove={(e) => {
+      const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      tipPos = { x: e.clientX - r.left, y: e.clientY - r.top, w: r.width };
+    }}
+    onpointerleave={() => (tipPos = null)}
+    role="presentation"
+  >
   <svg
     viewBox={vb.join(' ')}
     preserveAspectRatio="xMidYMid meet"
@@ -350,6 +360,19 @@
         />
       {/each}
     </g>
+    {#if features.length <= 20}
+      <g class="labels" aria-hidden="true">
+        {#each areas as a (a.code)}
+          {@const c = centroids[a.code]}
+          {@const bb = projector.path.bounds(a.feature)}
+          {#if c && Number.isFinite(c[0]) && bb[1][0] - bb[0][0] > 40}
+            <text class="lbl" class:lbl--sel={selected === a.code} x={c[0]} y={c[1]}
+              >{a.name.replace(/\s*\(fixture\)$/, '').replace(/ kraj$/, '')}</text
+            >
+          {/if}
+        {/each}
+      </g>
+    {/if}
     {#if circ}
       <g class="reach" aria-hidden="true">
         <circle class="reach__ring" cx={circ.cx} cy={circ.cy} r={circ.r} />
@@ -377,14 +400,45 @@
       </g>
     {/if}
   </svg>
-  <Tooltip
-    title={tipTitle}
-    lines={tipLines}
-    {hint}
-  />
+  <div
+    class="map__tip"
+    class:map__tip--on={!!tipTitle}
+    style={tipPos && tipTitle ? `left: ${Math.min(tipPos.x + 16, tipPos.w - 280)}px; top: ${Math.max(6, tipPos.y - 10)}px` : ''}
+  >
+    <Tooltip title={tipTitle} lines={tipLines} />
+  </div>
+  </div>
+  <p class="map__hint">{hint}</p>
 </div>
 
 <style>
+  .map__stage {
+    position: relative;
+  }
+  .map__tip {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    width: 264px;
+    max-width: calc(100% - 20px);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 2;
+  }
+  .map__tip--on {
+    opacity: 1;
+  }
+  .map__hint {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .map__tip :global(.tooltip) {
+    min-height: 0;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 16px rgba(12, 24, 56, 0.14);
+    font-size: 0.85rem;
+  }
   .map {
     width: 100%;
     display: flex;
@@ -454,6 +508,23 @@
     font-size: 22px;
     stroke: var(--accent);
     stroke-width: 4px;
+  }
+  .labels {
+    pointer-events: none;
+  }
+  .lbl {
+    font-size: 11px;
+    font-weight: 700;
+    fill: var(--brand-dark);
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 3px;
+    paint-order: stroke;
+    stroke-linejoin: round;
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+  .lbl--sel {
+    fill: #000;
   }
   .reach {
     pointer-events: none;
