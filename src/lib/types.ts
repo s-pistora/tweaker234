@@ -130,6 +130,70 @@ export function isPointLayer(x: unknown): x is PointLayer {
   );
 }
 
+// --- režim „Kam na střední“ -------------------------------------------------
+
+/** Typ studia odvozený z „Druh vzdělávání“ (fallback: písmeno v kódu oboru). */
+export type TypStudia = 'maturita' | 'vyucni' | 'jine';
+
+/** Školní roky záměrů přijímání, klíč = rok začátku (2024 = 2024/2025). */
+export const ROKY_ZAMERU = [2024, 2025, 2026] as const;
+
+/** Jeden obor jedné střední školy, sloučený přes záměry 2024/25–2026/27. */
+export interface Obor {
+  /** IZO ředitelství (= „Identifikační znak organizace“) */
+  izo: string;
+  skola: string;
+  web: string;
+  obec: string;
+  kodObce: AreaCode;
+  orp: AreaCode;
+  lon: number;
+  lat: number;
+  kodOboru: string;
+  nazevOboru: string;
+  /** první dvojčíslí kódu oboru, např. '18' */
+  skupina: string;
+  typ: TypStudia;
+  /** původní text „Druh vzdělávání“ */
+  druh: string;
+  delka: string;
+  forma: string;
+  /** záměr počtu přijímaných uchazečů podle roku začátku školního roku; null = obor ten rok nebyl */
+  zamer: Record<number, number | null>;
+  /** nově přijatí k 30. 9. 2025 (ze sady 2026/27); null = neuvedeno */
+  prijato2025: number | null;
+  /** počet autobusových zastávek do 500 m od školy */
+  zastavky500m: number;
+  /** vzdálenost k nejbližší zastávce v metrech; null = neznámá */
+  nejblizsiZastavkaM: number | null;
+}
+
+export interface OboryFile {
+  /** ISO čas vytvoření */
+  updatedAt: string;
+  sourceIds: string[];
+  obory: Obor[];
+}
+
+export function isOboryFile(x: unknown): x is OboryFile {
+  return (
+    isObj(x) &&
+    typeof x.updatedAt === 'string' &&
+    Array.isArray(x.sourceIds) &&
+    Array.isArray(x.obory) &&
+    x.obory.every(
+      (o) =>
+        isObj(o) &&
+        typeof o.izo === 'string' &&
+        typeof o.kodOboru === 'string' &&
+        typeof o.nazevOboru === 'string' &&
+        Number.isFinite(o.lon) &&
+        Number.isFinite(o.lat) &&
+        isObj(o.zamer),
+    )
+  );
+}
+
 /** public/data/manifest.json – vstupní bod snapshotu. */
 export interface Manifest {
   /** ISO čas posledního běhu pipeline */
@@ -140,6 +204,8 @@ export interface Manifest {
     indicators: Partial<Record<Level, string>>;
     points: Record<string, string>;
     geo: Partial<Record<'kraje' | 'kv-orp' | 'kv-obce', string>>;
+    /** obory středních škol (režim „Kam na střední“), volitelné */
+    skoly?: string;
   };
 }
 
@@ -152,6 +218,7 @@ export function isManifest(x: unknown): x is Manifest {
     isObj(x.files) &&
     isObj(x.files.indicators) &&
     isObj(x.files.points) &&
-    isObj(x.files.geo)
+    isObj(x.files.geo) &&
+    (x.files.skoly === undefined || typeof x.files.skoly === 'string')
   );
 }

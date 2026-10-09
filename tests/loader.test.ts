@@ -111,4 +111,32 @@ describe('loadSnapshot', () => {
     const step = steps.find((s) => s.label === 'UKAZATELE KRAJ');
     expect(step?.status).toBe('stale');
   });
+  it('obory SŠ (files.skoly): načtou se, neplatný soubor = fail bez pádu, bez záznamu = null', async () => {
+    const manifest = {
+      updatedAt: '2026-10-09T00:00:00.000Z',
+      sources: [],
+      files: { indicators: {}, points: {}, geo: {}, skoly: 'skoly/obory.json' },
+    };
+    const ok = { updatedAt: 'x', sourceIds: [], obory: [] };
+    const steps: { label: string; status: string }[] = [];
+    const snap = await loadSnapshot(
+      (s) => steps.push(s),
+      'b',
+      fetchFromMap({ 'b/manifest.json': manifest, 'b/skoly/obory.json': ok }),
+    );
+    expect(snap.skoly).toEqual(ok);
+    expect(steps).toContainEqual({ label: 'STŘEDNÍ ŠKOLY', status: 'ok' });
+
+    const steps2: { label: string; status: string }[] = [];
+    const bad = await loadSnapshot(
+      (s) => steps2.push(s),
+      'b',
+      fetchFromMap({ 'b/manifest.json': manifest, 'b/skoly/obory.json': { nic: 1 } }),
+    );
+    expect(bad.skoly).toBeNull();
+    expect(steps2).toContainEqual({ label: 'STŘEDNÍ ŠKOLY', status: 'fail' });
+
+    const bez = await loadSnapshot(undefined, 'data/_fixtures', fetchFromPublic());
+    expect(bez.skoly).toBeNull();
+  });
 });

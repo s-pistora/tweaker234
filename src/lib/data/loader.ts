@@ -6,8 +6,8 @@
 // dostane `status:'fail'`. Zdroj oznaceny v manifestu jako `stale` se promita
 // do statusu odpovidajiciho kroku jako `'stale'`.
 
-import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry } from '../types.ts';
-import { isManifest, isIndicatorFile, isPointLayer } from '../types.ts';
+import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile } from '../types.ts';
+import { isManifest, isIndicatorFile, isPointLayer, isOboryFile } from '../types.ts';
 import type { Topology } from 'topojson-specification';
 
 export type GeoId = 'kraje' | 'kv-orp' | 'kv-obce';
@@ -17,6 +17,8 @@ export interface Snapshot {
   indicators: Partial<Record<Level, IndicatorFile>>;
   points: Record<string, PointLayer>;
   geo: Partial<Record<GeoId, Topology>>;
+  /** obory středních škol (režim „Kam na střední“); null = v manifestu nejsou nebo selhalo načtení */
+  skoly: OboryFile | null;
   /** = manifest.updatedAt, pro pohodlny pristup */
   updatedAt: string;
 }
@@ -76,6 +78,7 @@ export async function loadSnapshot(
     indicators: {},
     points: {},
     geo: {},
+    skoly: null,
     updatedAt: manifest.updatedAt,
   };
 
@@ -112,6 +115,18 @@ export async function loadSnapshot(
       snapshot.geo[id] = json;
       // geo soubory nemaji vlastni sourceId v kontraktu - status je jen ok/fail.
       onStep?.({ label, status: 'ok' });
+    } catch {
+      onStep?.({ label, status: 'fail' });
+    }
+  }
+
+  if (manifest.files.skoly) {
+    const label = 'STŘEDNÍ ŠKOLY';
+    try {
+      const json = await fetchJson(fetchImpl, base, manifest.files.skoly);
+      if (!isOboryFile(json)) throw new Error('neplatny OboryFile');
+      snapshot.skoly = json;
+      onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
     } catch {
       onStep?.({ label, status: 'fail' });
     }

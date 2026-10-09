@@ -109,6 +109,36 @@
    "downloadedAt": "2026-09-27T22:49:31.161Z",
    "validFor": "2026-09-27",
    "status": "ok"
+  },
+  {
+   "id": "dz-prijimani-2024",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2024/2025",
+   "url": "https://www.datazapad.cz/api/download/v1/items/6f9302623bcd4a72af2ac674c3b46adf/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-09T15:40:20.600Z",
+   "validFor": "2024/2025",
+   "status": "ok"
+  },
+  {
+   "id": "dz-prijimani-2025",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2025/2026",
+   "url": "https://www.datazapad.cz/api/download/v1/items/b69266abf22c4baa9fabeb437449c1e8/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-09T15:40:20.600Z",
+   "validFor": "2025/2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-prijimani-2026",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2026/2027",
+   "url": "https://www.datazapad.cz/api/download/v1/items/9332e5a45e0d4dd999bef99a6f51fd40/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-09T15:40:20.600Z",
+   "validFor": "2026/2027",
+   "status": "ok"
   }
  ],
  "files": {
@@ -129,6 +159,7 @@
    "kraje": "geo/kraje.topo.json",
    "kv-orp": "geo/kv-orp.topo.json",
    "kv-obce": "geo/kv-obce.topo.json"
-  }
+  },
+  "skoly": "skoly/obory.json"
  }
 }

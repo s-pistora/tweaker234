@@ -36,7 +36,7 @@ function bool(v: string | undefined): boolean {
 }
 
 /** Odstraní BOM a naparsuje CSV se záhlavím (ořezaným – některé exporty mají koncové mezery). */
-function parseCsv(text: string): Record<string, string>[] {
+export function parseCsv(text: string): Record<string, string>[] {
   const clean = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const res = Papa.parse<Record<string, string>>(clean, {
     header: true,
@@ -257,7 +257,7 @@ export function parseDzCsv(text: string, layerId: DzDatasetId): PointFeature[] {
   return out;
 }
 
-async function fetchDzCsv(itemId: string, layers: number, rawDir: string, name: string): Promise<string> {
+export async function fetchDzCsv(itemId: string, layers: number, rawDir: string, name: string): Promise<string> {
   const url = `https://www.datazapad.cz/api/download/v1/items/${itemId}/csv?layers=${layers}`;
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await fetch(url);
