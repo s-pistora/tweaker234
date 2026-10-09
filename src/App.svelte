@@ -1018,7 +1018,10 @@
             celkem={ziPoradi.length}
             vsech={obecFeatures.length}
             fokus={ziFokus}
-            onclose={() => setZivot({ obec: null })}
+            onclose={() => {
+              ziFokus = false;
+              setZivot({ obec: null });
+            }}
           />
         {/if}
         <ZivotTop

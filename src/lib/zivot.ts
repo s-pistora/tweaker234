@@ -447,7 +447,7 @@ export function vytvorKontext(
   // (jen když počty obyvatel vůbec máme – jinak nic nevylučujeme)
   const pop = ukazatelObci(ctx, 'obyvatele');
   if (pop.rok !== null) {
-    for (const [code, v] of Object.entries(pop.values)) if (v === null || v <= 0) ctx.neobydlene.add(code);
+    for (const [code, v] of Object.entries(pop.values)) if (v !== null && v <= 0) ctx.neobydlene.add(code); // chybějící údaj ≠ neobydlená obec
   }
   return ctx;
 }

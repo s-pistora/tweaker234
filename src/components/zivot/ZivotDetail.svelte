@@ -165,7 +165,7 @@
   <details class="how">
     <summary>Jak se to počítá</summary>
     <p>
-      U každého požadavku seřadíme všech {vsech} obcí kraje a pořadí převedeme na percentil 0–100 (100 = nejlepší). Obce se
+      U každého požadavku seřadíme {celkem} obydlených obcí kraje (ze všech {vsech}) a pořadí převedeme na percentil 0–100 (100 = nejlepší). Obce se
       stejnou hodnotou dostanou stejný, průměrný percentil. Skóre je průměr percentilů. „Velmi důležité“ má dvojnásobnou
       váhu.
     </p>
