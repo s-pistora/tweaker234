@@ -270,6 +270,25 @@
     Object.fromEntries(obecFeatures.map((f) => [f.properties.code, f.properties.name])) as Record<AreaCode, string>,
   );
   const domov = $derived(sk.domov ? (obecCentroidy[sk.domov] ?? null) : null);
+
+  // rychlý start v úvodu: výběr obce → filtr bydliště + posun na výsledky
+  let startObec = $state('');
+  $effect(() => {
+    startObec = sk.domov ?? '';
+  });
+  function najdiSkoly() {
+    if (!startObec) return;
+    skolyTab = 'hledat';
+    setSkoly({ domov: startObec, skola: null });
+    requestAnimationFrame(() => {
+      try {
+        const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        document.getElementById('skoly-vysledky')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+      } catch {
+        /* testovací prostředí */
+      }
+    });
+  }
   const skupinyOboru = $derived([...new Set(obory.map((o) => o.skupina))].sort());
   const vysledky = $derived(
     filtrujObory(obory, { domov, typ: sk.typ, skupina: sk.skupina, maxKm: sk.maxKm }, sk.razeni),
@@ -300,6 +319,7 @@
       };
     });
   });
+  const skolVDosahu = $derived(mapaSkoly.length);
   const mapaOstatni = $derived.by(() => {
     const v = new Set(mapaSkoly.map((s) => s.izo));
     const seen = new Set<string>();
@@ -633,6 +653,29 @@
             </div>
           {/if}
         </div>
+        {#if snap.skoly}
+          <form class="start" aria-labelledby="start-h" data-testid="skoly-start" onsubmit={(e) => { e.preventDefault(); najdiSkoly(); }}>
+            <p class="start__kicker">Rychlý start</p>
+            <h2 id="start-h">Kde bydlíš?</h2>
+            <label for="start-obec">Obec</label>
+            <select id="start-obec" bind:value={startObec} data-testid="start-obec">
+              <option value="">Vyber obec</option>
+              {#each Object.entries(obecNames).sort((a, b) => a[1].localeCompare(b[1], 'cs')) as [code, name] (code)}
+                <option value={code}>{name}</option>
+              {/each}
+            </select>
+            <small>
+              {#if startObec && startObec === sk.domov}
+                Do {sk.maxKm} km {skolVDosahu === 1 ? 'je' : skolVDosahu >= 2 && skolVDosahu <= 4 ? 'jsou' : 'je'}
+                <strong>{skolVDosahu} {skolVDosahu === 1 ? 'škola' : skolVDosahu >= 2 && skolVDosahu <= 4 ? 'školy' : 'škol'}</strong>.
+              {:else}
+                Ukážeme školy do {sk.maxKm} km, seřazené od nejbližší.
+              {/if}
+            </small>
+            <button type="submit" class="start__btn" disabled={!startObec} data-testid="start-go">Najít školy v okolí</button>
+            <button type="button" class="start__help" onclick={openTour}>Nevíš, jak začít? Spustit průvodce</button>
+          </form>
+        {/if}
       </div>
     </section>
 
@@ -661,7 +704,7 @@
 
         {#if skolyTab === 'hledat'}
           <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
-          <div class="split">
+          <div class="split" id="skoly-vysledky">
             <SkolyList
               {vysledky}
               vybrana={sk.skola}
@@ -1316,7 +1359,92 @@
     color: var(--text);
   }
   .hero__grid {
-    display: block;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+    gap: 32px;
+    align-items: center;
+  }
+  /* rychlý start „Kde bydlíš?“ – nejkratší cesta k výsledkům */
+  .start {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--brand);
+    border-radius: 12px;
+    padding: 18px 20px 14px;
+    box-shadow: var(--shadow);
+  }
+  .start__kicker {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+  .start h2 {
+    margin: 0 0 6px;
+    font-size: 1.5rem;
+    color: var(--brand-dark);
+  }
+  .start label {
+    font-weight: 500;
+    color: var(--brand-dark);
+  }
+  .start select {
+    font: inherit;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #8a94a3;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--text);
+    width: 100%;
+  }
+  .start small {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .start small strong {
+    color: var(--brand);
+  }
+  .start__btn {
+    font: inherit;
+    font-weight: 500;
+    min-height: 44px;
+    margin-top: 6px;
+    border: 0;
+    border-radius: 4px;
+    background: var(--brand);
+    color: #fff;
+    cursor: pointer;
+  }
+  .start__btn:hover:not(:disabled) {
+    background: var(--brand-hover);
+  }
+  .start__btn:disabled {
+    background: #e5e8ec;
+    color: #6b7380;
+    cursor: not-allowed;
+  }
+  .start__btn:focus-visible,
+  .start__help:focus-visible,
+  .start select:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  .start__help {
+    font: inherit;
+    font-size: 0.88rem;
+    min-height: 40px;
+    background: none;
+    border: 0;
+    color: var(--brand);
+    text-decoration: underline;
+    cursor: pointer;
   }
   .kpis {
     display: grid;
@@ -1479,6 +1607,10 @@
     }
   }
   @media (max-width: 1000px) {
+    .hero__grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 20px;
+    }
     .split {
       grid-template-columns: minmax(0, 1fr);
     }
