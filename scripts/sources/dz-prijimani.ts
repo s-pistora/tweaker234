@@ -78,6 +78,18 @@ function num(v: string | undefined): number {
 }
 
 /** '23-68/H/01' (překlep v datech) → '23-68-H/01'; ořez mezer. */
+/** Úklid textu z exportu: zdvojené uvozovky a mezery, rovné uvozovky → české „…“. */
+export function vycistiText(s: string): string {
+  let t = s.replace(/"{2,}/g, '"').replace(/\s{2,}/g, ' ').trim();
+  let open = true;
+  t = t.replace(/"/g, () => {
+    const q = open ? '„' : '“';
+    open = !open;
+    return q;
+  });
+  return t;
+}
+
 export function normalizujKod(kod: string): string {
   return kod.trim().replace(/^(\d{2}-\d{2})\/([A-Z])\//, '$1-$2/');
 }
@@ -111,7 +123,7 @@ export function parseRok(text: string, cfg: RokCfg): RadekRoku[] {
       prijato: cfg.prijato ? int(r[cfg.prijato]) : null,
       zaklad: {
         izo,
-        skola: (r['Název školy'] ?? '').trim(),
+        skola: vycistiText(r['Název školy'] ?? ''),
         web: (r[cfg.web] ?? '').trim(),
         obec: (r['Název obce'] ?? '').trim(),
         kodObce: (r['Kód obce'] ?? '').trim(),
@@ -119,7 +131,7 @@ export function parseRok(text: string, cfg: RokCfg): RadekRoku[] {
         lon,
         lat,
         kodOboru,
-        nazevOboru: (r['Název oboru'] ?? '').trim(),
+        nazevOboru: vycistiText(r['Název oboru'] ?? ''),
         skupina: skupinaZKodu(kodOboru),
         typ: typStudia(druh, kodOboru),
         druh,
