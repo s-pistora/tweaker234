@@ -7,7 +7,8 @@
   interface Props {
     values: (number | null)[];
     def?: IndicatorDef;
-    year: number;
+    /** rok platnosti; null = údaj bez roku (např. skóre nebo počet míst v dosahu) */
+    year: number | null;
   }
   const { values, def, year }: Props = $props();
 
@@ -21,7 +22,7 @@
 
 <div class="legend" aria-label="Legenda mapy">
   <div class="legend__title">
-    {def ? `${def.label} (${def.unit}), ${year}` : `Ukazatel, ${year}`}
+    {def ? `${def.label} (${def.unit})${year !== null ? `, ${year}` : ''}` : `Ukazatel${year !== null ? `, ${year}` : ''}`}
   </div>
   <ul>
     {#each ranges as r, i (i)}

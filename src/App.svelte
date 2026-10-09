@@ -411,7 +411,6 @@
       color: u.barva,
     }));
   });
-  const ziRok = $derived(snap ? new Date(snap.updatedAt).getFullYear() : 0);
   const ziVybrano = $derived(Object.keys(zi.pozadavky).length);
   function ziPreview(code: AreaCode): string[] {
     const s = ziSkore[code];
@@ -882,7 +881,7 @@
               features={obecFeatures}
               values={vyDosah}
               def={VY_DOSAH_DEF}
-              year={2026}
+              year={null}
               selected={vy.domov}
               preview={vyPreview}
               points={vyPoints}
@@ -922,7 +921,7 @@
               features={obecFeatures}
               values={vyDosah}
               def={VY_DOSAH_DEF}
-              year={2026}
+              year={null}
               selected={vy.domov}
               preview={vyPreview}
               points={vyPoints}
@@ -933,7 +932,7 @@
               label="Mapa: {vyDef.label} v Karlovarském kraji"
               hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Klik na značku otevře detail."
             />
-            <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={2026} />
+            <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={null} />
           </section>
         </div>
       {/if}
@@ -988,7 +987,7 @@
           features={obecFeatures}
           values={ziValues}
           def={ZIVOT_DEF}
-          year={ziRok}
+          year={null}
           selected={zi.obec}
           preview={ziPreview}
           points={ziPoints}
@@ -996,7 +995,7 @@
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"
           hint="Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail."
         />
-        <Legend values={obecFeatures.map((f) => ziValues[f.properties.code] ?? null)} def={ZIVOT_DEF} year={ziRok} />
+        <Legend values={obecFeatures.map((f) => ziValues[f.properties.code] ?? null)} def={ZIVOT_DEF} year={null} />
         {#if ziUkaz}
           <p class="zivot__ukaz" data-testid="zivot-ukaz">
             <span class="dot" style="background: {ziUkaz.barva ?? 'var(--brand)'}" aria-hidden="true"></span>
@@ -1799,16 +1798,25 @@
       min-height: 0;
       padding-top: 10px;
     }
+    /* mobil: tři hlavní části vedle sebe (nic se neořízne), Statistika a Zdroje menším řádkem pod nimi */
     .mainnav {
-      flex-wrap: nowrap;
-      overflow-x: auto;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 0 4px;
       width: 100%;
-      margin: 0 -8px;
-      scrollbar-width: none;
     }
     .mainnav button {
-      white-space: nowrap;
-      padding: 0 10px;
+      grid-column: span 2;
+      padding: 4px 4px;
+      font-size: 0.92rem;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .mainnav .mainnav__src {
+      grid-column: span 3;
+      min-height: 36px;
+      font-size: 0.82rem;
+      border-top: 1px solid var(--line);
     }
     .kpi__value {
       font-size: 1.75rem;

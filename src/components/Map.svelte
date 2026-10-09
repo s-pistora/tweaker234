@@ -52,7 +52,8 @@
     features: AreaFeature[];
     values: Record<AreaCode, number | null>;
     def?: IndicatorDef;
-    year: number;
+    /** rok platnosti hodnot; null = hodnota bez roku (skóre, počet v dosahu) */
+    year: number | null;
     selected?: AreaCode | null;
     /** řádky náhledu pro území (2–3 ukazatele s rokem) */
     preview?: (code: AreaCode) => string[];
@@ -109,7 +110,7 @@
         name: f.properties.name,
         d: projector.path(f) ?? '',
         fill: cls === null ? 'url(#pna)' : `url(#p${cls})`,
-        aria: `${f.properties.name}: ${def ? formatValue(v, def) : 'N/A'} (${year})`,
+        aria: `${f.properties.name}: ${def ? formatValue(v, def) : 'N/A'}${year !== null ? ` (${year})` : ''}`,
         feature: f,
       };
     }),
@@ -149,7 +150,7 @@
     const area = areas.find((a) => a.code === code);
     if (!area) return [];
     const v = values[code] ?? null;
-    if (v === null && def) return [`${area.name}: údaj za rok ${year} chybí`];
+    if (v === null && def) return [year !== null ? `${area.name}: údaj za rok ${year} chybí` : `${area.name}: údaj chybí`];
     return [area.aria];
   }
 
