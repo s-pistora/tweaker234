@@ -485,7 +485,7 @@ function obecProBydleni(ctx: KontextDat, orpy: Record<AreaCode, string>, a: Reco
   let dotaz = text(a.obec);
   if (!dotaz) return { chyba: 'Zadejte název obce.' };
   const ven = (kod: AreaCode): ObecVen => ({ kod, nazev: ctx.obecNames[kod], orp: orpy[kod] ?? null });
-  if (dotaz in ctx.obecNames) return ven(dotaz);
+  if (Object.hasOwn(ctx.obecNames, dotaz)) return ven(dotaz);
   let orpArg = text(a.orp);
   const zav = /^(.+?)\s*\((.+)\)$/.exec(dotaz);
   if (zav) {
