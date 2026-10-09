@@ -16,6 +16,21 @@ import {
   type Domov,
 } from '../skoly.ts';
 import { KATEGORIE, KATEGORIE_BY_ID, bezDiakritiky, filtrujMista, stitky, vodaLabel } from '../vylety.ts';
+import {
+  POZADAVKY,
+  POZADAVKY_BY_ID,
+  bodyPozadavku,
+  metrika,
+  poradi,
+  spocitejSkore,
+  srovnani,
+  textSrovnani,
+  vetaPozadavku,
+  vytvorKontext,
+  type CastSkore,
+  type Dulezitost,
+  type ZivotKontext,
+} from '../zivot.ts';
 
 export interface KontextDat {
   snap: Snapshot;
@@ -33,6 +48,7 @@ export interface NastrojDef {
 
 const KRAJ_KOD = 'CZ041';
 const MAX_LIMIT = 25;
+const MAX_LIMIT_ZIVOT = 10;
 
 const obj = (properties: Record<string, unknown>, required: string[] = []) => ({
   type: 'object',
@@ -112,8 +128,38 @@ export function definiceNastroju(ctx: KontextDat): NastrojDef[] {
         ['vrstva'],
       ),
     ),
+    fn(
+      'kde_se_mi_bude_zit',
+      `„Kde by se mi dobře žilo?“ – seřadí obce kraje podle požadavků na bydlení (skóre 0–100, 100 = nejlepší obec kraje). Požadavky (id = význam): ${POZADAVKY.map((p) => `${p.id} = ${p.label}`).join(', ')}.`,
+      obj(
+        {
+          pozadavky: idsParam('id požadavků, na kterých uživateli záleží'),
+          velmi_dulezite: idsParam('podmnožina pozadavky, na kterých záleží nejvíc (dvojnásobná váha)'),
+          orp: str('jen obce jednoho ORP (správního obvodu), např. "Sokolov" (volitelné)'),
+          limit: num(`kolik obcí vrátit (výchozí 5, max ${MAX_LIMIT_ZIVOT})`),
+        },
+        ['pozadavky'],
+      ),
+    ),
+    fn(
+      'obec_bydleni',
+      'Jak se žije v jedné obci: věta ke každému požadavku (vzdálenost k lékaři, škole, bazénu…, zastávky, ukazatele), srovnání s ostatními obcemi kraje a nejbližší místo. Bez požadavků vrátí nejbližší základní služby. Ke srovnání obcí ho zavolej pro každou obec.',
+      obj(
+        {
+          obec: str('název obce (diakritika nevadí)'),
+          pozadavky: idsParam('id požadavků jako u kde_se_mi_bude_zit (volitelné)'),
+        },
+        ['obec'],
+      ),
+    ),
   ];
 }
+
+const idsParam = (description: string) => ({
+  type: 'array',
+  items: { type: 'string', enum: POZADAVKY.map((p) => p.id) },
+  description,
+});
 
 // --- pomocné ---------------------------------------------------------------
 
@@ -363,6 +409,166 @@ function hledejBody(ctx: KontextDat, a: Record<string, unknown>) {
   };
 }
 
+// --- „Kde by se mi dobře žilo?“ ------------------------------------------------
+
+const ZAKLADNI_SLUZBY = ['zastavka', 'lekar', 'lekarna', 'zakladni-skola', 'materska-skola', 'nemocnice'];
+const NEOBYDLENA = 'Obec nemá stálé obyvatele, nehodnotíme ji.';
+
+/** Kontext výpočtu je drahý (vzdálenosti obcí ke všem bodům) – jeden na snapshot a sadu obcí. */
+const zivotMemo = new WeakMap<Snapshot, { obce: KontextDat['obecCentroidy']; zc: ZivotKontext }>();
+function zivotKontext(ctx: KontextDat): ZivotKontext {
+  const hit = zivotMemo.get(ctx.snap);
+  if (hit && hit.obce === ctx.obecCentroidy) return hit.zc;
+  const zc = vytvorKontext(ctx.snap, ctx.obecCentroidy, ctx.obecNames);
+  zivotMemo.set(ctx.snap, { obce: ctx.obecCentroidy, zc });
+  return zc;
+}
+
+type GeoProps = { code?: string; name?: string; parent?: string };
+function geoProps(ctx: KontextDat, id: 'kv-obce' | 'kv-orp'): GeoProps[] {
+  const topo = ctx.snap.geo[id] as { objects?: Record<string, { geometries?: { properties?: GeoProps }[] }> } | undefined;
+  return (topo?.objects?.areas?.geometries ?? []).map((g) => g.properties ?? {});
+}
+/** kód obce → název ORP (z geodat; bez nich prázdné). */
+function orpObci(ctx: KontextDat): Record<AreaCode, string> {
+  const orp = Object.fromEntries(geoProps(ctx, 'kv-orp').map((p) => [p.code, p.name ?? '']));
+  const out: Record<AreaCode, string> = {};
+  for (const p of geoProps(ctx, 'kv-obce')) if (p.code && p.parent && orp[p.parent]) out[p.code] = orp[p.parent];
+  return out;
+}
+
+/** Platná id požadavků z argumentu; neznámá zvlášť. */
+function idsZArg(v: unknown): { ok: string[]; nezname: string[] } {
+  const arr: unknown[] = Array.isArray(v) ? v : typeof v === 'string' ? v.split(',') : [];
+  const ids = [...new Set(arr.map(text).filter(Boolean))];
+  return { ok: ids.filter((id) => id in POZADAVKY_BY_ID), nezname: ids.filter((id) => !(id in POZADAVKY_BY_ID)) };
+}
+const bezPozadavku = () => ({
+  chyba: `Žádný platný požadavek. Platná id: ${POZADAVKY.map((p) => `${p.id} = ${p.label}`).join(', ')}.`,
+});
+const neznameText = (n: string[]) => (n.length ? `${n.join(', ')} – neznámé, vynechány` : null);
+
+function zdrojePozadavku(ctx: KontextDat, ids: string[]) {
+  const src = new Set<string>();
+  for (const id of ids) {
+    const m = POZADAVKY_BY_ID[id].metrika;
+    if (m.druh === 'nejblizsi' || m.druh === 'pocet') {
+      if ('vrstva' in m.vyber) {
+        const s = ctx.snap.points[m.vyber.vrstva]?.sourceId;
+        if (s) src.add(s);
+      } else {
+        // jen sady kategorií požadavku (celé výlety mají přes 20 zdrojů)
+        const kat = m.vyber.kat;
+        for (const x of ctx.snap.vylety?.mista ?? []) if (kat.includes(x.kat)) src.add(x.sourceId);
+      }
+    } else if (m.druh === 'ukazatel' || m.druh === 'velikost') {
+      const s = ctx.snap.indicators.obec?.indicators[m.druh === 'ukazatel' ? m.ukazatel : 'obyvatele']?.sourceId;
+      if (s) src.add(s);
+    }
+  }
+  return zdroje(ctx, [...src]);
+}
+
+const veta = (zc: ZivotKontext, code: AreaCode, c: CastSkore) => vetaPozadavku(zc, c.id, code, c.value);
+
+function kdeSeMiBudeZit(ctx: KontextDat, a: Record<string, unknown>) {
+  const { ok, nezname } = idsZArg(a.pozadavky);
+  if (!ok.length) return bezPozadavku();
+  const velmi = new Set(idsZArg(a.velmi_dulezite).ok);
+  const vybrane: Record<string, Dulezitost> = Object.fromEntries(ok.map((id) => [id, velmi.has(id) ? 2 : 1]));
+  const zc = zivotKontext(ctx);
+  const orpy = orpObci(ctx);
+  let orp: string | null = null;
+  if (text(a.orp)) {
+    const q = bezDiakritiky(text(a.orp).replace(/^orp\s+/i, ''));
+    const nazvy = [...new Set(Object.values(orpy))].sort((x, y) => x.localeCompare(y, 'cs'));
+    orp = nazvy.find((n) => bezDiakritiky(n) === q) ?? nazvy.find((n) => bezDiakritiky(n).startsWith(q)) ?? null;
+    if (!orp) return { chyba: `ORP „${text(a.orp)}“ v kraji není. ORP kraje: ${nazvy.join(', ')}.` };
+  }
+  const skore = spocitejSkore(zc, vybrane);
+  const vsechny = poradi(skore, ctx.obecNames);
+  const n = typeof a.limit === 'number' && Number.isFinite(a.limit) ? Math.floor(a.limit) : 5;
+  return {
+    pozadavky: ok.map((id) => `${POZADAVKY_BY_ID[id].label}${vybrane[id] === 2 ? ' (velmi důležité)' : ''}`),
+    nezname_pozadavky: neznameText(nezname),
+    orp,
+    hodnoceno_obci: vsechny.length,
+    obce: vsechny
+      .filter((r) => !orp || orpy[r.code] === orp)
+      .slice(0, Math.max(1, Math.min(MAX_LIMIT_ZIVOT, n)))
+      .map((r) => {
+        const s = skore[r.code];
+        // nejsilnější 2 a nejslabší 1 (u jediného požadavku jen silná stránka)
+        const serazene = [...s.parts].sort((x, y) => y.percentile - x.percentile || y.weight - x.weight);
+        const slaba = serazene.length >= 2 ? serazene[serazene.length - 1] : null;
+        return {
+          obec: ctx.obecNames[r.code] ?? r.code,
+          orp: orpy[r.code] ?? null,
+          skore: Math.round(r.score),
+          poradi: r.rank,
+          silne: (slaba ? serazene.slice(0, -1) : serazene).slice(0, 2).map((c) => veta(zc, r.code, c)),
+          slabsi: slaba ? veta(zc, r.code, slaba) : null,
+          chybi_udaj: s.skipped.map((id) => POZADAVKY_BY_ID[id].label),
+        };
+      }),
+    poznamka: 'skore 100 = nejlepší obec kraje; poradi = pořadí v kraji; obce bez stálých obyvatel se nehodnotí; km vzdušnou čarou od středu obce.',
+    zdroje: zdrojePozadavku(ctx, ok),
+  };
+}
+
+/** Nejbližší bod požadavku k obci, „název (obec)“. */
+function nejblizsiBod(zc: ZivotKontext, id: string, code: AreaCode): string | null {
+  const c = zc.obce[code];
+  if (!c) return null;
+  let best: { d: number; nazev: string } | null = null;
+  for (const b of bodyPozadavku(zc, id)) {
+    const d = vzdalenostKm(c.lat, c.lon, b.lat, b.lon);
+    if (!best || d < best.d) best = { d, nazev: b.obecNazev ? `${b.nazev} (${b.obecNazev})` : b.nazev };
+  }
+  return best ? zkrat(best.nazev, 90) : null;
+}
+
+function obecBydleni(ctx: KontextDat, a: Record<string, unknown>) {
+  const dotaz = text(a.obec);
+  if (!dotaz) return { chyba: 'Zadejte název obce.' };
+  const kandidati = najdiObce(ctx, dotaz);
+  if (!kandidati.length) return nenalezenaObec(a.obec);
+  const q = bezDiakritiky(dotaz);
+  const presne = kandidati.filter((o) => bezDiakritiky(o.nazev) === q);
+  const obec = presne.length === 1 ? presne[0] : kandidati.length === 1 ? kandidati[0] : null;
+  if (!obec) return { chyba: `„${dotaz}“ odpovídá více obcím, upřesněte název.`, kandidati: kandidati.map((o) => o.nazev) };
+  const zc = zivotKontext(ctx);
+  const orp = orpObci(ctx)[obec.kod] ?? null;
+  if (zc.neobydlene.has(obec.kod)) return { obec: obec.nazev, orp, poznamka: NEOBYDLENA };
+  const { ok, nezname } = idsZArg(a.pozadavky);
+  if (!ok.length && nezname.length) return bezPozadavku();
+  const ids = ok.length ? ok : ZAKLADNI_SLUZBY;
+  // se zadanými požadavky i celkové skóre a pořadí obce v kraji
+  const vsechny = ok.length ? poradi(spocitejSkore(zc, Object.fromEntries(ok.map((id) => [id, 1 as Dulezitost]))), ctx.obecNames) : [];
+  const moje = vsechny.find((r) => r.code === obec.kod);
+  return {
+    obec: obec.nazev,
+    orp,
+    skore: moje ? Math.round(moje.score) : null,
+    poradi: moje ? `${moje.rank}. z ${vsechny.length}` : null,
+    nezname_pozadavky: neznameText(nezname),
+    pozadavky: ids.map((id) => {
+      const p = POZADAVKY_BY_ID[id];
+      const v = metrika(zc, id).values[obec.kod];
+      if (v === null || v === undefined) return { pozadavek: p.label, veta: 'Údaj chybí.' };
+      const s = srovnani(zc, id, obec.kod);
+      return {
+        pozadavek: p.label,
+        veta: vetaPozadavku(zc, id, obec.kod, v),
+        srovnani: s ? textSrovnani(s) : null,
+        nejblizsi: p.metrika.druh === 'nejblizsi' ? nejblizsiBod(zc, id, obec.kod) : null,
+      };
+    }),
+    poznamka: 'srovnani = s ostatními obcemi kraje; km vzdušnou čarou od středu obce.',
+    zdroje: zdrojePozadavku(ctx, ids),
+  };
+}
+
 /** Spustí nástroj podle jména; neznámý nástroj nebo chybné argumenty vrací `{ chyba }`. */
 export function spustNastroj(ctx: KontextDat, nazev: string, argumenty: unknown): unknown {
   return kompakt(spust(ctx, nazev, argumenty));
@@ -387,6 +593,10 @@ function spust(ctx: KontextDat, nazev: string, argumenty: unknown): unknown {
       return ukazatele(ctx, a);
     case 'hledej_body':
       return hledejBody(ctx, a);
+    case 'kde_se_mi_bude_zit':
+      return kdeSeMiBudeZit(ctx, a);
+    case 'obec_bydleni':
+      return obecBydleni(ctx, a);
     default:
       return { chyba: `Nástroj „${nazev}“ neexistuje.` };
   }
