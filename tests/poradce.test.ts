@@ -94,7 +94,23 @@ describe('smyčka poradce', () => {
     expect(dotazy[0].messages[0].role).toBe('system');
     const tool = dotazy[1].messages.find((m) => m.role === 'tool')!;
     expect(JSON.parse(tool.content!).obce[0].nazev).toBe('Cheb');
-    expect(r.historie.map((m) => m.role)).toEqual(['user', 'assistant', 'tool', 'assistant']);
+    // historie drží jen otázku a hotovou odpověď (výsledky nástrojů by vyčerpaly limit tokenů)
+    expect(r.historie).toEqual([
+      { role: 'user', content: 'Je tam Cheb?' },
+      { role: 'assistant', content: 'Cheb v datech je.', tool_calls: undefined },
+    ]);
+  });
+
+  it('při limitu (429 s retry-after) počká a zkusí to znovu', async () => {
+    let n = 0;
+    const cekani: number[] = [];
+    const f = (async () =>
+      ++n === 1
+        ? new Response('{}', { status: 429, headers: { 'retry-after': '1' } })
+        : odpoved({ role: 'assistant', content: 'Hotovo.' })) as unknown as typeof fetch;
+    const r = await zeptejSe([{ role: 'user', content: 'x' }], ctx, f, (s) => cekani.push(s));
+    expect(r.odpoved).toBe('Hotovo.');
+    expect(cekani).toEqual([2]); // 1 s + rezerva
   });
 
   it('chybějící proxy (404) a klíč (503) hlásí srozumitelně', async () => {

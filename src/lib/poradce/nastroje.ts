@@ -11,7 +11,6 @@ import {
   agreguj,
   filtrujObory,
   naplnenost,
-  nazevSkupiny,
   oboryPodleNaplnenosti,
   vzdalenostKm,
   type Domov,
@@ -121,7 +120,7 @@ export function definiceNastroju(ctx: KontextDat): NastrojDef[] {
 function zdroje(ctx: KontextDat, ids: string[]) {
   return ctx.snap.manifest.sources
     .filter((s) => ids.includes(s.id))
-    .map((s) => ({ nazev: s.title, poskytovatel: s.provider, platnost: s.validFor, licence: s.license }));
+    .map((s) => `${s.title} (${s.provider})`);
 }
 
 function limit(v: unknown, vychozi: number): number {
@@ -132,6 +131,22 @@ function limit(v: unknown, vychozi: number): number {
 const zaokr = (n: number | null, des = 1) => (n === null ? null : Math.round(n * 10 ** des) / 10 ** des);
 const pct = (p: number | null) => (p === null ? null : `${Math.round(p * 100)} %`);
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const zkrat = (s: string | null, n: number) => (s && s.length > n ? `${s.slice(0, n).trimEnd()}…` : s);
+
+/** Odstraní prázdné hodnoty (null, '', []) – menší výsledek = méně tokenů. */
+export function kompakt(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(kompakt);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, x] of Object.entries(v)) {
+      const c = kompakt(x);
+      if (c === null || c === undefined || c === '' || (Array.isArray(c) && !c.length)) continue;
+      out[k] = c;
+    }
+    return out;
+  }
+  return v;
+}
 
 /** Najde obce podle názvu: přesná shoda (bez diakritiky) první, pak začátek, pak výskyt. */
 export function najdiObce(ctx: KontextDat, nazev: string): { kod: AreaCode; nazev: string }[] {
@@ -181,30 +196,27 @@ function hledejObory(ctx: KontextDat, a: Record<string, unknown>) {
     od_obce: obec ? obec.nazev : null,
     max_km: obec ? km : null,
     celkem_nalezeno: vysledky.length,
-    obory: vysledky.slice(0, limit(a.limit, 10)).map((r) => oborVen(r.obor, r.km)),
-    poznamka: 'Vzdálenosti jsou vzdušnou čarou. Obsazenost = přijatí k 30. 9. 2025 / plán 2025/26.',
+    obory: vysledky.slice(0, limit(a.limit, 8)).map((r) => oborVen(r.obor, r.km)),
+    poznamka: 'km vzdušnou čarou; obsazenost_loni = prijato_2025 (k 30. 9. 2025) / plan_2025_26; neuvedeno = obor loni nebyl nebo chybí údaj.',
     zdroje: zdroje(ctx, sk.sourceIds),
   };
 }
 
-function oborVen(o: NonNullable<Snapshot['skoly']>['obory'][number], km: number | null) {
+/** Obor pro model – jen pole, která potřebuje k odpovědi (limit tokenů bezplatného Groq). */
+function oborVen(o: NonNullable<Snapshot['skoly']>['obory'][number], km: number | null, sWebem = false) {
   return {
     skola: o.skola,
     obec_skoly: o.obec,
     obor: o.nazevOboru,
-    kod_oboru: o.kodOboru,
-    skupina: nazevSkupiny(o.skupina),
     typ: TYP_LABEL[o.typ],
-    delka: o.delka,
-    forma: o.forma,
+    forma: /denn/i.test(o.forma) ? null : o.forma,
     km: zaokr(km),
     mista_2026_27: o.zamer[2026] ?? null,
-    mista_2025_26: o.zamer[2025] ?? null,
-    mista_2024_25: o.zamer[2024] ?? null,
-    prijato_k_30_9_2025: o.prijato2025,
-    obsazenost_loni: naplnenost(o) === null ? 'údaj chybí (obor loni nebyl nebo nejsou přijatí)' : pct(naplnenost(o)),
-    zastavky_do_500_m: o.zastavky500m,
-    web: o.web || null,
+    plan_2025_26: o.zamer[2025] ?? null,
+    prijato_2025: o.prijato2025,
+    obsazenost_loni: pct(naplnenost(o)) ?? 'neuvedeno',
+    zastavky_500m: o.zastavky500m,
+    web: sWebem ? o.web || null : null,
   };
 }
 
@@ -225,7 +237,7 @@ function detailSkoly(ctx: KontextDat, a: Record<string, unknown>) {
         obec: ob[0].obec,
         web: ob[0].web || null,
         zastavky_do_500_m: ob[0].zastavky500m,
-        obory: ob.map((o) => oborVen(o, null)),
+        obory: ob.map((o) => oborVen(o, null, true)),
       };
     }),
     zdroje: zdroje(ctx, sk.sourceIds),
@@ -248,8 +260,8 @@ function prehledSkolKraje(ctx: KontextDat) {
     oboru_2026_27: otevirane.length,
     skol_2026_27: new Set(otevirane.map((o) => o.izo)).size,
     souhrn_kraje: kraj,
-    nejmene_obsazene_loni: oboryPodleNaplnenosti(sk.obory, 'nejmene', 10).map(kratce),
-    nejvice_obsazene_loni: oboryPodleNaplnenosti(sk.obory, 'nejvice', 10).map(kratce),
+    nejmene_obsazene_loni: oboryPodleNaplnenosti(sk.obory, 'nejmene', 6).map(kratce),
+    nejvice_obsazene_loni: oboryPodleNaplnenosti(sk.obory, 'nejvice', 6).map(kratce),
     zdroje: zdroje(ctx, sk.sourceIds),
   };
 }
@@ -274,18 +286,17 @@ function hledejMista(ctx: KontextDat, a: Record<string, unknown>) {
     od_obce: obec ? obec.nazev : null,
     max_km: obec ? km : null,
     celkem_nalezeno: vysledky.length,
-    mista: vysledky.slice(0, limit(a.limit, 10)).map(({ misto: m, km: d }) => ({
+    mista: vysledky.slice(0, limit(a.limit, 8)).map(({ misto: m, km: d }) => ({
       nazev: m.nazev,
       kategorie: KATEGORIE_BY_ID[m.kat]?.label ?? m.kat,
       obec: m.obecNazev || null,
       km: zaokr(d),
-      popis: m.popis ? m.popis.slice(0, 400) : null,
+      popis: zkrat(m.popis, 160),
       stitky: stitky(m),
       vstupne: m.vstupne === null ? 'neuvedeno' : m.vstupne ? 'placené' : 'zdarma',
-      provoz_poznamka: m.poznamka,
+      provoz_poznamka: zkrat(m.poznamka, 120),
       kvalita_vody: m.voda ? { hodnoceni: vodaLabel(m.voda.trida), datum: m.voda.datum, zdroj: m.voda.zdroj } : undefined,
       web: m.web,
-      adresa: m.adresa,
     })),
     poznamka: 'Vzdálenosti jsou vzdušnou čarou.',
     zdroje: zdroje(ctx, vy.sourceIds),
@@ -342,7 +353,7 @@ function hledejBody(ctx: KontextDat, a: Record<string, unknown>) {
     platnost: vrstva.validFor,
     od_obce: obec ? obec.nazev : null,
     celkem_nalezeno: body.length,
-    body: body.slice(0, limit(a.limit, 10)).map(({ f, km: d }) => ({
+    body: body.slice(0, limit(a.limit, 8)).map(({ f, km: d }) => ({
       nazev: f.name,
       obec: ctx.obecNames[f.obec] ?? null,
       km: zaokr(d),
@@ -354,6 +365,10 @@ function hledejBody(ctx: KontextDat, a: Record<string, unknown>) {
 
 /** Spustí nástroj podle jména; neznámý nástroj nebo chybné argumenty vrací `{ chyba }`. */
 export function spustNastroj(ctx: KontextDat, nazev: string, argumenty: unknown): unknown {
+  return kompakt(spust(ctx, nazev, argumenty));
+}
+
+function spust(ctx: KontextDat, nazev: string, argumenty: unknown): unknown {
   const a = argumenty && typeof argumenty === 'object' ? (argumenty as Record<string, unknown>) : {};
   switch (nazev) {
     case 'najdi_obec': {

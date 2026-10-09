@@ -62,13 +62,17 @@ function pripoj(server: ViteDevServer | PreviewServer) {
           tools: vstup.tools,
           tool_choice: vstup.tool_choice ?? 'auto',
           temperature: 0.3,
-          max_completion_tokens: 2048,
+          max_completion_tokens: 1500,
+          // gpt-oss „přemýšlí“ a i to se počítá do limitu tokenů za minutu
+          ...(model.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
         }),
       });
       const text = await r.text();
       if (!r.ok) server.config.logger.warn(`[poradce] Groq ${r.status}: ${text.slice(0, 300)}`);
       res.statusCode = r.status;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      const retry = r.headers.get('retry-after');
+      if (retry) res.setHeader('Retry-After', retry);
       res.end(text);
     } catch (e) {
       server.config.logger.error(`[poradce] ${String(e)}`);

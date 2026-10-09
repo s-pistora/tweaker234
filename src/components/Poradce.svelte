@@ -30,6 +30,8 @@
   let historie: Zprava[] = [];
   let vstup = $state('');
   let ceka = $state(false);
+  /** čekání na limit Groq (sekundy), null = nečeká se */
+  let cekaniS = $state<number | null>(null);
   let seznamEl = $state<HTMLElement | null>(null);
   let poleEl = $state<HTMLTextAreaElement | null>(null);
   let tlacitkoEl = $state<HTMLButtonElement | null>(null);
@@ -68,10 +70,11 @@
     vstup = '';
     bubliny = [...bubliny, { kdo: 'ja', text: otazka }];
     ceka = true;
+    cekaniS = null;
     dolu();
     try {
-      const r = await zeptejSe([...historie, { role: 'user', content: otazka }], ctx);
-      historie = r.historie.slice(-30);
+      const r = await zeptejSe([...historie, { role: 'user', content: otazka }], ctx, fetch, (s) => (cekaniS = s));
+      historie = r.historie.slice(-20);
       bubliny = [...bubliny, { kdo: 'ai', text: r.odpoved }];
     } catch (e) {
       const zprava = e instanceof PoradceChyba ? e.message : 'Něco se pokazilo, zkuste to prosím znovu.';
@@ -191,7 +194,11 @@
         {#if ceka}
           <div class="bublina bublina--ai bublina--ceka" role="status">
             <span class="tecky" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="sr">Hledám v datech…</span>
+            {#if cekaniS !== null}
+              <span class="cekani">Hodně dotazů najednou, chvilku počkám (~{cekaniS} s)…</span>
+            {:else}
+              <span class="sr">Hledám v datech…</span>
+            {/if}
           </div>
         {/if}
       </div>
@@ -445,6 +452,11 @@
     background: #fdecec;
     color: #8a0a0c;
     border: 1px solid #f3c2c3;
+  }
+  .cekani {
+    margin-left: 8px;
+    font-size: 0.875rem;
+    color: var(--text-muted);
   }
   .tecky {
     display: inline-flex;

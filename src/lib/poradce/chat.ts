@@ -58,7 +58,11 @@ async function zavolejModel(zpravy: Zprava[], ctx: KontextDat, f: Fetch): Promis
   }
   if (res.status === 404) throw new PoradceChyba('Poradce běží jen v lokální verzi aplikace.', 'nedostupne');
   if (res.status === 503) throw new PoradceChyba('Chybí API klíč Groq (GROQ_API_KEY v .env.local).', 'bez-klice');
-  if (res.status === 429) throw new PoradceChyba('Poradce je teď vytížený, zkuste to za chvíli.', 'limit');
+  if (res.status === 429) {
+    throw Object.assign(new PoradceChyba('Poradce je teď vytížený, zkuste to za chvíli.', 'limit'), {
+      zaSekund: cekatSekund(res.headers.get('retry-after'), await res.text().catch(() => '')),
+    });
+  }
   if (!res.ok) throw new PoradceChyba(`Poradce odpověděl chybou (${res.status}).`, 'jine');
   const data = (await res.json()) as { choices?: { message?: Zprava }[] };
   const msg = data.choices?.[0]?.message;
@@ -66,21 +70,59 @@ async function zavolejModel(zpravy: Zprava[], ctx: KontextDat, f: Fetch): Promis
   return { role: 'assistant', content: msg.content ?? null, tool_calls: msg.tool_calls?.length ? msg.tool_calls : undefined };
 }
 
+/** Bezplatný tarif Groq má limit tokenů za minutu – krátké čekání zvládneme sami. */
+const MAX_CEKANI_S = 35;
+const MAX_POKUSU = 3;
+
+/** Doba čekání z hlavičky Retry-After, jinak z textu chyby Groq („try again in 5.15s“ / „652.5ms“). */
+export function cekatSekund(hlavicka: string | null, telo: string): number | null {
+  const h = Number(hlavicka);
+  const m = /try again in ([d.]+)s*(ms|s)/i.exec(telo);
+  const z = m ? Number(m[1]) / (m[2].toLowerCase() === 'ms' ? 1000 : 1) : NaN;
+  const s = Math.max(Number.isFinite(h) ? h : 0, Number.isFinite(z) ? z : 0);
+  return s > 0 ? s : null;
+}
+const spanek = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function zavolejSCekanim(
+  zpravy: Zprava[],
+  ctx: KontextDat,
+  f: Fetch,
+  onCekani?: (sekund: number) => void,
+): Promise<Zprava & { role: 'assistant' }> {
+  for (let pokus = 1; ; pokus++) {
+    try {
+      return await zavolejModel(zpravy, ctx, f);
+    } catch (e) {
+      const s = e instanceof PoradceChyba && e.kod === 'limit' ? (e as PoradceChyba & { zaSekund: number | null }).zaSekund : null;
+      if (s === null || s > MAX_CEKANI_S || pokus >= MAX_POKUSU) throw e;
+      const cekej = Math.ceil(s + 0.5);
+      onCekani?.(cekej);
+      await spanek(cekej * 1000);
+    }
+  }
+}
+
 /**
  * Pošle rozhovor modelu, obslouží volání nástrojů a vrátí text odpovědi
- * a celou novou historii (bez systémového pokynu).
+ * a novou historii (bez systémového pokynu). Historie drží jen otázky a hotové odpovědi –
+ * výsledky nástrojů jsou velké, a kdyby se posílaly znovu, rychle by vyčerpaly limit tokenů;
+ * model si data při dalším dotazu vyhledá znovu.
  */
 export async function zeptejSe(
   historie: Zprava[],
   ctx: KontextDat,
   f: Fetch = fetch,
+  onCekani?: (sekund: number) => void,
 ): Promise<{ odpoved: string; historie: Zprava[] }> {
   const zpravy: Zprava[] = [{ role: 'system', content: SYSTEM_PROMPT }, ...historie];
   for (let kolo = 0; kolo < MAX_KOL; kolo++) {
-    const msg = await zavolejModel(zpravy, ctx, f);
+    const msg = await zavolejSCekanim(zpravy, ctx, f, onCekani);
     zpravy.push(msg);
     if (!msg.tool_calls) {
-      return { odpoved: (msg.content ?? '').trim() || 'Promiňte, odpověď se nepodařilo sestavit.', historie: zpravy.slice(1) };
+      const odpoved = (msg.content ?? '').trim() || 'Promiňte, odpověď se nepodařilo sestavit.';
+      const kratka = zpravy.slice(1).filter((m) => m.role === 'user' || (m.role === 'assistant' && !m.tool_calls));
+      return { odpoved, historie: kratka };
     }
     for (const v of msg.tool_calls) {
       let args: unknown = {};
