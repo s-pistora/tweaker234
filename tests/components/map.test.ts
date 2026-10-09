@@ -45,7 +45,7 @@ describe('Map', () => {
     const { container, getByTestId } = setup();
     const cz032 = container.querySelector('path[data-code="CZ032"]')!;
     await fireEvent.mouseEnter(cz032);
-    expect(getByTestId('map-tooltip').textContent).toContain('N/A PRO ROK 2024');
+    expect(getByTestId('map-tooltip').textContent).toContain('údaj za rok 2024 chybí');
   });
 
   it('klik i Enter volají onselect; hover plní aria-live náhled', async () => {
@@ -111,7 +111,7 @@ describe('Map', () => {
     await fireEvent.pointerMove(svg, { clientX: px, clientY: py });
     const tip = getByTestId('map-tooltip');
     expect(tip.textContent).toContain('Škola X');
-    expect(tip.textContent).toContain('[2012–2024]');
+    expect(tip.textContent).toContain('(2012–2024)');
   });
 
   it('zoomTarget bez animace (reduced motion) hned volá onzoomend', async () => {

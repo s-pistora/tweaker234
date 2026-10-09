@@ -90,7 +90,7 @@
       aria-label={playing ? 'Zastavit přehrávání časové osy' : 'Přehrát časovou osu'}
       onclick={togglePlay}
       data-testid="timeline-play"
-    >{playing ? '❚❚' : '▶'}</button>
+    >{playing ? '❚❚ Zastavit' : '▶ Přehrát vývoj'}</button>
     <label class="slider">
       <span class="sr-only">Rok</span>
       <input
@@ -111,20 +111,29 @@
   .timeline {
     display: flex;
     align-items: center;
-    gap: 10px;
-    border: 1px solid var(--phosphor-40);
-    background: var(--bg-panel);
-    padding: 6px 10px;
+    gap: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: #fff;
+    padding: 10px 16px;
     box-sizing: border-box;
   }
   .play {
-    background: var(--bg);
-    color: var(--amber);
-    border: 1px solid var(--amber-dim);
-    font-family: var(--font-mono);
-    padding: 3px 10px;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    min-height: 40px;
+    padding: 0 14px;
+    background: var(--brand);
+    color: #fff;
+    border: 0;
+    border-radius: 4px;
     cursor: pointer;
     flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .play:hover {
+    background: var(--brand-hover);
   }
   .slider {
     flex: 1 1 auto;
@@ -137,8 +146,9 @@
   }
   .year {
     font-family: var(--font-display);
-    color: var(--phosphor-100);
-    font-size: 1.2rem;
+    color: var(--brand-dark);
+    font-weight: 700;
+    font-size: 1.4rem;
     min-width: 3.5em;
     text-align: right;
   }

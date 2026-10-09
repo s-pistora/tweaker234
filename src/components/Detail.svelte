@@ -103,18 +103,20 @@
         {#each rows as r (r.def.id)}
           <tr class:sel={r.selected}>
             <th scope="row">{r.def.label}</th>
-            {#if r.lv}
-              <td class="val">{formatValue(r.lv.value, r.def)} <span class="unit">{r.def.unit}</span></td>
-            {:else}
-              <td class="val na">N/A <span class="na-reason">{r.reason}</span></td>
-            {/if}
-            <td class="src">
-              {#if r.lv}<span class="yr">{r.lv.year}</span> · {/if}{#if r.src}<a
-                  href={r.src.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={r.src.title}>{r.src.provider}</a
-                >{:else}zdroj neuveden{/if}
+            <td>
+              {#if r.lv}
+                <span class="val">{formatValue(r.lv.value, r.def)} <span class="unit">{r.def.unit}</span></span>
+              {:else}
+                <span class="val na">N/A <span class="na-reason">{r.reason}</span></span>
+              {/if}
+              <span class="src">
+                {#if r.lv}{r.lv.year} · {/if}{#if r.src}<a
+                    href={r.src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={r.src.title}>{r.src.provider.replace(/\s*\(.*\)$/, '')}</a
+                  >{:else}zdroj neuveden{/if}
+              </span>
             </td>
           </tr>
         {/each}
@@ -155,6 +157,7 @@
     width: 42%;
   }
   .val {
+    display: block;
     font-size: 1.1rem;
     font-weight: 700;
     color: var(--brand-dark);
@@ -175,10 +178,12 @@
   tr.sel th {
     padding-left: 10px;
   }
-  .src,
-  .yr {
+  .src {
+    display: block;
     color: var(--text-muted);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    margin-top: 2px;
   }
   .na,
   .na-reason {

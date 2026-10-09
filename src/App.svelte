@@ -12,7 +12,9 @@
   import WeightPanel from './components/WeightPanel.svelte';
   import HowModal, { type HowPart } from './components/HowModal.svelte';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
-  import OboryList from './components/skoly/OboryList.svelte';
+  import SkolyList from './components/skoly/SkolyList.svelte';
+  import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
+  import KrajSilueta from './components/skoly/KrajSilueta.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
   import type { MapPoint } from './components/Map.svelte';
@@ -27,7 +29,6 @@
     filtrujObory,
     naplnenostSkoly,
     procenta,
-    skolyZVysledku,
     tridaNaplnenosti,
     vzdalenostKm,
     type TridaNaplnenosti,
@@ -237,28 +238,49 @@
     sourceId: 'dz-prijimani-2026',
     decimals: 0,
   };
-  const TRIDA_STYLE: Record<TridaNaplnenosti, { tone: Tone; glyph: Glyph }> = {
-    volno: { tone: 'phosphor', glyph: 'o' },
-    ok: { tone: 'phosphor', glyph: 'square' },
-    pretlak: { tone: 'amber', glyph: 'triangle' },
-    na: { tone: 'amber', glyph: 'x' },
-  };
-  const skolaPoints = $derived.by((): MapPoint[] =>
-    skolyZVysledku(vysledky).map((s) => {
-      const n = naplnenostSkoly(obory.filter((o) => o.izo === s.izo));
-      const t = tridaNaplnenosti(n);
+  let zvyraznena = $state<string | null>(null);
+  const orpFeatures = $derived(snap ? areaFeatures(snap.geo['kv-orp']) : []);
+  /** školy ve výsledcích pro mapu: místa a obsazenost jen z oborů odpovídajících filtru */
+  const mapaSkoly = $derived.by((): MapaSkola[] => {
+    const m = new globalThis.Map<string, { o: (typeof vysledky)[number]['obor'][]; mist: number }>();
+    for (const r of vysledky) {
+      const g = m.get(r.obor.izo) ?? { o: [], mist: 0 };
+      g.o.push(r.obor);
+      g.mist += r.obor.zamer[2026] ?? 0;
+      m.set(r.obor.izo, g);
+    }
+    return [...m.entries()].map(([izo, g]) => {
+      const podil = naplnenostSkoly(g.o);
       return {
-        id: `skola:${s.izo}`,
-        name: s.skola,
-        lon: s.lon,
-        lat: s.lat,
-        layerLabel: `Střední škola · loni ${procenta(n)} (${TRIDA_LABEL[t]})`,
-        provider: 'Karlovarský kraj (datazapad.cz)',
-        validFor: '2025/26–2026/27',
-        ...TRIDA_STYLE[t],
+        izo,
+        nazev: g.o[0].skola,
+        obec: g.o[0].obec,
+        lat: g.o[0].lat,
+        lon: g.o[0].lon,
+        mist: g.mist,
+        oboru: g.o.length,
+        trida: tridaNaplnenosti(podil),
+        podil,
       };
-    }),
-  );
+    });
+  });
+  const mapaOstatni = $derived.by(() => {
+    const v = new Set(mapaSkoly.map((s) => s.izo));
+    const seen = new Set<string>();
+    return obory
+      .filter((o) => !v.has(o.izo) && !seen.has(o.izo) && seen.add(o.izo))
+      .map((o) => ({ izo: o.izo, lat: o.lat, lon: o.lon }));
+  });
+  const siluetaSkoly = $derived.by(() => {
+    const m = new globalThis.Map<string, { lat: number; lon: number; mist: number }>();
+    for (const o of obory) {
+      const g = m.get(o.izo) ?? { lat: o.lat, lon: o.lon, mist: 0 };
+      g.mist += o.zamer[2026] ?? 0;
+      m.set(o.izo, g);
+    }
+    return [...m.values()];
+  });
+
   const vybraneObory = $derived(sk.skola ? obory.filter((o) => o.izo === sk.skola) : []);
   const vybranaKm = $derived(
     domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
@@ -366,37 +388,38 @@
     <div class="wrap"><p class="state" role="status">Načítáme data…</p></div>
   {:else if st.mode === 'skoly'}
     <section class="hero">
-      <div class="wrap">
-        <p class="kicker">Střední školy · přijímací řízení 2026/27</p>
-        <h1>Kam na střední?</h1>
-        <p class="perex">
-          Najděte obory ve svém okolí. U každého ukazujeme, kolik míst škola otevírá a jak byl obor
-          obsazený loni.
-        </p>
-        {#if krajCelkem}
-          <div class="kpis">
-            <div class="kpi">
-              <span class="kpi__label">Obory pro 2026/27</span>
-              <span class="kpi__value">{fmtCs(oboru2026)}</span>
-              <span class="kpi__note">na {fmtCs(new Set(obory.map((o) => o.izo)).size)} středních školách v kraji</span>
+      <div class="wrap hero__grid">
+        <div>
+          <p class="kicker">Střední školy · přijímací řízení 2026/27</p>
+          <h1>Kam na střední?</h1>
+          <p class="perex">
+            Najděte obory ve svém okolí. U každého ukazujeme, kolik míst škola otevírá a jak byl obor
+            obsazený loni – podle otevřených dat Karlovarského kraje.
+          </p>
+          {#if krajCelkem}
+            <div class="kpis">
+              <div class="kpi">
+                <span class="kpi__value">{fmtCs(oboru2026)}</span>
+                <span class="kpi__label">oborů na {fmtCs(new Set(obory.map((o) => o.izo)).size)} školách</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi__value">{fmtCs(krajCelkem.zamer2026)}</span>
+                <span class="kpi__label">míst v prvních ročnících 2026/27</span>
+              </div>
+              <div class="kpi">
+                <span class="kpi__value">{procenta(krajCelkem.naplnenost)}</span>
+                <span class="kpi__label">míst bylo loni obsazeno ({fmtCs(krajCelkem.prijato2025)} z {fmtCs(krajCelkem.zamer2025)})</span>
+              </div>
+              <div class="kpi kpi--accent">
+                <span class="kpi__value">{fmtCs(Math.max(0, krajCelkem.zamer2025 - krajCelkem.prijato2025))}</span>
+                <span class="kpi__label">míst zůstalo loni volných</span>
+              </div>
             </div>
-            <div class="kpi">
-              <span class="kpi__label">Místa v 1. ročnících</span>
-              <span class="kpi__value">{fmtCs(krajCelkem.zamer2026)}</span>
-              <span class="kpi__note">plán škol na 2026/27</span>
-            </div>
-            <div class="kpi">
-              <span class="kpi__label">Loňská obsazenost</span>
-              <span class="kpi__value">{procenta(krajCelkem.naplnenost).replace('.', ',')}</span>
-              <span class="kpi__note">{fmtCs(krajCelkem.prijato2025)} žáků na {fmtCs(krajCelkem.zamer2025)} míst (2025)</span>
-            </div>
-            <div class="kpi">
-              <span class="kpi__label">Volná místa loni</span>
-              <span class="kpi__value">{fmtCs(Math.max(0, krajCelkem.zamer2025 - krajCelkem.prijato2025))}</span>
-              <span class="kpi__note">zůstalo po přijímačkách neobsazeno</span>
-            </div>
-          </div>
-        {/if}
+          {/if}
+        </div>
+        <div class="hero__art">
+          <KrajSilueta orp={orpFeatures} skoly={siluetaSkoly} />
+        </div>
       </div>
     </section>
 
@@ -425,48 +448,36 @@
 
         {#if skolyTab === 'hledat'}
           <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
-          <div class="grid">
-            <OboryList
+          <div class="split">
+            <SkolyList
               {vysledky}
               vybrana={sk.skola}
+              {zvyraznena}
               maDomov={!!domov}
               {domovNazev}
               maxKm={sk.maxKm}
               razeni={sk.razeni}
               onrazeni={(r) => setSkoly({ razeni: r })}
               onselect={(izo) => setSkoly({ skola: izo })}
+              onhover={(izo) => (zvyraznena = izo)}
             />
-            <section class="mapcard" aria-label="Mapa">
-              <h2>Kolik oborů je v dosahu</h2>
-              <p class="mapcard__hint">
-                Tmavší obec = víc oborů do {sk.maxKm} km. Kliknutím na obec nastavíte, kde bydlíte,
-                kliknutím na značku školy otevřete její detail.
-              </p>
-              <Map
-                features={obecFeatures}
-                values={dostupnost}
-                def={DOSTUPNOST_DEF}
-                year={2026}
-                selected={sk.domov}
-                preview={dostupnostPreview}
-                points={skolaPoints}
-                onselect={(code) => setSkoly({ domov: code, skola: null })}
-                onpointselect={(id) => setSkoly({ skola: id.replace(/^skola:/, '') })}
-                circle={domov ? { ...domov, km: sk.maxKm, label: domovNazev } : null}
-                label="Mapa obcí Karlovarského kraje podle počtu oborů v dosahu"
-                hint="Najeďte na obec a uvidíte, kolik oborů je odtud v dosahu. Kliknutím ji vyberete jako bydliště."
+            <div class="split__map">
+              <SkolyMapa
+                obce={obecFeatures}
+                orp={orpFeatures}
+                {dostupnost}
+                maxKm={sk.maxKm}
+                domov={sk.domov}
+                kruh={domov ? { ...domov, km: sk.maxKm } : null}
+                skoly={mapaSkoly}
+                ostatni={mapaOstatni}
+                vybrana={sk.skola}
+                {zvyraznena}
+                onobec={(code) => setSkoly({ domov: code, skola: null })}
+                onskola={(izo) => setSkoly({ skola: izo })}
+                onhover={(izo) => (zvyraznena = izo)}
               />
-              <Legend
-                values={obecFeatures.map((f) => dostupnost[f.properties.code] ?? null)}
-                def={DOSTUPNOST_DEF}
-                year={2026}
-              />
-              <ul class="maplegend" aria-label="Značky škol">
-                <li><span class="g g--volno">○</span> loni hodně volných míst</li>
-                <li><span class="g g--ok">□</span> loni skoro plno</li>
-                <li><span class="g g--pretlak">▲</span> loni přeplněno</li>
-              </ul>
-            </section>
+            </div>
           </div>
         {:else}
           <KrajPrehled obory={obory} names={geoIndex.names} onselect={(izo) => setSkoly({ skola: izo })} />
@@ -711,34 +722,65 @@
     line-height: 1.5;
     color: var(--text);
   }
+  .hero__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    gap: 32px;
+    align-items: center;
+  }
+  .hero__art {
+    max-width: 440px;
+    justify-self: end;
+    width: 100%;
+  }
   .kpis {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-  }
-  .kpi {
+    gap: 0;
     background: #fff;
     border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(12, 24, 56, 0.04);
+  }
+  .kpi {
     padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
+    border-left: 1px solid var(--line);
   }
-  .kpi__label {
-    font-weight: 500;
-    color: var(--brand);
-    font-size: 0.95rem;
+  .kpi:first-child {
+    border-left: 0;
   }
   .kpi__value {
-    font-size: 2.25rem;
-    line-height: 1.15;
+    font-size: 2rem;
+    line-height: 1.1;
     font-weight: 700;
     color: var(--brand-dark);
+    letter-spacing: -0.02em;
   }
-  .kpi__note {
+  .kpi--accent .kpi__value {
+    color: var(--st-volno);
+  }
+  .kpi__label {
     font-size: 0.85rem;
+    line-height: 1.35;
     color: var(--text-muted);
+  }
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: 24px;
+    align-items: start;
+    margin-top: 24px;
+  }
+  .split__map {
+    position: sticky;
+    top: 16px;
+    height: calc(100vh - 32px);
+    min-height: 480px;
+    max-height: 860px;
   }
   /* obsah */
   .main {
@@ -767,52 +809,6 @@
   .tabs button.on {
     color: var(--brand);
     border-bottom-color: var(--brand);
-  }
-  .grid {
-    display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: 24px;
-    align-items: start;
-    margin-top: 24px;
-  }
-  .mapcard {
-    position: sticky;
-    top: 16px;
-    background: #fff;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    padding: 18px 20px;
-    min-width: 0;
-  }
-  .mapcard h2 {
-    margin: 0 0 4px;
-    font-size: 1.25rem;
-  }
-  .mapcard__hint {
-    margin: 0 0 12px;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-  }
-  .maplegend {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-  }
-  .g {
-    font-weight: 900;
-  }
-  .g--volno,
-  .g--ok {
-    color: var(--brand-dark);
-  }
-  .g--pretlak {
-    color: var(--data-6);
   }
   .state {
     margin: 32px 0;
@@ -888,16 +884,32 @@
     white-space: nowrap;
   }
   @media (max-width: 1000px) {
+    .hero__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .hero__art {
+      display: none;
+    }
+    .split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .split__map {
+      position: static;
+      order: -1;
+      height: min(70vw, 460px);
+      min-height: 340px;
+    }
     .kpis {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    .grid,
+    .kpi:nth-child(3) {
+      border-left: 0;
+    }
+    .kpi:nth-child(n + 3) {
+      border-top: 1px solid var(--line);
+    }
     .layout {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .mapcard {
-      position: static;
-      order: -1;
     }
   }
   @media (max-width: 560px) {
