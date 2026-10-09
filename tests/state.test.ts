@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { get } from 'svelte/store';
-import { parseHash, toHash, appState, initHashSync, linkInvalid, DEFAULT_SKOLY, type AppState } from '../src/lib/state.ts';
+import { parseHash, toHash, appState, initHashSync, linkInvalid, DEFAULT_SKOLY, DEFAULT_VYLETY, type AppState } from '../src/lib/state.ts';
 import type { Snapshot } from '../src/lib/data/loader.ts';
 import type { Manifest, IndicatorFile } from '../src/lib/types.ts';
 
@@ -80,6 +80,7 @@ function makeSnap(): Snapshot {
     points: {},
     geo: {},
     skoly: null,
+    vylety: null,
     updatedAt: manifest.updatedAt,
   };
 }
@@ -305,5 +306,50 @@ describe('režim „Kam na střední“ v hashi', () => {
     expect(ok.invalid).toBe(true);
     expect(ok.state.skoly?.domov).toBe('554481');
     expect(ok.state.skoly?.maxKm).toBe(DEFAULT_SKOLY.maxKm);
+  });
+});
+
+describe('režim „Kam vyrazit“ v hashi', () => {
+  const mi = (id: string, obec: string) => ({ id, obec, kat: 'rozhledny' }) as unknown as NonNullable<Snapshot['vylety']>['mista'][number];
+  function snapVylety(): Snapshot {
+    return { ...makeSnap(), vylety: { updatedAt: 'x', sourceIds: [], mista: [mi('rozhledny:1', '554961'), mi('vleky:3', '506486')] } };
+  }
+
+  it('m=vylety bez parametrů → rozcestník s výchozími filtry; jiné režimy pole vylety nemají', () => {
+    const { state, invalid } = parseHash('#/kraj?m=vylety', snapVylety());
+    expect(invalid).toBe(false);
+    expect(state.vylety).toEqual(DEFAULT_VYLETY);
+    expect(parseHash('#/kraj?m=explore', snapVylety()).state.vylety).toBeUndefined();
+  });
+
+  it('round-trip všech parametrů (včetně hledání s diakritikou a id místa s dvojtečkou)', () => {
+    const snap = snapVylety();
+    const { state } = parseHash('#/kraj?m=vylety', snap);
+    state.vylety = {
+      kat: 'sjezdovky',
+      domov: '554961',
+      maxKm: 45,
+      tagy: ['velky', 'lanovka'],
+      vstup: 'zdarma',
+      misto: 'vleky:3',
+      q: 'Boží Dar & okolí',
+      razeni: 'nazev',
+    };
+    const back = parseHash(toHash(state), snap);
+    expect(back.invalid).toBe(false);
+    expect(back.state).toEqual(state);
+  });
+
+  it('nevalidní hodnoty spadnou na výchozí a označí odkaz jako neplatný', () => {
+    const { state, invalid } = parseHash('#/kraj?m=vylety&vk=kasina&vd=1&vkm=999&vf=OK!&vv=asi&vp=nic&vo=x', snapVylety());
+    expect(invalid).toBe(true);
+    expect(state.vylety).toEqual(DEFAULT_VYLETY);
+  });
+
+  it('parametry vylety se nepletou s „Kam na střední“ (d/km zůstávají školám)', () => {
+    const { state } = parseHash('#/kraj?m=vylety&vd=554961&vkm=20', snapVylety());
+    expect(state.skoly).toBeUndefined();
+    expect(state.vylety?.domov).toBe('554961');
+    expect(state.vylety?.maxKm).toBe(20);
   });
 });

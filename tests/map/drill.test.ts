@@ -14,15 +14,14 @@ describe('drill-down', () => {
     expect(selectArea({ level: 'obec', area: null, orp: '4103' }, '554961')).toEqual({ level: 'obec', area: '554961', orp: '4103' });
   });
 
-  it('levelUp: obec → orp (ORP vybráno) → kraj (KV vybrán) → kraj bez výběru → null', () => {
+  it('levelUp: obec → orp (ORP vybráno) → orp bez výběru → null (mapa ČR se nenabízí)', () => {
     const a = levelUp({ level: 'obec', area: '554961', orp: '4103' });
     expect(a).toEqual({ level: 'orp', area: '4103', orp: null });
     const b = levelUp(a!);
-    expect(b).toEqual({ level: 'kraj', area: KV, orp: null });
-    const c = levelUp(b!);
-    expect(c).toEqual({ level: 'kraj', area: null, orp: null });
-    expect(levelUp(c!)).toBeNull();
-    expect(levelUp({ level: 'orp', area: null, orp: null })).toEqual({ level: 'kraj', area: KV, orp: null });
+    expect(b).toEqual({ level: 'orp', area: null, orp: null });
+    expect(levelUp(b!)).toBeNull();
+    // starý odkaz na mapu krajů → zpět na ORP Karlovarského kraje
+    expect(levelUp({ level: 'kraj', area: 'CZ042', orp: null })).toEqual({ level: 'orp', area: null, orp: null });
   });
 
   it('resolveView: ORP obcí se odvodí z vybrané obce, jinak z lokálního ORP, jinak fallback na orp', () => {

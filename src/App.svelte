@@ -17,9 +17,34 @@
   import KrajSilueta from './components/skoly/KrajSilueta.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
+  import VyletyHub from './components/vylety/VyletyHub.svelte';
+  import VyletyFiltr from './components/vylety/VyletyFiltr.svelte';
+  import MistaList from './components/vylety/MistaList.svelte';
+  import MistoDetail from './components/vylety/MistoDetail.svelte';
+  import Ikona from './components/vylety/Ikona.svelte';
+  import Pruvodce, { type KrokPruvodce } from './components/Pruvodce.svelte';
   import type { MapPoint } from './components/Map.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
-  import { appState, initHashSync, linkInvalid, DEFAULT_SKOLY, type Mode, type SkolyState } from './lib/state.ts';
+  import {
+    appState,
+    initHashSync,
+    linkInvalid,
+    DEFAULT_SKOLY,
+    DEFAULT_VYLETY,
+    type Mode,
+    type SkolyState,
+    type VyletyState,
+  } from './lib/state.ts';
+  import {
+    KATEGORIE,
+    KATEGORIE_BY_ID,
+    filtrujMista,
+    mistaVDosahu,
+    plural,
+    pocty,
+    type FiltrMist,
+  } from './lib/vylety.ts';
+  import type { KategorieId } from './lib/types.ts';
   import { centroidy } from './lib/map/centroids.ts';
   import {
     TRIDA_LABEL,
@@ -103,6 +128,13 @@
   // hash `#/obec` bez obce a bez známého ORP → spadne na mapu ORP
   $effect(() => {
     if (snap && view.level !== st.level) navigate(view);
+  });
+  // Aplikace mluví jen o Karlovarském kraji: mapa i skóre začínají jeho 7 ORP (mapa krajů ČR
+  // se nenabízí; data ČR zůstávají jen jako srovnávací základna v Detailu).
+  $effect(() => {
+    if (snap && (st.mode === 'explore' || st.mode === 'score') && view.level === 'kraj') {
+      navigate({ level: 'orp', area: null, orp: null });
+    }
   });
 
   const file = $derived(snap?.indicators[view.level]);
@@ -209,7 +241,24 @@
     appState.update((s) => ({ ...s, year: y }));
   }
   function setMode(m: Mode) {
-    appState.update((s) => ({ ...s, mode: m, skoly: m === 'skoly' ? (s.skoly ?? { ...DEFAULT_SKOLY }) : s.skoly }));
+    appState.update((s) => ({
+      ...s,
+      mode: m,
+      skoly: m === 'skoly' ? (s.skoly ?? { ...DEFAULT_SKOLY }) : s.skoly,
+      // bydliště zadané v jiném režimu se převezme, ať ho uživatel nevybírá dvakrát
+      vylety:
+        m === 'vylety'
+          ? (s.vylety ?? { ...DEFAULT_VYLETY, tagy: [], domov: s.skoly?.domov ?? null })
+          : s.vylety,
+    }));
+    toTop();
+  }
+  function toTop() {
+    try {
+      if (!navigator.userAgent.includes('jsdom')) window.scrollTo({ top: 0 });
+    } catch {
+      /* testovací prostředí */
+    }
   }
 
   // --- režim „Kam na střední“ ---------------------------------------------
@@ -284,8 +333,182 @@
 
   const MODE_NAV: { m: Mode; label: string }[] = [
     { m: 'skoly', label: 'Kam na střední' },
+    { m: 'vylety', label: 'Kam vyrazit' },
     { m: 'explore', label: 'Mapa kraje' },
     { m: 'score', label: 'Kde by se mi žilo' },
+  ];
+
+  // --- režim „Kam vyrazit“ -------------------------------------------------
+  const vy = $derived<VyletyState>(st.vylety ?? DEFAULT_VYLETY);
+  const mista = $derived(snap?.vylety?.mista ?? []);
+  const vyDomov = $derived(vy.domov ? (obecCentroidy[vy.domov] ?? null) : null);
+  const vyDomovNazev = $derived(vy.domov ? (obecNames[vy.domov] ?? '') : '');
+  const vyDef = $derived(vy.kat ? KATEGORIE_BY_ID[vy.kat] : undefined);
+  const vyFiltr = $derived<FiltrMist>({
+    kat: vy.kat,
+    domov: vyDomov,
+    maxKm: vy.maxKm,
+    tagy: vy.tagy,
+    vstup: vy.vstup,
+    q: vy.q,
+  });
+  /** výsledky podle filtrů kategorie, ale bez omezení vzdáleností (pro barvení mapy) */
+  const vyBezDosahu = $derived(filtrujMista(mista, { ...vyFiltr, domov: null }, 'nazev').map((r) => r.misto));
+  const vyVysledky = $derived(filtrujMista(mista, vyFiltr, vy.razeni));
+  const vyDosah = $derived(mistaVDosahu(vyBezDosahu, obecCentroidy, vy.maxKm));
+  const vyPocty = $derived(pocty(mista));
+  const vyPoctyVDosahu = $derived(vyDomov ? pocty(filtrujMista(mista, { ...vyFiltr, kat: null, tagy: [], vstup: 'vse', q: '' }).map((r) => r.misto)) : null);
+  const vyMisto = $derived(vy.misto ? (mista.find((m) => m.id === vy.misto) ?? null) : null);
+  const vyMistoKm = $derived(
+    vyMisto && vyDomov ? (vyVysledky.find((r) => r.misto.id === vyMisto.id)?.km ?? vzdalenostKm(vyDomov.lat, vyDomov.lon, vyMisto.lat, vyMisto.lon)) : null,
+  );
+  let vyHover = $state<string | null>(null);
+  const vyPoints = $derived.by((): MapPoint[] =>
+    vyVysledky.map(({ misto: m }) => {
+      const d = KATEGORIE_BY_ID[m.kat];
+      return {
+        id: m.id,
+        name: m.nazev,
+        lon: m.lon,
+        lat: m.lat,
+        layerLabel: `${d.label}${m.obecNazev ? ` · ${m.obecNazev}` : ''}`,
+        provider: 'Karlovarský kraj (datazapad.cz)',
+        tone: 'phosphor',
+        glyph: 'o',
+        color: d.barva,
+      };
+    }),
+  );
+  const VY_DOSAH_DEF = $derived<IndicatorDef>({
+    id: 'vylety-dosah',
+    label: vyDef ? `${vyDef.label} v dosahu` : 'Míst v dosahu',
+    unit: 'počet',
+    higherIsBetter: true,
+    sourceId: 'datazapad',
+    decimals: 0,
+  });
+  function vyPreview(code: AreaCode): string[] {
+    const n = vyDosah[code] ?? 0;
+    const j = vyDef?.jednotky ?? (['místo', 'místa', 'míst'] as [string, string, string]);
+    return [`${n} ${plural(n, j)} do ${vy.maxKm} km`, 'klik = odsud vyrážím'];
+  }
+  function setVylety(patch: Partial<VyletyState>) {
+    appState.update((s) => ({ ...s, vylety: { ...(s.vylety ?? DEFAULT_VYLETY), ...patch } }));
+  }
+  function openKat(k: KategorieId | null) {
+    setVylety({ kat: k, tagy: [], vstup: 'vse', q: '', misto: null });
+    toTop();
+  }
+  function openMisto(id: string) {
+    const m = mista.find((x) => x.id === id);
+    if (!m) return;
+    // klik v rozcestníku nebo „V okolí“ na místo jiné kategorie → přepnout i kategorii
+    if (vy.kat && m.kat !== vy.kat) setVylety({ kat: m.kat, tagy: [], vstup: 'vse', q: '', misto: id });
+    else setVylety({ misto: id });
+  }
+  const vySources = $derived(snap ? snap.manifest.sources : []);
+
+  // --- sdílení odkazu --------------------------------------------------------
+  let toast = $state<string | null>(null);
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  function showToast(t: string) {
+    toast = t;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => (toast = null), 3000);
+  }
+  async function share() {
+    const url = location.href;
+    try {
+      if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+        await navigator.share({ title: document.title, url });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      showToast('Odkaz je zkopírovaný. Otevře stránku přesně tak, jak ji vidíte.');
+    } catch {
+      showToast('Odkaz zkopírujte z adresního řádku – obsahuje vše, co jste nastavili.');
+    }
+  }
+
+  // --- průvodce pro nové uživatele -------------------------------------------
+  const TOUR_KEY = 'kk-pruvodce-v1';
+  let tourOpen = $state(false);
+  let tourHash = '';
+  function openTour() {
+    tourHash = location.hash;
+    tourOpen = true;
+  }
+  function closeTour() {
+    tourOpen = false;
+    try {
+      localStorage.setItem(TOUR_KEY, '1');
+    } catch {
+      /* soukromé okno */
+    }
+    // průvodce byl jen ukázka – vrátit stránku tam, kde uživatel byl
+    if (tourHash && location.hash !== tourHash) {
+      history.replaceState(null, '', tourHash);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    }
+    toTop();
+  }
+  let tourChecked = false;
+  $effect(() => {
+    if (!snap || tourChecked) return;
+    tourChecked = true;
+    let seen = true;
+    try {
+      seen = localStorage.getItem(TOUR_KEY) === '1';
+    } catch {
+      seen = true;
+    }
+    if (!seen && !navigator.userAgent.includes('jsdom')) openTour();
+  });
+  const KROKY: KrokPruvodce[] = [
+    {
+      nadpis: 'Vítejte! Tohle je Karlovarský kraj v datech',
+      text: 'Za minutu vám ukážeme, co tu najdete: střední školy, místa na výlet a čísla o obcích. Všechno pochází z otevřených dat kraje a státních úřadů.',
+    },
+    {
+      cil: 'nav',
+      nadpis: 'Čtyři části v jednom menu',
+      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Mapa kraje: čísla o ORP a obcích. Kde by se mi žilo: srovnání podle toho, na čem vám záleží.',
+    },
+    {
+      cil: 'hub',
+      pred: () => {
+        setMode('vylety');
+        setVylety({ kat: null, misto: null });
+      },
+      nadpis: 'Kam vyrazit: vyberte kategorii',
+      text: 'Každá dlaždice je samostatná stránka s mapou, seznamem a filtry. Číslo ukazuje, kolik míst v kategorii je.',
+    },
+    {
+      cil: 'filtr',
+      pred: () => openKat('koupani'),
+      nadpis: 'Filtry přímo pro kategorii',
+      text: 'Vyberte obec, odkud vyrážíte, a jak daleko chcete jet. Každá kategorie má vlastní filtry. U koupání třeba poslední výsledek kontroly kvality vody od hygieniků.',
+    },
+    {
+      cil: 'mapa',
+      nadpis: 'Interaktivní mapa',
+      text: 'Tmavší obec = víc míst v dosahu. Klik na obec nastaví, odkud vyrážíte, klik na značku otevře detail místa. Na mobilu stačí klepnout.',
+    },
+    {
+      cil: 'list',
+      nadpis: 'Seznam a detail místa',
+      text: 'Karty řadíme od nejbližší. V detailu najdete web, kontakt, cestu na Mapy.cz a co dalšího je do 5 km.',
+    },
+    {
+      cil: 'share',
+      nadpis: 'Pošlete to dál',
+      text: 'Vše, co nastavíte, je uložené v adrese stránky. Tlačítko Sdílet zkopíruje odkaz, který otevře přesně stejný pohled.',
+    },
+    {
+      cil: 'help',
+      nadpis: 'Průvodce kdykoli znovu',
+      text: 'Když si nebudete jistí, spusťte průvodce tímto tlačítkem. Teď vás vrátíme tam, kde jste začali.',
+    },
   ];
 
   function setSkoly(patch: Partial<SkolyState>) {
@@ -317,7 +540,7 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !snap) return;
+    if (e.key !== 'Escape' || !snap || tourOpen) return;
     if (sourcesOpen) {
       closeSources();
       return;
@@ -328,6 +551,11 @@
     }
     if (st.mode === 'skoly') {
       if (sk.skola) setSkoly({ skola: null });
+      return;
+    }
+    if (st.mode === 'vylety') {
+      if (vy.misto) setVylety({ misto: null });
+      else if (vy.kat) openKat(null);
       return;
     }
     drill?.up();
@@ -343,7 +571,17 @@
         <span class="brandmark__bar" aria-hidden="true"></span>
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
-      <nav class="mainnav" aria-label="Hlavní navigace">
+      <div class="tools">
+        <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn">
+          <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
+          <span>Sdílet</span>
+        </button>
+        <button type="button" class="tool" onclick={openTour} data-tour="help" data-testid="tour-btn">
+          <Ikona d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" size={18} />
+          <span>Průvodce</span>
+        </button>
+      </div>
+      <nav class="mainnav" aria-label="Hlavní navigace" data-tour="nav">
         {#each MODE_NAV as n (n.m)}
           <button
             type="button"
@@ -357,6 +595,10 @@
       </nav>
     </div>
   </header>
+
+  {#if toast}
+    <div class="toast" role="status" aria-live="polite">{toast}</div>
+  {/if}
 
   {#if $linkInvalid && !linkWarningDismissed}
     <div class="wrap">
@@ -474,6 +716,183 @@
         {/if}
       {/if}
     </main>
+  {:else if st.mode === 'vylety'}
+    <section class="hero" class:hero--slim={!!vyDef}>
+      <div class="wrap">
+        {#if vyDef}
+          <button type="button" class="back" onclick={() => openKat(null)} data-testid="vylety-back">← Všechny kategorie</button>
+          <div class="kathead">
+            <span class="kathead__ico" style="--c: {vyDef.barva}"><Ikona d={vyDef.ikona} size={30} /></span>
+            <div>
+              <p class="kicker">Kam vyrazit · Karlovarský kraj</p>
+              <h1>
+                {vyVysledky.length}
+                {plural(vyVysledky.length, vyDef.jednotky)}{#if vyDomov}&nbsp;do {vy.maxKm} km od obce {vyDomovNazev}{:else}&nbsp;v kraji{/if}
+              </h1>
+            </div>
+          </div>
+          <p class="perex">{vyDef.perex}</p>
+          <nav class="katnav" aria-label="Kategorie">
+            {#each KATEGORIE as k (k.id)}
+              <button
+                type="button"
+                class:on={k.id === vy.kat}
+                aria-current={k.id === vy.kat ? 'page' : undefined}
+                onclick={() => openKat(k.id)}>{k.label}</button
+              >
+            {/each}
+          </nav>
+        {:else}
+          <p class="kicker">Volný čas · Karlovarský kraj</p>
+          <h1>Kam vyrazit?</h1>
+          <p class="perex">
+            {mista.length} míst z otevřených dat kraje, od sjezdovek po minerální prameny. Vyberte kategorii,
+            nebo nejdřív zadejte, odkud vyrážíte. Spočítáme, co máte v dosahu.
+          </p>
+          <div class="hubbar">
+            <div class="hubbar__f">
+              <label for="h-domov">Odkud vyrážíte?</label>
+              <select
+                id="h-domov"
+                value={vy.domov ?? ''}
+                onchange={(e) => setVylety({ domov: e.currentTarget.value || null })}
+                data-testid="hub-domov"
+              >
+                <option value="">Celý kraj</option>
+                {#each Object.entries(obecNames).sort((a, b) => a[1].localeCompare(b[1], 'cs')) as [code, name] (code)}
+                  <option value={code}>{name}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="hubbar__f">
+              <label for="h-km">Jak daleko?</label>
+              <div class="hubbar__range">
+                <input
+                  id="h-km"
+                  type="range"
+                  min="5"
+                  max="80"
+                  step="5"
+                  value={vy.maxKm}
+                  disabled={!vy.domov}
+                  oninput={(e) => setVylety({ maxKm: Number(e.currentTarget.value) })}
+                  aria-valuetext="{vy.maxKm} km"
+                />
+                <output for="h-km">{vy.maxKm} km</output>
+              </div>
+            </div>
+            <div class="hubbar__f hubbar__f--q">
+              <label for="h-q">Hledat místo</label>
+              <input
+                id="h-q"
+                type="search"
+                placeholder="např. Klínovec, Loket, Soos"
+                value={vy.q}
+                oninput={(e) => setVylety({ q: e.currentTarget.value })}
+                data-testid="hub-q"
+              />
+            </div>
+          </div>
+        {/if}
+      </div>
+    </section>
+
+    <main class="wrap main">
+      {#if !snap.vylety}
+        <p class="state state--err" role="alert">Data o místech pro volný čas se nepodařilo načíst.</p>
+      {:else if !vyDef}
+        <div class="grid grid--hub">
+          <div class="hubcol">
+            {#if vy.q.trim()}
+              <MistaList
+                vysledky={vyVysledky}
+                vybrane={vy.misto}
+                maDomov={!!vyDomov}
+                razeni={vy.razeni}
+                onrazeni={(r) => setVylety({ razeni: r })}
+                onselect={openMisto}
+                onhover={(id) => (vyHover = id)}
+              />
+            {/if}
+            <VyletyHub pocty={vyPocty} vDosahu={vyPoctyVDosahu} maxKm={vy.maxKm} domovNazev={vyDomovNazev} onkat={(k) => openKat(k)} />
+          </div>
+          <section class="mapcard" aria-label="Mapa míst" data-tour="mapa-hub">
+            <h2>Všechna místa na mapě</h2>
+            <p class="mapcard__hint">
+              Barva značky = kategorie. Klikněte na značku pro detail, na obec pro nastavení, odkud vyrážíte.
+            </p>
+            <Map
+              features={obecFeatures}
+              values={vyDosah}
+              def={VY_DOSAH_DEF}
+              year={2026}
+              selected={vy.domov}
+              preview={vyPreview}
+              points={vyPoints}
+              selectedPoint={vyHover ?? vy.misto}
+              onselect={(code) => setVylety({ domov: code })}
+              onpointselect={openMisto}
+              circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
+              label="Mapa míst pro volný čas v Karlovarském kraji"
+              hint="Najeďte na značku nebo obec. Klik na značku otevře detail místa."
+            />
+            <ul class="katlegend" aria-label="Barvy kategorií">
+              {#each KATEGORIE as k (k.id)}
+                <li><span class="dot" style="background: {k.barva}"></span>{k.label}</li>
+              {/each}
+            </ul>
+          </section>
+        </div>
+      {:else}
+        <VyletyFiltr filtr={vy} def={vyDef} obce={obecNames} pocet={vyVysledky.length} onchange={setVylety} />
+        <div class="grid">
+          <MistaList
+            vysledky={vyVysledky}
+            vybrane={vy.misto}
+            maDomov={!!vyDomov}
+            razeni={vy.razeni}
+            onrazeni={(r) => setVylety({ razeni: r })}
+            onselect={openMisto}
+            onhover={(id) => (vyHover = id)}
+          />
+          <section class="mapcard" aria-label="Mapa" data-tour="mapa">
+            <h2>Kde to je</h2>
+            <p class="mapcard__hint">
+              Tmavší obec = víc míst{vyDomov ? '' : ' (podle filtrů)'} do {vy.maxKm} km. Klikněte na obec, odkud vyrážíte,
+              nebo na značku místa.
+            </p>
+            <Map
+              features={obecFeatures}
+              values={vyDosah}
+              def={VY_DOSAH_DEF}
+              year={2026}
+              selected={vy.domov}
+              preview={vyPreview}
+              points={vyPoints}
+              selectedPoint={vyHover ?? vy.misto}
+              onselect={(code) => setVylety({ domov: code })}
+              onpointselect={openMisto}
+              circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
+              label="Mapa: {vyDef.label} v Karlovarském kraji"
+              hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Klik na značku otevře detail."
+            />
+            <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={2026} />
+          </section>
+        </div>
+      {/if}
+      {#if vyMisto}
+        <MistoDetail
+          misto={vyMisto}
+          km={vyMistoKm}
+          domovNazev={vyDomovNazev}
+          vsechna={mista}
+          source={vySources.find((s) => s.id === vyMisto.sourceId)}
+          vodaSource={vySources.find((s) => s.id === 'khs-koupani')}
+          onclose={() => setVylety({ misto: null })}
+          onselect={openMisto}
+        />
+      {/if}
+    </main>
   {:else}
     <section class="hero hero--slim">
       <div class="wrap">
@@ -482,7 +901,7 @@
         <p class="perex">
           {st.mode === 'score'
             ? 'Nastavte, na čem vám záleží, a mapa seřadí území podle skóre. U každého výsledku vysvětlujeme, jak vzniklo.'
-            : 'Vyberte ukazatel a rok. Klikněte na Karlovarský kraj a dál na jednotlivá ORP a obce.'}
+            : 'Vyberte ukazatel a rok. Klikněte na ORP (správní obvod) a dál na jednotlivé obce. Číslo vždy srovnáváme s průměrem Česka.'}
         </p>
         <StatusBar
           updatedAt={snap.updatedAt}
@@ -562,10 +981,10 @@
           {/key}
         {:else}
           <div class="ascii-panel">
-            <h2 class="ascii-panel__title">Vyberte území na mapě</h2>
+            <h2 class="ascii-panel__title">Vyberte ORP nebo obec na mapě</h2>
             <p>
-              Klikněte na kraj (nebo Tab a Enter, šipky přeskakují mezi sousedy). Karlovarský kraj jde
-              rozkliknout na ORP a obce. Klávesa Esc vrací o úroveň výš.
+              Klikněte na ORP (nebo Tab a Enter, šipky přeskakují mezi sousedy). Pak uvidíte jeho obce.
+              Klávesa Esc vrací o úroveň výš.
             </p>
           </div>
         {/if}
@@ -589,11 +1008,15 @@
         službu Karlovarského kraje ani jiného úřadu.
       </p>
       <p>
-        Data: Karlovarský kraj (DATAZÁPAD), Český statistický úřad, ČÚZK, ÚZIS – podrobně v
+        Data: Karlovarský kraj (DATAZÁPAD), Krajská hygienická stanice, Český statistický úřad, ČÚZK, ÚZIS – podrobně v
         <button type="button" class="linklike" onclick={openSources}>Zdrojích dat</button>. Vzdálenosti vzdušnou čarou.
       </p>
     </div>
   </footer>
+
+  {#if tourOpen && snap}
+    <Pruvodce kroky={KROKY} onclose={closeTour} />
+  {/if}
 
   {#if sourcesOpen && snap}
     <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
@@ -675,6 +1098,206 @@
   }
   .mainnav .mainnav__src {
     color: var(--text-muted);
+  }
+  .mainnav button:focus-visible,
+  .tool:focus-visible,
+  .back:focus-visible,
+  .katnav button:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+  /* nástroje v liště: Sdílet, Průvodce */
+  .tools {
+    display: flex;
+    gap: 6px;
+    order: 3;
+  }
+  .tool {
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--brand);
+    cursor: pointer;
+  }
+  .tool:hover {
+    border-color: var(--brand);
+    background: #e3edf8;
+  }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    transform: translateX(-50%);
+    z-index: 60;
+    max-width: calc(100vw - 32px);
+    padding: 12px 18px;
+    border-radius: 6px;
+    background: var(--brand-dark);
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(12, 24, 56, 0.3);
+  }
+  /* „Kam vyrazit“ */
+  .back {
+    font: inherit;
+    font-weight: 500;
+    background: none;
+    border: 0;
+    padding: 0;
+    min-height: 44px;
+    color: var(--brand);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .kathead {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .kathead__ico {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    color: var(--c);
+    background: #fff;
+    border: 2px solid color-mix(in srgb, var(--c) 30%, #fff);
+  }
+  .katnav {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+  }
+  .katnav button {
+    font: inherit;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    background: #fff;
+    color: var(--brand-dark);
+    cursor: pointer;
+  }
+  .katnav button.on {
+    background: var(--brand-dark);
+    border-color: var(--brand-dark);
+    color: #fff;
+  }
+  .hubbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    box-shadow: var(--shadow);
+  }
+  .hubbar__f {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .hubbar label {
+    font-weight: 500;
+    color: var(--brand-dark);
+  }
+  .hubbar select,
+  .hubbar input[type='search'] {
+    font: inherit;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #8a94a3;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--text);
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .hubbar__range {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+  .hubbar__range input {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--brand);
+  }
+  .hubbar output {
+    font-weight: 700;
+    color: var(--brand);
+    min-width: 3.5em;
+    text-align: right;
+  }
+  /* „Kam vyrazit“: seznam vlevo, mapa vpravo (lepí se při posunu) */
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: 24px;
+    align-items: start;
+    margin-top: 24px;
+  }
+  .mapcard {
+    position: sticky;
+    top: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
+    min-width: 0;
+  }
+  .mapcard h2 {
+    margin: 0 0 4px;
+    font-size: 1.25rem;
+  }
+  .mapcard__hint {
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+  }
+  .grid--hub {
+    margin-top: 0;
+  }
+  .hubcol {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    min-width: 0;
+  }
+  .katlegend {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+  .katlegend .dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: -1px;
   }
   /* úvodní pruh */
   .hero {
@@ -867,6 +1490,16 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
+  @media (max-width: 1100px) {
+    .topbar__in {
+      padding-top: 8px;
+      padding-bottom: 4px;
+    }
+    .mainnav {
+      order: 4;
+      width: 100%;
+    }
+  }
   @media (max-width: 1000px) {
     .hero__grid {
       grid-template-columns: minmax(0, 1fr);
@@ -886,6 +1519,20 @@
     .kpis {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .hubbar {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .hubbar__f--q {
+      grid-column: 1 / -1;
+    }
+    .grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .mapcard {
+      position: static;
+      order: -1;
+    }
+    .grid,
     .kpi:nth-child(3) {
       border-left: 0;
     }
@@ -920,6 +1567,62 @@
     }
     .hero {
       padding: 24px 0 20px;
+    }
+    .kpis {
+      gap: 10px;
+    }
+    .kpi {
+      padding: 12px 14px;
+    }
+    .tools {
+      order: 2;
+      gap: 4px;
+    }
+    .tool {
+      padding: 0 10px;
+      min-height: 40px;
+      font-size: 0.85rem;
+    }
+    /* na úzké obrazovce jen text (ikona bez textu by u důležité akce nebyla srozumitelná) */
+    .tool :global(svg) {
+      display: none;
+    }
+    .grid--hub .mapcard {
+      order: 1;
+    }
+    .brandmark__bar {
+      height: 32px;
+    }
+    .brandmark__txt {
+      font-size: 0.8rem;
+    }
+    .brandmark__txt strong {
+      font-size: 0.95rem;
+    }
+    .hubbar {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 14px;
+    }
+    .kathead__ico {
+      width: 48px;
+      height: 48px;
+    }
+    .main {
+      padding-top: 16px;
+    }
+    .mapcard {
+      padding: 14px;
+    }
+    .perex {
+      font-size: 1.02rem;
+    }
+  }
+  @media (max-width: 340px) {
+    .brandmark__txt {
+      font-size: 0.72rem;
+    }
+    .tool {
+      padding: 0 8px;
     }
   }
 </style>

@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "data:update": "tsx scripts/update-data.ts",
-    "data:skoly": "tsx scripts/update-skoly.ts"
+    "data:skoly": "tsx scripts/update-skoly.ts",
+    "data:vylety": "tsx scripts/update-vylety.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

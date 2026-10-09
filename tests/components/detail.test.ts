@@ -14,6 +14,7 @@ const snap: Snapshot = {
   points: {},
   geo: {},
   skoly: null,
+    vylety: null,
   updatedAt: manifest.updatedAt,
 };
 
@@ -120,7 +121,7 @@ describe('Sources', () => {
     const onclose = vi.fn();
     const sources = [...manifest.sources, { ...manifest.sources[0], id: 'x', provider: 'ČSÚ', status: 'stale' }];
     const { container, getByText } = render(Sources, { props: { sources, updatedAt: manifest.updatedAt, onclose } });
-    expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(sources.length);
     expect(getByText('Starší').classList.contains('stale')).toBe(true);
     await fireEvent.click(getByText('Zavřít'));
     expect(onclose).toHaveBeenCalled();
