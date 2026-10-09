@@ -1,168 +1,226 @@
 <script lang="ts">
-  /** Výsledky hledání: jeden řádek = jeden obor, klik vybere školu (detail vpravo). */
-  import {
-    TYP_LABEL,
-    asciiBar,
-    procenta,
-    trend,
-    trendChar,
-    tridaNaplnenosti,
-    type OborVysledek,
-  } from '../../lib/skoly.ts';
+  /** Výsledky hledání jako karty: jeden obor = jedna karta, klik otevře detail školy. */
+  import { trend, type OborVysledek, type Razeni } from '../../lib/skoly.ts';
+  import Naplnenost from './Naplnenost.svelte';
 
   interface Props {
     vysledky: OborVysledek[];
     vybrana: string | null;
     maDomov: boolean;
+    razeni: Razeni;
+    onrazeni: (r: Razeni) => void;
     onselect: (izo: string) => void;
   }
-  const { vysledky, vybrana, maDomov, onselect }: Props = $props();
+  const { vysledky, vybrana, maDomov, razeni, onrazeni, onselect }: Props = $props();
 
-  const LIMIT = 60;
+  const LIMIT = 40;
   let vse = $state(false);
   const zobrazene = $derived(vse ? vysledky : vysledky.slice(0, LIMIT));
   const pocetSkol = $derived(new Set(vysledky.map((r) => r.obor.izo)).size);
 
   function kratce(skola: string): string {
-    return skola.replace(/,?\s*příspěvková organizace$/i, '').replace(/,?\s*s\.\s*r\.\s*o\.$/i, '');
+    return skola
+      .replace(/,?\s*příspěvková organizace$/i, '')
+      .replace(/,?\s*s\.\s*r\.\s*o\.$/i, '')
+      .replace(/,?\s*o\.\s*p\.\s*s\.$/i, '');
   }
+  function oboru(n: number): string {
+    return n === 1 ? 'obor' : n >= 2 && n <= 4 ? 'obory' : 'oborů';
+  }
+  function skol(n: number): string {
+    return n === 1 ? 'škole' : 'školách';
+  }
+  function zastavek(n: number): string {
+    return n === 1 ? '1 zastávka' : n <= 4 ? `${n} zastávky` : `${n} zastávek`;
+  }
+  const TYP_TXT = { maturita: 's maturitou', vyucni: 's výučním listem', jine: 'jiné' } as const;
+  const TREND_TXT = { '1': 'víc míst než dřív', '-1': 'méně míst než dřív', '0': '' } as const;
 </script>
 
 <section class="list" aria-label="Nalezené obory" data-testid="obory-list">
-  <h2>
-    &gt; NALEZENO {vysledky.length} OBORŮ NA {pocetSkol} ŠKOLÁCH{maDomov ? '' : ' (CELÝ KRAJ)'}
-  </h2>
+  <div class="head">
+    <h2>
+      {vysledky.length}
+      {oboru(vysledky.length)} na {pocetSkol}
+      {skol(pocetSkol)}
+    </h2>
+    <div class="sort" role="radiogroup" aria-label="Řazení">
+      <span>Seřadit:</span>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={razeni === 'vzdalenost'}
+        class:on={razeni === 'vzdalenost'}
+        onclick={() => onrazeni('vzdalenost')}>{maDomov ? 'Nejblíž' : 'Podle školy'}</button
+      >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={razeni === 'volno'}
+        class:on={razeni === 'volno'}
+        onclick={() => onrazeni('volno')}>Nejvíc volných míst</button
+      >
+    </div>
+  </div>
+  {#if !maDomov}
+    <p class="tip">💡 Zatím ukazujeme celý kraj. Vyber v kroku 1, kde bydlíš, a uvidíš, co máš v dosahu.</p>
+  {/if}
+
   {#if vysledky.length === 0}
-    <p class="empty">Nic nenalezeno. Zkus zvětšit dosah nebo změnit typ studia.</p>
+    <p class="empty">Nic jsme nenašli. Zkus dojíždět dál nebo změnit typ školy či obor.</p>
   {:else}
     <ul>
       {#each zobrazene as r (r.obor.izo + r.obor.kodOboru + r.obor.forma)}
         {@const o = r.obor}
-        {@const t = tridaNaplnenosti(r.naplnenost)}
+        {@const t = trend(o)}
         <li>
           <button
             type="button"
+            class="card"
             class:sel={vybrana === o.izo}
             aria-pressed={vybrana === o.izo}
             onclick={() => onselect(o.izo)}
             data-testid="obor-row"
           >
-            <span class="obor">{o.nazevOboru}</span>
-            <span class="meta">
-              {kratce(o.skola)} · {o.obec}{r.km !== null ? ` · ${r.km.toFixed(0)} km` : ''}
+            <span class="top">
+              <span class="obor">{o.nazevOboru}</span>
+              {#if r.km !== null}<span class="km">{r.km < 1 ? '< 1' : r.km.toFixed(0)} km</span>{/if}
             </span>
-            <span class="nums">
-              <span class="typ">{TYP_LABEL[o.typ]}{o.forma && o.forma !== 'denní' ? `, ${o.forma}` : ''}</span>
-              <span title="plánovaná místa 2026/27 a vývoj od 2024/25">míst {o.zamer[2026]} {trendChar(trend(o))}</span>
-              <span class="bar bar--{t}" title="loni obsazeno: přijatí k 30. 9. 2025 / plán 2025/26">
-                {asciiBar(r.naplnenost, 8)} {procenta(r.naplnenost)}
-              </span>
-              <span title="autobusové zastávky do 500 m">BUS {o.zastavky500m}</span>
+            <span class="skola">{kratce(o.skola)} · {o.obec}</span>
+            <span class="facts">
+              <span>🎓 {TYP_TXT[o.typ]}, {o.delka}{o.forma !== 'denní' ? `, ${o.forma}` : ''}</span>
+              <span>👥 {o.zamer[2026]} míst pro 2026/27{t !== null && t !== 0 ? ` (${TREND_TXT[String(t) as '1' | '-1']})` : ''}</span>
+              <span>🚌 {o.zastavky500m > 0 ? `${zastavek(o.zastavky500m)} do 500 m` : 'zastávka dál než 500 m'}</span>
             </span>
+            <Naplnenost podil={r.naplnenost} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           </button>
         </li>
       {/each}
     </ul>
     {#if vysledky.length > LIMIT}
       <button type="button" class="more" onclick={() => (vse = !vse)}>
-        [{vse ? 'MÉNĚ' : `ZOBRAZIT VŠECH ${vysledky.length}`}]
+        {vse ? 'Zobrazit méně' : `Zobrazit všech ${vysledky.length}`}
       </button>
     {/if}
-    <p class="legend">
-      Pruh = jak byl obor loni obsazený (přijatí / plánovaná místa).
-      <span class="bar--volno">pod 70 % = hodně volno</span>, <span class="bar--ok">70–100 %</span>,
-      <span class="bar--pretlak">nad 100 % = přetlak</span>.
-    </p>
   {/if}
 </section>
 
 <style>
   .list {
-    border: 1px solid var(--phosphor-40);
-    background: var(--bg-panel);
-    padding: 8px 12px;
-    margin-top: 10px;
     min-width: 0;
   }
+  .head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
+    margin-bottom: 8px;
+  }
   h2 {
-    font-family: var(--font-display);
-    font-size: 1.3rem;
-    color: var(--phosphor-100);
-    margin: 0 0 6px;
+    font-size: 1.15rem;
+    margin: 0;
+    color: var(--c-text);
+  }
+  .sort {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--c-muted);
+  }
+  .sort button,
+  .more {
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--c-border);
+    background: #fff;
+    color: var(--c-text);
+    cursor: pointer;
+  }
+  .sort button.on {
+    background: var(--c-text);
+    border-color: var(--c-text);
+    color: #fff;
+  }
+  .tip {
+    background: var(--c-accent-soft);
+    color: #1e3a8a;
+    border-radius: 8px;
+    padding: 8px 12px;
+    margin: 0 0 10px;
+    font-size: 0.9rem;
+  }
+  .empty {
+    color: var(--c-muted);
   }
   ul {
     list-style: none;
     margin: 0;
     padding: 0;
-    max-height: 60vh;
-    overflow-y: auto;
-  }
-  li + li {
-    border-top: 1px dashed var(--phosphor-40);
-  }
-  li button {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 10px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
     width: 100%;
     text-align: left;
-    background: none;
-    border: 0;
-    padding: 6px 4px;
-    color: var(--phosphor-80);
-    font-family: var(--font-mono);
-    font-size: 0.88rem;
+    font: inherit;
+    color: var(--c-text);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 14px 16px;
     cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  li button:hover,
-  li button.sel {
-    background: rgba(51, 255, 102, 0.08);
+  .card:hover {
+    border-color: #b8c4d4;
+    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
   }
-  li button.sel {
-    outline: 1px solid var(--amber);
+  .card.sel {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 2px var(--c-accent-soft);
+  }
+  .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
   }
   .obor {
-    color: var(--phosphor-100);
-    font-weight: 600;
+    font-size: 1.05rem;
+    font-weight: 700;
   }
-  .meta {
-    color: var(--phosphor-60);
+  .km {
+    flex: none;
+    font-weight: 700;
+    color: var(--c-accent);
+    background: var(--c-accent-soft);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.85rem;
   }
-  .nums {
+  .skola {
+    color: var(--c-muted);
+    font-size: 0.92rem;
+  }
+  .facts {
     display: flex;
     flex-wrap: wrap;
-    gap: 2px 14px;
-  }
-  .typ {
-    color: var(--phosphor-60);
-  }
-  .bar {
-    white-space: pre;
-  }
-  .bar--volno {
-    color: var(--phosphor-100);
-  }
-  .bar--ok {
-    color: var(--phosphor-80);
-  }
-  .bar--pretlak {
-    color: var(--amber);
-  }
-  .bar--na {
-    color: var(--phosphor-60);
-  }
-  .empty,
-  .legend {
-    color: var(--phosphor-60);
-    font-size: 0.8rem;
-    margin: 6px 0 0;
+    gap: 4px 16px;
+    font-size: 0.85rem;
+    color: var(--c-text);
   }
   .more {
-    margin-top: 6px;
-    background: var(--bg);
-    color: var(--amber);
-    border: 1px solid var(--amber-dim);
-    font-family: var(--font-mono);
-    cursor: pointer;
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px;
   }
 </style>

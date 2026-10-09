@@ -1,18 +1,11 @@
 <script lang="ts">
   /**
-   * Přehled pro kraj (veřejná správa): naplněnost oborů podle skupin a ORP,
-   * TOP poloprázdné a přeplněné obory. Data = loni přijatí vs. plán 2025/26.
+   * Přehled pro kraj (veřejná správa): kolik míst se plánovalo a kolik žáků nastoupilo,
+   * podle oborů a území, a kde je nejvíc volno / přetlak.
    */
   import type { AreaCode, Obor } from '../../lib/types.ts';
-  import {
-    agreguj,
-    asciiBar,
-    nazevSkupiny,
-    naplnenost,
-    oboryPodleNaplnenosti,
-    procenta,
-    tridaNaplnenosti,
-  } from '../../lib/skoly.ts';
+  import { agreguj, nazevSkupiny, naplnenost, oboryPodleNaplnenosti, procenta } from '../../lib/skoly.ts';
+  import Naplnenost from './Naplnenost.svelte';
 
   interface Props {
     obory: Obor[];
@@ -31,12 +24,13 @@
   const volno = $derived(oboryPodleNaplnenosti(obory, 'nejmene', 10));
   const plno = $derived(oboryPodleNaplnenosti(obory, 'nejvice', 10));
   const volnaMista = $derived(celkem ? Math.max(0, celkem.zamer2025 - celkem.prijato2025) : 0);
+  const fmt = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
 
   const TABS: [Pohled, string][] = [
-    ['skupiny', 'OBORY'],
-    ['orp', 'ÚZEMÍ'],
-    ['volno', 'POLOPRÁZDNÉ'],
-    ['plno', 'PŘETLAK'],
+    ['skupiny', 'Podle oborů'],
+    ['orp', 'Podle území'],
+    ['volno', 'Kde je volno'],
+    ['plno', 'Kde je přetlak'],
   ];
 
   function kratce(skola: string): string {
@@ -44,14 +38,14 @@
   }
 </script>
 
-<section class="ascii-panel prehled" aria-label="Přehled pro kraj" data-testid="kraj-prehled">
-  <h2 class="ascii-panel__title">&gt; PŘEHLED PRO KRAJ_</h2>
+<section class="prehled" aria-label="Přehled pro kraj" data-testid="kraj-prehled">
   {#if celkem}
-    <p>
-      Střední školy v kraji loni plánovaly <strong>{celkem.zamer2025}</strong> míst v prvních ročnících a
-      nastoupilo <strong>{celkem.prijato2025}</strong> žáků ({procenta(celkem.naplnenost)}). Zůstalo tedy
-      zhruba <strong>{volnaMista}</strong> volných míst. Na 2026/27 školy plánují <strong>{celkem.zamer2026}</strong> míst.
-    </p>
+    <div class="tiles">
+      <div class="tile"><span class="v">{fmt(celkem.zamer2025)}</span><span class="l">plánovaných míst v 1. ročnících (2025)</span></div>
+      <div class="tile"><span class="v">{fmt(celkem.prijato2025)}</span><span class="l">žáků opravdu nastoupilo</span></div>
+      <div class="tile tile--good"><span class="v">{fmt(volnaMista)}</span><span class="l">míst zůstalo volných ({procenta(celkem.naplnenost === null ? null : 1 - celkem.naplnenost)})</span></div>
+      <div class="tile"><span class="v">{fmt(celkem.zamer2026)}</span><span class="l">míst školy plánují na 2026/27</span></div>
+    </div>
   {/if}
 
   <div class="tabs" role="tablist" aria-label="Pohled přehledu">
@@ -62,140 +56,172 @@
         aria-selected={pohled === id}
         class:on={pohled === id}
         onclick={() => (pohled = id)}
-        data-testid="prehled-{id}">[{label}]</button
+        data-testid="prehled-{id}">{label}</button
       >
     {/each}
   </div>
 
-  {#if pohled === 'skupiny' || pohled === 'orp'}
-    {@const rows = pohled === 'skupiny' ? skupiny : orp}
-    <p class="hint">Seřazeno od nejméně obsazených. Číslo = přijatí / plánovaná místa (2025).</p>
-    <table>
-      <tbody>
-        {#each rows as a (a.klic)}
-          <tr>
-            <th scope="row">{a.nazev}</th>
-            <td class="bar bar--{tridaNaplnenosti(a.naplnenost)}">{asciiBar(a.naplnenost, 10)}</td>
-            <td class="num">{procenta(a.naplnenost)}</td>
-            <td class="num dim">{a.prijato2025}/{a.zamer2025}</td>
-          </tr>
+  <div class="card">
+    {#if pohled === 'skupiny' || pohled === 'orp'}
+      {@const rows = pohled === 'skupiny' ? skupiny : orp}
+      <p class="hint">Jak byla loni obsazená první místa – od nejméně obsazených.</p>
+      <table>
+        <thead>
+          <tr><th>{pohled === 'skupiny' ? 'Skupina oborů' : 'Území (ORP)'}</th><th>Obsazenost</th><th class="num">Nastoupilo / míst</th></tr>
+        </thead>
+        <tbody>
+          {#each rows as a (a.klic)}
+            <tr>
+              <td>{a.nazev}</td>
+              <td><Naplnenost podil={a.naplnenost} compact /></td>
+              <td class="num"><strong>{procenta(a.naplnenost)}</strong> · {a.prijato2025}/{a.zamer2025}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {:else}
+      {@const list = pohled === 'volno' ? volno : plno}
+      <p class="hint">
+        {pohled === 'volno'
+          ? 'Obory s nejvíc volnými místy (aspoň 10 plánovaných míst). Pro uchazeče šance, pro kraj signál k úpravě nabídky.'
+          : 'Obory, kam loni nastoupilo víc žáků, než se plánovalo – zájem převyšuje nabídku.'}
+      </p>
+      <ol>
+        {#each list as o (o.izo + o.kodOboru + o.forma)}
+          <li>
+            <button type="button" onclick={() => onselect(o.izo)}>
+              <span class="obor">{o.nazevOboru}</span>
+              <span class="skola">{kratce(o.skola)}, {o.obec}</span>
+              <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
+            </button>
+          </li>
         {/each}
-      </tbody>
-    </table>
-  {:else}
-    {@const list = pohled === 'volno' ? volno : plno}
-    <p class="hint">
-      {pohled === 'volno'
-        ? 'Obory s nejvíc volnými místy (aspoň 10 plánovaných míst) – kandidáti na úpravu nabídky nebo větší propagaci.'
-        : 'Obory, kam loni nastoupilo víc žáků, než se plánovalo – zájem převyšuje nabídku.'}
-    </p>
-    <ol>
-      {#each list as o (o.izo + o.kodOboru + o.forma)}
-        {@const n = naplnenost(o)}
-        <li>
-          <button type="button" onclick={() => onselect(o.izo)}>
-            <span class="obor">{o.nazevOboru}</span>
-            <span class="dim">{kratce(o.skola)}, {o.obec}</span>
-            <span class="bar bar--{tridaNaplnenosti(n)}">{asciiBar(n, 10)} {procenta(n)} ({o.prijato2025}/{o.zamer[2025]})</span>
-          </button>
-        </li>
-      {/each}
-    </ol>
-  {/if}
-  <p class="hint">Vyber obec, kde bydlíš (v nabídce nebo kliknutím do mapy), a uvidíš školy v dosahu.</p>
+      </ol>
+    {/if}
+  </div>
 </section>
 
 <style>
   .prehled {
     min-width: 0;
+    color: var(--c-text);
   }
-  p {
-    margin: 4px 0;
-    color: var(--phosphor-80);
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
   }
-  strong {
-    color: var(--phosphor-100);
+  .tile {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+  }
+  .tile .v {
+    font-size: 1.8rem;
+    font-weight: 800;
+  }
+  .tile--good .v {
+    color: var(--c-good);
+  }
+  .tile .l {
+    color: var(--c-muted);
+    font-size: 0.85rem;
   }
   .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin: 10px 0 4px;
-  }
-  .tabs button,
-  ol button {
-    font-family: var(--font-mono);
-    cursor: pointer;
+    gap: 6px;
+    margin: 18px 0 10px;
   }
   .tabs button {
-    background: var(--bg);
-    color: var(--amber);
-    border: 1px solid var(--amber-dim);
-    padding: 2px 6px;
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--c-border);
+    background: #fff;
+    color: var(--c-text);
+    cursor: pointer;
   }
   .tabs button.on {
-    background: var(--amber-dim);
-    color: var(--bg);
+    background: var(--c-text);
+    border-color: var(--c-text);
+    color: #fff;
   }
-  .hint,
-  .dim {
-    color: var(--phosphor-60);
-    font-size: 0.82rem;
+  .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 12px 16px;
+    overflow-x: auto;
+  }
+  .hint {
+    color: var(--c-muted);
+    font-size: 0.88rem;
+    margin: 4px 0 10px;
   }
   table {
-    border-collapse: collapse;
     width: 100%;
-    font-size: 0.85rem;
+    border-collapse: collapse;
+    font-size: 0.92rem;
   }
   th {
     text-align: left;
-    font-weight: normal;
-    color: var(--phosphor-80);
-    padding: 2px 8px 2px 0;
+    font-size: 0.8rem;
+    color: var(--c-muted);
+    font-weight: 600;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--c-border);
   }
   td {
-    padding: 2px 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--c-border);
+  }
+  tr:last-child td {
+    border-bottom: 0;
   }
   .num {
     text-align: right;
     white-space: nowrap;
   }
-  .bar {
-    white-space: pre;
-    font-family: var(--font-mono);
-  }
-  .bar--volno {
-    color: var(--phosphor-100);
-  }
-  .bar--ok {
-    color: var(--phosphor-80);
-  }
-  .bar--pretlak {
-    color: var(--amber);
-  }
-  .bar--na {
-    color: var(--phosphor-60);
-  }
   ol {
-    margin: 4px 0;
-    padding-left: 1.6em;
-    color: var(--phosphor-60);
+    margin: 0;
+    padding-left: 1.4em;
+  }
+  li + li {
+    border-top: 1px solid var(--c-border);
   }
   ol button {
     display: flex;
     flex-direction: column;
+    gap: 4px;
+    width: 100%;
     text-align: left;
+    font: inherit;
     background: none;
     border: 0;
-    padding: 4px 0;
-    color: var(--phosphor-80);
-    font-size: 0.85rem;
-    width: 100%;
+    padding: 10px 4px;
+    color: var(--c-text);
+    cursor: pointer;
   }
   ol button:hover {
-    background: rgba(51, 255, 102, 0.08);
+    background: var(--bg);
   }
   .obor {
-    color: var(--phosphor-100);
+    font-weight: 700;
+  }
+  .skola {
+    color: var(--c-muted);
+    font-size: 0.88rem;
+  }
+  @media (max-width: 900px) {
+    .tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 </style>

@@ -33,14 +33,13 @@ afterEach(() => {
 
 describe('App – Kam na střední', () => {
   it('obec Cheb + maturita → obory v dosahu, detail školy, Esc detail zavře', async () => {
+    // prázdná adresa → výchozí stránka „Kam na střední“, bez boot sekvence
     render(App);
-    await fireEvent.click(screen.getByTestId('boot-skip'));
-    await waitFor(() => expect(screen.getByTestId('mode-skoly')).toBeTruthy(), { timeout: 5000 });
-
-    await fireEvent.click(screen.getByTestId('mode-skoly'));
+    expect(screen.queryByTestId('boot')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
     expect(location.hash).toContain('m=skoly');
-    // bez domova: přehled pro kraj a obory celého kraje
-    expect(screen.getByTestId('kraj-prehled')).toBeTruthy();
+    expect(document.documentElement.classList.contains('theme-clean')).toBe(true);
+    // bez domova: obory celého kraje
     const vse = screen.getAllByTestId('obor-row').length;
     expect(vse).toBeGreaterThan(20);
 
@@ -63,13 +62,17 @@ describe('App – Kam na střední', () => {
 
     await fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('skola-detail')).toBeNull());
-    expect(screen.getByTestId('kraj-prehled')).toBeTruthy();
+
+    // záložka Přehled pro kraj a přechod do jiného režimu vrátí CRT vzhled
+    await fireEvent.click(screen.getByTestId('tab-kraj'));
+    expect(screen.getByTestId('kraj-prehled').textContent).toMatch(/nastoupilo/);
+    await fireEvent.click(screen.getByTestId('mode-explore'));
+    await waitFor(() => expect(document.documentElement.classList.contains('theme-clean')).toBe(false));
   }, 20000);
 
   it('odkaz s filtry obnoví stejný pohled', async () => {
     location.hash = '#/kraj?m=skoly&d=554481&t=vyucni&km=10';
     render(App);
-    await fireEvent.click(screen.getByTestId('boot-skip'));
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
     expect((screen.getByTestId('skoly-domov') as HTMLSelectElement).value).toBe('554481');
     expect(screen.getByTestId('skoly-typ-vyucni').getAttribute('aria-checked')).toBe('true');

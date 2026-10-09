@@ -1,17 +1,18 @@
 <script lang="ts">
-  /** Detail vybrané školy: všechny její obory s větami lidskou řečí, doprava, web, zdroje. */
+  /**
+   * Detail vybrané školy jako vysouvací panel zprava (na mobilu přes celou obrazovku).
+   * Esc zavírá globálně App (jako u ostatních modálů), tady jen klik na pozadí / ×.
+   */
   import type { Obor, SourceEntry } from '../../lib/types.ts';
   import {
     TYP_LABEL,
-    asciiBar,
     naplnenost,
     naplnenostSkoly,
-    procenta,
-    tridaNaplnenosti,
     vetaDoprava,
     vetaNaplnenost,
     vetaTrend,
   } from '../../lib/skoly.ts';
+  import Naplnenost from './Naplnenost.svelte';
 
   interface Props {
     obory: Obor[];
@@ -28,119 +29,189 @@
   const celkem = $derived(naplnenostSkoly(obory));
   const mist2026 = $derived(otevirane.reduce((a, o) => a + (o.zamer[2026] ?? 0), 0));
   const web = $derived(s?.web ? (/^https?:\/\//.test(s.web) ? s.web : `https://${s.web}`) : '');
+
+  let closeBtn = $state<HTMLButtonElement | null>(null);
+  $effect(() => {
+    closeBtn?.focus();
+  });
 </script>
 
 {#if s}
-  <section class="ascii-panel detail" aria-label="Detail školy" data-testid="skola-detail">
-    <div class="head">
-      <h2 class="ascii-panel__title">&gt; {s.skola}</h2>
-      <button type="button" class="x" onclick={onclose} aria-label="Zavřít detail školy">[x]</button>
-    </div>
-    <p class="sub">
-      {s.obec}{km !== null ? ` · ${km.toFixed(1).replace('.', ',')} km od domova vzdušnou čarou` : ''}
-      {#if web}· <a href={web} target="_blank" rel="noopener noreferrer">web školy ↗</a>{/if}
-    </p>
-    <p>
-      Pro školní rok 2026/27 plánuje přijmout <strong>{mist2026}</strong> žáků do {otevirane.length}
-      {otevirane.length === 1 ? 'oboru' : 'oborů'}.
-      {#if celkem !== null}Loni byla škola obsazená na <strong>{procenta(celkem)}</strong>.{/if}
-    </p>
-    <p>🚌 {vetaDoprava(s)}</p>
+  <div class="backdrop" onclick={onclose} aria-hidden="true"></div>
+  <div class="drawer" role="dialog" aria-modal="true" aria-label="Detail školy {s.skola}" data-testid="skola-detail">
+    <header>
+      <div>
+        <p class="kicker">Střední škola · {s.obec}</p>
+        <h2>{s.skola.replace(/,?\s*příspěvková organizace$/i, '')}</h2>
+      </div>
+      <button type="button" class="x" bind:this={closeBtn} onclick={onclose} aria-label="Zavřít detail školy">✕</button>
+    </header>
 
-    <ul class="obory">
+    <div class="tiles">
+      <div class="tile">
+        <span class="v">{km !== null ? `${km.toFixed(1).replace('.', ',')} km` : '—'}</span>
+        <span class="l">{km !== null ? 'od domova vzdušnou čarou' : 'vyber obec, kde bydlíš'}</span>
+      </div>
+      <div class="tile">
+        <span class="v">{mist2026}</span>
+        <span class="l">míst v 1. ročníku 2026/27</span>
+      </div>
+      <div class="tile">
+        <span class="v">{celkem === null ? '—' : `${Math.round(celkem * 100)} %`}</span>
+        <span class="l">loni obsazeno</span>
+      </div>
+      <div class="tile">
+        <span class="v">{s.zastavky500m}</span>
+        <span class="l">zastávek do 500 m</span>
+      </div>
+    </div>
+
+    <p class="bus">🚌 {vetaDoprava(s)}</p>
+    {#if web}
+      <a class="web" href={web} target="_blank" rel="noopener noreferrer">Otevřít web školy ↗</a>
+    {/if}
+
+    <h3>Obory, kam se hlásí na 2026/27</h3>
+    <ul>
       {#each otevirane as o (o.kodOboru + o.forma)}
-        {@const n = naplnenost(o)}
         {@const veta = vetaTrend(o)}
         <li>
-          <h3>{o.nazevOboru} <span class="kod">{o.kodOboru}</span></h3>
-          <p class="typ">
-            {TYP_LABEL[o.typ]} · {o.delka} · {o.forma} · míst 2026/27: <strong>{o.zamer[2026]}</strong>
-          </p>
-          <p class="bar bar--{tridaNaplnenosti(n)}">{asciiBar(n, 20)} {procenta(n)}</p>
+          <div class="obor-head">
+            <strong>{o.nazevOboru}</strong>
+            <span class="mist">{o.zamer[2026]} míst</span>
+          </div>
+          <p class="meta">{TYP_LABEL[o.typ]} · {o.delka} · {o.forma} · kód {o.kodOboru}</p>
+          <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           <p>{vetaNaplnenost(o)}</p>
-          {#if veta}<p class="trend">{veta}</p>{/if}
+          {#if veta}<p class="meta">{veta}</p>{/if}
         </li>
       {/each}
     </ul>
     {#if zavrene.length}
-      <p class="zavrene">
-        Obory, které pro 2026/27 nepřijímají: {zavrene.map((o) => o.nazevOboru).join(', ')}.
-      </p>
+      <p class="meta">Pro 2026/27 nepřijímají: {zavrene.map((o) => o.nazevOboru).join(', ')}.</p>
     {/if}
     <p class="src">
-      Zdroj: {sources.map((x) => x.title.replace(/ v Karlovarském kraji/, '')).join('; ')} – Karlovarský kraj,
-      DATAZÁPAD, {sources[0]?.license ?? ''}.
+      Zdroj: Karlovarský kraj, DATAZÁPAD – záměry počtu přijímaných uchazečů SŠ 2024/25–2026/27
+      ({sources[0]?.license ?? 'CC0 1.0'}).
     </p>
-  </section>
+  </div>
 {/if}
 
 <style>
-  .detail {
-    min-width: 0;
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    z-index: 20;
   }
-  .head {
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(520px, 100vw);
+    background: var(--c-surface);
+    z-index: 21;
+    overflow-y: auto;
+    padding: 20px 22px 32px;
+    box-sizing: border-box;
+    box-shadow: -8px 0 24px rgba(15, 23, 42, 0.15);
+    color: var(--c-text);
+  }
+  header {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
-    align-items: start;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .kicker {
+    margin: 0;
+    color: var(--c-muted);
+    font-size: 0.85rem;
+  }
+  h2 {
+    margin: 2px 0 0;
+    font-size: 1.35rem;
+    line-height: 1.25;
   }
   .x {
-    background: none;
-    color: var(--amber);
-    border: 1px solid var(--amber);
-    font-family: var(--font-mono);
+    font: inherit;
+    font-size: 1.1rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--c-border);
+    background: #fff;
     cursor: pointer;
     flex: none;
   }
-  p {
-    margin: 4px 0;
-    color: var(--phosphor-80);
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin: 16px 0 10px;
   }
-  .sub,
-  .typ,
-  .src,
-  .zavrene,
-  .kod {
-    color: var(--phosphor-60);
-    font-size: 0.85rem;
+  .tile {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
   }
-  a {
-    color: var(--amber);
+  .tile .v {
+    font-size: 1.35rem;
+    font-weight: 800;
   }
-  strong {
-    color: var(--phosphor-100);
+  .tile .l {
+    font-size: 0.8rem;
+    color: var(--c-muted);
   }
-  .obory {
-    list-style: none;
-    padding: 0;
-    margin: 10px 0;
+  .bus {
+    margin: 6px 0;
   }
-  .obory li {
-    border-top: 1px dashed var(--phosphor-40);
-    padding: 8px 0;
+  .web {
+    display: inline-block;
+    margin: 4px 0 6px;
+    color: var(--c-accent);
+    font-weight: 600;
   }
   h3 {
-    margin: 0;
+    margin: 18px 0 8px;
     font-size: 1rem;
-    color: var(--phosphor-100);
   }
-  .bar {
-    white-space: pre;
-    font-family: var(--font-mono);
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
-  .bar--volno {
-    color: var(--phosphor-100);
+  li {
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    padding: 12px;
   }
-  .bar--ok {
-    color: var(--phosphor-80);
+  .obor-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
   }
-  .bar--pretlak {
-    color: var(--amber);
+  .mist {
+    flex: none;
+    font-weight: 700;
+    color: var(--c-accent);
   }
-  .bar--na {
-    color: var(--phosphor-60);
+  li p {
+    margin: 6px 0 0;
+    font-size: 0.9rem;
   }
-  .trend {
-    color: var(--phosphor-60);
+  .meta,
+  .src {
+    color: var(--c-muted);
+    font-size: 0.82rem;
+  }
+  .src {
+    margin-top: 18px;
   }
 </style>

@@ -39,6 +39,7 @@ afterEach(() => {
 
 describe('App – Esc s otevřeným HowModal', () => {
   it('zavře modál, ale NEPROVEDE o úroveň výš (drill.up race)', async () => {
+    location.hash = '#/kraj?m=explore'; // výchozí stránka je „Kam na střední“ (bez boot sekvence)
     const { container } = render(App);
 
     await fireEvent.click(screen.getByTestId('boot-skip'));

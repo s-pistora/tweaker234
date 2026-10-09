@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Filtry režimu „Kam na střední“: kde bydlím, typ studia, skupina oborů, dosah, řazení. */
+  /** Filtry režimu „Kam na střední“ ve 4 očíslovaných krocích. */
   import type { AreaCode } from '../../lib/types.ts';
   import { KM_MAX, KM_MIN, type SkolyState } from '../../lib/state.ts';
   import { nazevSkupiny } from '../../lib/skoly.ts';
@@ -14,160 +14,181 @@
   }
   const { filtr, obce, skupiny, onchange }: Props = $props();
 
-  const obceSerazene = $derived(
-    Object.entries(obce).sort((a, b) => a[1].localeCompare(b[1], 'cs')),
+  const obceSerazene = $derived(Object.entries(obce).sort((a, b) => a[1].localeCompare(b[1], 'cs')));
+  const skupinySerazene = $derived(
+    [...skupiny].sort((a, b) => nazevSkupiny(a).localeCompare(nazevSkupiny(b), 'cs')),
   );
   const TYPY = [
-    ['vse', 'vše'],
-    ['maturita', 'maturita'],
-    ['vyucni', 'výuční list'],
+    ['vse', 'Je mi to jedno'],
+    ['maturita', 'S maturitou'],
+    ['vyucni', 'S výučním listem'],
   ] as const;
 </script>
 
-<fieldset class="filtr" data-testid="skoly-filtr">
-  <legend>&gt; KAM NA STŘEDNÍ_</legend>
-
-  <label>
-    <span>BYDLÍM V</span>
+<section class="filtr" aria-label="Co hledáš" data-testid="skoly-filtr">
+  <div class="step">
+    <label for="f-domov"><span class="n">1</span> Kde bydlíš?</label>
     <select
+      id="f-domov"
       value={filtr.domov ?? ''}
       onchange={(e) => onchange({ domov: e.currentTarget.value || null, skola: null })}
       data-testid="skoly-domov"
     >
-      <option value="">– vyber obec (nebo klikni do mapy) –</option>
+      <option value="">Vyber obec…</option>
       {#each obceSerazene as [code, name] (code)}
         <option value={code}>{name}</option>
       {/each}
     </select>
-  </label>
-
-  <div class="row" role="radiogroup" aria-label="Typ studia">
-    <span>CHCI</span>
-    {#each TYPY as [v, l] (v)}
-      <button
-        type="button"
-        role="radio"
-        aria-checked={filtr.typ === v}
-        class:on={filtr.typ === v}
-        onclick={() => onchange({ typ: v })}
-        data-testid="skoly-typ-{v}"
-      >
-        [{filtr.typ === v ? '■' : ' '}] {l}
-      </button>
-    {/each}
+    <small>nebo klikni na obec v mapě</small>
   </div>
 
-  <label>
-    <span>OBOR</span>
-    <select value={filtr.skupina} onchange={(e) => onchange({ skupina: e.currentTarget.value })} data-testid="skoly-skupina">
-      <option value="">všechny obory</option>
-      {#each skupiny as g (g)}
+  <div class="step">
+    <span class="lbl" id="f-typ"><span class="n">2</span> Jakou školu chceš?</span>
+    <div class="seg" role="radiogroup" aria-labelledby="f-typ">
+      {#each TYPY as [v, l] (v)}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={filtr.typ === v}
+          class:on={filtr.typ === v}
+          onclick={() => onchange({ typ: v })}
+          data-testid="skoly-typ-{v}">{l}</button
+        >
+      {/each}
+    </div>
+  </div>
+
+  <div class="step">
+    <label for="f-obor"><span class="n">3</span> Co tě baví?</label>
+    <select
+      id="f-obor"
+      value={filtr.skupina}
+      onchange={(e) => onchange({ skupina: e.currentTarget.value })}
+      data-testid="skoly-skupina"
+    >
+      <option value="">Všechny obory</option>
+      {#each skupinySerazene as g (g)}
         <option value={g}>{nazevSkupiny(g)}</option>
       {/each}
     </select>
-  </label>
-
-  <label>
-    <span>DOSAH</span>
-    <input
-      type="range"
-      min={KM_MIN}
-      max={KM_MAX}
-      step="5"
-      value={filtr.maxKm}
-      oninput={(e) => onchange({ maxKm: Number(e.currentTarget.value) })}
-      aria-valuetext="{filtr.maxKm} km"
-      data-testid="skoly-km"
-    />
-    <output>{String(filtr.maxKm).padStart(2, ' ')} km</output>
-  </label>
-
-  <div class="row" role="radiogroup" aria-label="Řazení">
-    <span>ŘADIT</span>
-    <button
-      type="button"
-      role="radio"
-      aria-checked={filtr.razeni === 'vzdalenost'}
-      class:on={filtr.razeni === 'vzdalenost'}
-      onclick={() => onchange({ razeni: 'vzdalenost' })}>[{filtr.razeni === 'vzdalenost' ? '■' : ' '}] nejblíž</button
-    >
-    <button
-      type="button"
-      role="radio"
-      aria-checked={filtr.razeni === 'volno'}
-      class:on={filtr.razeni === 'volno'}
-      onclick={() => onchange({ razeni: 'volno' })}>[{filtr.razeni === 'volno' ? '■' : ' '}] nejvíc volných míst</button
-    >
   </div>
-  <p class="note">Vzdálenost je vzdušnou čarou – jízdní řády kraj jako otevřená data nezveřejňuje.</p>
-</fieldset>
+
+  <div class="step">
+    <label for="f-km"><span class="n">4</span> Jak daleko můžeš dojíždět?</label>
+    <div class="range">
+      <input
+        id="f-km"
+        type="range"
+        min={KM_MIN}
+        max={KM_MAX}
+        step="5"
+        value={filtr.maxKm}
+        oninput={(e) => onchange({ maxKm: Number(e.currentTarget.value) })}
+        aria-valuetext="{filtr.maxKm} km"
+        data-testid="skoly-km"
+      />
+      <output for="f-km">do {filtr.maxKm} km</output>
+    </div>
+    <small>vzdušnou čarou</small>
+  </div>
+</section>
 
 <style>
   .filtr {
-    border: 1px solid var(--phosphor-40);
-    background: var(--bg-panel);
-    margin: 0 0 10px;
-    padding: 8px 12px 10px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--c-radius);
+    box-shadow: var(--c-shadow);
+    padding: 16px;
+  }
+  .step {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     min-width: 0;
-  }
-  legend {
-    font-family: var(--font-display);
-    font-size: 1.4rem;
-    color: var(--phosphor-100);
-    padding: 0 4px;
   }
   label,
-  .row {
+  .lbl {
+    font-weight: 600;
+    color: var(--c-text);
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 6px 8px;
-    min-width: 0;
+    gap: 8px;
   }
-  label > span,
-  .row > span {
-    color: var(--phosphor-60);
-    width: 5.5em;
+  .n {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
     flex: none;
   }
-  select,
-  button {
-    background: var(--bg);
-    color: var(--phosphor-100);
-    border: 1px solid var(--phosphor-60);
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    padding: 3px 6px;
-    min-width: 0;
-    max-width: 100%;
+  small {
+    color: var(--c-muted);
+    font-size: 0.8rem;
   }
   select {
-    flex: 1 1 12em;
+    font: inherit;
+    padding: 9px 10px;
+    border: 1px solid var(--c-border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--c-text);
+    min-width: 0;
+    width: 100%;
   }
-  button {
+  .seg {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .seg button {
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--c-border);
+    background: #fff;
+    color: var(--c-text);
     cursor: pointer;
-    color: var(--amber);
-    border-color: var(--amber-dim);
   }
-  button.on {
-    background: var(--amber-dim);
-    color: var(--bg);
+  .seg button.on {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .range {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
   input[type='range'] {
-    flex: 1 1 8em;
-    accent-color: var(--amber);
+    flex: 1;
+    accent-color: var(--c-accent);
+    min-width: 0;
   }
   output {
-    color: var(--phosphor-100);
-    white-space: pre;
-    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--c-accent);
+    white-space: nowrap;
   }
-  .note {
-    margin: 0;
-    color: var(--phosphor-60);
-    font-size: 0.8rem;
+  @media (max-width: 1000px) {
+    .filtr {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px) {
+    .filtr {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 12px;
+    }
   }
 </style>
