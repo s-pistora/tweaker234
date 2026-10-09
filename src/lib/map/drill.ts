@@ -24,12 +24,14 @@ export function selectArea(view: View, code: AreaCode): View {
   return { level: 'obec', area: code, orp: view.orp };
 }
 
-/** Esc / [↑ ÚROVEŇ VÝŠ]. null = už není kam. */
+/**
+ * Esc / [↑ ÚROVEŇ VÝŠ]. null = už není kam. Aplikace ukazuje jen Karlovarský kraj:
+ * nejvyšší úrovní je mapa jeho 7 ORP (mapa krajů ČR se v UI nenabízí).
+ */
 export function levelUp(view: View): View | null {
   if (view.level === 'obec') return { level: 'orp', area: view.orp, orp: null };
-  if (view.level === 'orp') return { level: 'kraj', area: KV, orp: null };
-  if (view.area !== null) return { level: 'kraj', area: null, orp: null };
-  return null;
+  if (view.level === 'orp') return view.area !== null ? { level: 'orp', area: null, orp: null } : null;
+  return { level: 'orp', area: null, orp: null };
 }
 
 export function resolveView(

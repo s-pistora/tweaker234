@@ -6,8 +6,8 @@
 // dostane `status:'fail'`. Zdroj oznaceny v manifestu jako `stale` se promita
 // do statusu odpovidajiciho kroku jako `'stale'`.
 
-import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile } from '../types.ts';
-import { isManifest, isIndicatorFile, isPointLayer, isOboryFile } from '../types.ts';
+import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile, MistaFile } from '../types.ts';
+import { isManifest, isIndicatorFile, isPointLayer, isOboryFile, isMistaFile } from '../types.ts';
 import type { Topology } from 'topojson-specification';
 
 export type GeoId = 'kraje' | 'kv-orp' | 'kv-obce';
@@ -19,6 +19,8 @@ export interface Snapshot {
   geo: Partial<Record<GeoId, Topology>>;
   /** obory středních škol (režim „Kam na střední“); null = v manifestu nejsou nebo selhalo načtení */
   skoly: OboryFile | null;
+  /** místa pro volný čas (režim „Kam vyrazit“); null = v manifestu nejsou nebo selhalo načtení */
+  vylety: MistaFile | null;
   /** = manifest.updatedAt, pro pohodlny pristup */
   updatedAt: string;
 }
@@ -79,6 +81,7 @@ export async function loadSnapshot(
     points: {},
     geo: {},
     skoly: null,
+    vylety: null,
     updatedAt: manifest.updatedAt,
   };
 
@@ -126,6 +129,18 @@ export async function loadSnapshot(
       const json = await fetchJson(fetchImpl, base, manifest.files.skoly);
       if (!isOboryFile(json)) throw new Error('neplatny OboryFile');
       snapshot.skoly = json;
+      onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
+    } catch {
+      onStep?.({ label, status: 'fail' });
+    }
+  }
+
+  if (manifest.files.vylety) {
+    const label = 'MÍSTA PRO VOLNÝ ČAS';
+    try {
+      const json = await fetchJson(fetchImpl, base, manifest.files.vylety);
+      if (!isMistaFile(json)) throw new Error('neplatny MistaFile');
+      snapshot.vylety = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
     } catch {
       onStep?.({ label, status: 'fail' });

@@ -14,6 +14,31 @@ Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.j
 | Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Zdravotnictví Karlovarského kraje (nemocnice, pohotovost, výjezdové základny ZZS) | <https://www.datazapad.cz/api/download/v1/items/03dbe5719ab64960ae70ee90af4790c6/csv?layers=3> | CC BY 4.0 | 2026-09-27 | 2026 | ok |
 | ÚZIS ČR – Národní registr poskytovatelů zdravotních služeb (NRPZS) | Národní registr poskytovatelů zdravotních služeb – místa poskytování | <https://nrpzs.uzis.cz/res/file/export/export-2026-09.csv> | neuvedeno poskytovatelem | 2026-09-27 | 2026-09 | ok |
 | Český úřad zeměměřický a katastrální (ČÚZK) | RÚIAN – hranice krajů, ORP a obcí (SHP, EPSG:5514) | <https://services.cuzk.gov.cz/shp/stat/epsg-5514/1.zip> | CC BY 4.0 | 2026-09-27 | 2026-09-27 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2024/2025 | <https://www.datazapad.cz/api/download/v1/items/6f9302623bcd4a72af2ac674c3b46adf/csv?layers=0> | CC0 1.0 | 2026-10-09 | 2024/2025 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2025/2026 | <https://www.datazapad.cz/api/download/v1/items/b69266abf22c4baa9fabeb437449c1e8/csv?layers=0> | CC0 1.0 | 2026-10-09 | 2025/2026 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2026/2027 | <https://www.datazapad.cz/api/download/v1/items/9332e5a45e0d4dd999bef99a6f51fd40/csv?layers=0> | CC0 1.0 | 2026-10-09 | 2026/2027 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Lyžařské vleky a lanovky v Karlovarském kraji | <https://www.datazapad.cz/datasets/d130e2d3a13d4ca39b16761d2131619b> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Koupací místa s kontrolou kvality vody v roce 2026 v Karlovarském kraji | <https://www.datazapad.cz/datasets/239805159c8649609d1bd40a30439623> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Aquaparky, koupaliště a bazény v Karlovarském kraji | <https://www.datazapad.cz/datasets/98d26c1b1c8f4bd49850af82a19a7f58> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Hrady a jejich zříceniny v Karlovarském kraji | <https://www.datazapad.cz/datasets/c3a42c283f0649248326a0bbd7dc5cc3> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Zámky v Karlovarském kraji | <https://www.datazapad.cz/datasets/464108d64a93430083119bfb0845af3c> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Rozhledny v Karlovarském kraji | <https://www.datazapad.cz/datasets/2fe4d27ac10341f6bd2b4ea6380a2599> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Muzea a galerie v Karlovarském kraji | <https://www.datazapad.cz/datasets/5aa3b9fe8da6474786ff2b9c81b006cb> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Muzea v přírodě a skanzeny v Karlovarském kraji | <https://www.datazapad.cz/datasets/6be3423787fd4c1fa19a70b025e2eb64> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Divadla v Karlovarském kraji | <https://www.datazapad.cz/datasets/805a0267da9e45eea0c20a2e3123189f> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Kina a kinosály v Karlovarském kraji | <https://www.datazapad.cz/datasets/94c4d284041c4412af231e96fe66cf6b> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Kulturní domy a centra v Karlovarském kraji | <https://www.datazapad.cz/datasets/c548528f8601499d894cc7556e679de6> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | ZOO a zooparky v Karlovarském kraji | <https://www.datazapad.cz/datasets/52658b60dacf474f80cf5bb7c8004cc6> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Lanová a zábavní centra v Karlovarském kraji | <https://www.datazapad.cz/datasets/90441fa783444e1ead5ad71464504d6a> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Agroturistické destinace v Karlovarském kraji | <https://www.datazapad.cz/datasets/5e900a28dedd446aa8ae18d49ac88d70> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Přírodní pozoruhodnosti v Karlovarském kraji | <https://www.datazapad.cz/datasets/037f7b55d2d34fa88fd63bf2d2903839> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Botanické zahrady a arboreta v Karlovarském kraji | <https://www.datazapad.cz/datasets/8ae1f28fc17f4918a0dba74bb11797ff> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Přístupné prameny v Karlovarském kraji | <https://www.datazapad.cz/datasets/92327bf761e14d3c8cd169b7d65fa418> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Sportovní areály a haly v Karlovarském kraji | <https://www.datazapad.cz/datasets/4ce7c8a0d4604d76965b2e3753288ef9> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Golfová hřiště v Karlovarském kraji | <https://www.datazapad.cz/datasets/58bc30d273d84926bc4e817aabca9321> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Jezdectví v Karlovarském kraji | <https://www.datazapad.cz/datasets/1233e8ab25e64a859ad3c88d51f0fdb8> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Pivovarnictví v Karlovarském kraji | <https://www.datazapad.cz/datasets/0ddb05a36f0c4b319975df6a4b1ed90e> | CC BY 4.0 | 2026-10-09 | stav k 2026-10-09 | ok |
+| Krajská hygienická stanice Karlovarského kraje (khskv.cz) | Kontrola kvality vody ke koupání – poslední hodnocení (výtah z webových stránek koupacích míst) | <https://www.khskv.cz/> | neuvedeno poskytovatelem | 2026-10-09 | koupací sezóna 2026 | ok |
 
 ### Poznámky ke zdrojům
 
@@ -37,4 +62,29 @@ Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.j
   - Autobusové zastávky v Karlovarském kraji: CC BY 4.0
   - Vouchery Karlovarského kraje (inovační, kreativní, asistenční, startovací 2023/2024): CC BY 4.0
   - Zdravotnictví Karlovarského kraje (nemocnice, pohotovost, výjezdové základny ZZS): CC BY 4.0
+  - Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2024/2025: CC0 1.0
+  - Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2025/2026: CC0 1.0
+  - Záměr počtu přijímaných uchazečů středních škol v Karlovarském kraji pro školní rok 2026/2027: CC0 1.0
+  - Lyžařské vleky a lanovky v Karlovarském kraji: CC BY 4.0
+  - Koupací místa s kontrolou kvality vody v roce 2026 v Karlovarském kraji: CC BY 4.0
+  - Aquaparky, koupaliště a bazény v Karlovarském kraji: CC BY 4.0
+  - Hrady a jejich zříceniny v Karlovarském kraji: CC BY 4.0
+  - Zámky v Karlovarském kraji: CC BY 4.0
+  - Rozhledny v Karlovarském kraji: CC BY 4.0
+  - Muzea a galerie v Karlovarském kraji: CC BY 4.0
+  - Muzea v přírodě a skanzeny v Karlovarském kraji: CC BY 4.0
+  - Divadla v Karlovarském kraji: CC BY 4.0
+  - Kina a kinosály v Karlovarském kraji: CC BY 4.0
+  - Kulturní domy a centra v Karlovarském kraji: CC BY 4.0
+  - ZOO a zooparky v Karlovarském kraji: CC BY 4.0
+  - Lanová a zábavní centra v Karlovarském kraji: CC BY 4.0
+  - Agroturistické destinace v Karlovarském kraji: CC BY 4.0
+  - Přírodní pozoruhodnosti v Karlovarském kraji: CC BY 4.0
+  - Botanické zahrady a arboreta v Karlovarském kraji: CC BY 4.0
+  - Přístupné prameny v Karlovarském kraji: CC BY 4.0
+  - Sportovní areály a haly v Karlovarském kraji: CC BY 4.0
+  - Golfová hřiště v Karlovarském kraji: CC BY 4.0
+  - Jezdectví v Karlovarském kraji: CC BY 4.0
+  - Pivovarnictví v Karlovarském kraji: CC BY 4.0
 - ÚZIS ČR – Národní registr poskytovatelů zdravotních služeb (NRPZS): licence dle poskytovatele – „neuvedeno poskytovatelem“.
+- Krajská hygienická stanice Karlovarského kraje (khskv.cz) – Kontrola kvality vody ke koupání – poslední hodnocení (výtah z webových stránek koupacích míst): neuvedeno poskytovatelem

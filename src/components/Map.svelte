@@ -13,6 +13,8 @@
     tone: Tone;
     /** tvar značky - viz `lib/map/pointStyle.ts` */
     glyph?: Glyph;
+    /** vlastní barva značky (přebije `tone`), např. barva kategorie místa */
+    color?: string;
   }
 </script>
 
@@ -67,6 +69,8 @@
     onpointselect?: (id: string) => void;
     /** kružnice dosahu kolem bodu (km vzdušnou čarou) + značka středu */
     circle?: { lat: number; lon: number; km: number; label?: string } | null;
+    /** id zvýrazněného bodu (vybrané místo) */
+    selectedPoint?: string | null;
   }
 
   const {
@@ -85,6 +89,7 @@
     label = 'Mapa',
     onpointselect,
     circle = null,
+    selectedPoint = null,
     hint = 'Najeďte na území (nebo Tab a šipky). Enter otevře detail, Esc vrací o úroveň výš.',
   }: Props = $props();
 
@@ -202,6 +207,8 @@
   // `pointermove` na <svg>, který najde nejbližší bod do 6 px od kurzoru (prostý loop –
   // v pořádku i pro řádově tisíce bodů).
   const HOVER_PX = 6;
+  /** prst je méně přesný než myš → větší dosah při dotyku */
+  const TOUCH_PX = 16;
   function onSvgPointerMove(e: PointerEvent) {
     if (!projectedPoints.length) {
       hoverPoint = null;
@@ -217,7 +224,7 @@
     const scaleY = vb[3] / rect.height;
     const userX = vb[0] + (e.clientX - rect.left) * scaleX;
     const userY = vb[1] + (e.clientY - rect.top) * scaleY;
-    const thresholdUser = HOVER_PX * Math.max(scaleX, scaleY);
+    const thresholdUser = (e.pointerType === 'touch' ? TOUCH_PX : HOVER_PX) * Math.max(scaleX, scaleY);
     let nearest: (typeof projectedPoints)[number] | null = null;
     let bestDist2 = Infinity;
     for (const p of projectedPoints) {
@@ -316,6 +323,7 @@
     aria-label={label}
     class:animating
     onpointermove={onSvgPointerMove}
+    onpointerdown={onSvgPointerMove}
     onpointerleave={onSvgPointerLeave}
   >
     <defs>{@html patternDefs()}</defs>
@@ -357,6 +365,8 @@
           <text
             class="pt pt--{p.tone}"
             class:pt--hover={hoverPoint?.id === p.id}
+            class:pt--sel={selectedPoint === p.id}
+            style={p.color ? `fill: ${p.color}` : undefined}
             x={p.x}
             y={p.y}
             text-anchor="middle"
@@ -439,6 +449,11 @@
   }
   .pt--hover {
     font-size: 18px;
+  }
+  .pt--sel {
+    font-size: 22px;
+    stroke: var(--accent);
+    stroke-width: 4px;
   }
   .reach {
     pointer-events: none;

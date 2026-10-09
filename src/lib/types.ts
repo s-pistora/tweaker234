@@ -194,6 +194,82 @@ export function isOboryFile(x: unknown): x is OboryFile {
   );
 }
 
+// --- „Kam vyrazit“: místa pro volný čas z datových sad kraje ----------------
+
+export const KATEGORIE_IDS = [
+  'sjezdovky',
+  'koupani',
+  'bazeny',
+  'hrady-zamky',
+  'rozhledny',
+  'muzea',
+  'kultura',
+  'rodiny',
+  'priroda',
+  'prameny',
+  'sport',
+  'pivovary',
+] as const;
+export type KategorieId = (typeof KATEGORIE_IDS)[number];
+
+/** Třída posledního hodnocení kvality vody (KHS Karlovarského kraje). */
+export type KvalitaVody = 'vhodna' | 'mirne' | 'zhorsena' | 'nevhodna' | 'nebezpecna' | 'na';
+
+export interface Misto {
+  /** unikátní napříč kategoriemi, např. 'sjezdovky:3' */
+  id: string;
+  kat: KategorieId;
+  nazev: string;
+  lon: number;
+  lat: number;
+  /** kód obce (ČSÚ); null = v sadě chybí */
+  obec: AreaCode | null;
+  obecNazev: string;
+  orp: AreaCode | null;
+  popis: string | null;
+  web: string | null;
+  tel: string | null;
+  email: string | null;
+  provozovatel: string | null;
+  adresa: string | null;
+  /** příznaky pro filtry kategorie (id tagů definuje src/lib/vylety.ts) */
+  tagy: string[];
+  /** true = vstupné se platí, false = zdarma, null = neuvedeno */
+  vstupne: boolean | null;
+  /** číselné údaje (např. počet vleků, rok vzniku) */
+  cisla: Record<string, number>;
+  /** poznámka ze sady (provoz, přístup) */
+  poznamka: string | null;
+  sourceId: string;
+  /** jen koupací místa: poslední hodnocení vody */
+  voda?: { trida: KvalitaVody; datum: string | null; poznamka: string | null; zdroj: string };
+}
+
+export interface MistaFile {
+  updatedAt: string;
+  sourceIds: string[];
+  mista: Misto[];
+}
+
+export function isMistaFile(x: unknown): x is MistaFile {
+  return (
+    isObj(x) &&
+    typeof x.updatedAt === 'string' &&
+    Array.isArray(x.sourceIds) &&
+    Array.isArray(x.mista) &&
+    x.mista.every(
+      (m) =>
+        isObj(m) &&
+        typeof m.id === 'string' &&
+        typeof m.nazev === 'string' &&
+        (KATEGORIE_IDS as readonly unknown[]).includes(m.kat) &&
+        Number.isFinite(m.lon) &&
+        Number.isFinite(m.lat) &&
+        Array.isArray(m.tagy),
+    )
+  );
+}
+
 /** public/data/manifest.json – vstupní bod snapshotu. */
 export interface Manifest {
   /** ISO čas posledního běhu pipeline */
@@ -206,6 +282,8 @@ export interface Manifest {
     geo: Partial<Record<'kraje' | 'kv-orp' | 'kv-obce', string>>;
     /** obory středních škol (režim „Kam na střední“), volitelné */
     skoly?: string;
+    /** místa pro volný čas (režim „Kam vyrazit“), volitelné */
+    vylety?: string;
   };
 }
 
@@ -219,6 +297,7 @@ export function isManifest(x: unknown): x is Manifest {
     isObj(x.files.indicators) &&
     isObj(x.files.points) &&
     isObj(x.files.geo) &&
-    (x.files.skoly === undefined || typeof x.files.skoly === 'string')
+    (x.files.skoly === undefined || typeof x.files.skoly === 'string') &&
+    (x.files.vylety === undefined || typeof x.files.vylety === 'string')
   );
 }

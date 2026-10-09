@@ -10,6 +10,36 @@
    "downloadedAt": "2026-09-27T00:00:00.000Z",
    "validFor": "2024",
    "status": "ok"
+  },
+  {
+   "id": "dz-rozhledny",
+   "provider": "Karlovarský kraj (fixture)",
+   "title": "Rozhledny (fixture)",
+   "url": "https://www.datazapad.cz/",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T00:00:00.000Z",
+   "validFor": "fixture",
+   "status": "ok"
+  },
+  {
+   "id": "dz-koupaci-mista-2026",
+   "provider": "Karlovarský kraj (fixture)",
+   "title": "Koupací místa (fixture)",
+   "url": "https://www.datazapad.cz/",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T00:00:00.000Z",
+   "validFor": "fixture",
+   "status": "ok"
+  },
+  {
+   "id": "khs-koupani",
+   "provider": "KHS (fixture)",
+   "title": "Kvalita vody (fixture)",
+   "url": "https://www.datazapad.cz/",
+   "license": "neuvedeno poskytovatelem",
+   "downloadedAt": "2026-10-09T00:00:00.000Z",
+   "validFor": "fixture",
+   "status": "ok"
   }
  ],
  "files": {
@@ -25,6 +55,7 @@
    "kraje": "geo/kraje.topo.json",
    "kv-orp": "geo/kv-orp.topo.json",
    "kv-obce": "geo/kv-obce.topo.json"
-  }
+  },
+  "vylety": "vylety/mista.json"
  }
 }

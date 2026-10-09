@@ -104,7 +104,7 @@
     if (pending) return true;
     const next = levelUp(view);
     if (!next) return false;
-    zoomFrom = next.level !== view.level ? (view.level === 'obec' ? view.orp : KV) : null;
+    zoomFrom = next.level !== view.level && view.level === 'obec' ? view.orp : null;
     onnavigate(next);
     return true;
   }
@@ -118,8 +118,7 @@
   );
   const crumbs = $derived(
     [
-      'ČR',
-      view.level !== 'kraj' ? (names[KV] ?? 'Karlovarský kraj') : null,
+      names[KV] ?? 'Karlovarský kraj',
       view.level === 'obec' && view.orp ? `ORP ${names[view.orp] ?? view.orp}` : null,
     ].filter((x): x is string => !!x),
   );
@@ -128,11 +127,12 @@
 <div class="drill">
   <nav class="crumbs" aria-label="Úroveň mapy">
     <span class="crumbs">{crumbs.join(' › ')}</span>
-    {#if view.level !== 'kraj' || view.area}
+    {#if view.level === 'obec' || view.area}
       <button type="button" onclick={() => up()} data-testid="level-up" class="btn-secondary">↑ O úroveň výš</button>
     {/if}
   </nav>
   <Map
+    hint="Najeďte na ORP nebo obec (nebo Tab a šipky). Kliknutím otevřete detail a obce, Esc vrací o úroveň výš."
     {features}
     {values}
     {def}

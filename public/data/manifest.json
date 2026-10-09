@@ -139,6 +139,226 @@
    "downloadedAt": "2026-10-09T17:08:08.359Z",
    "validFor": "2026/2027",
    "status": "ok"
+  },
+  {
+   "id": "dz-vleky",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Lyžařské vleky a lanovky v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/d130e2d3a13d4ca39b16761d2131619b",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-koupaci-mista-2026",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Koupací místa s kontrolou kvality vody v roce 2026 v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/239805159c8649609d1bd40a30439623",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-aquaparky",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Aquaparky, koupaliště a bazény v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/98d26c1b1c8f4bd49850af82a19a7f58",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-hrady",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Hrady a jejich zříceniny v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/c3a42c283f0649248326a0bbd7dc5cc3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-zamky",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Zámky v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/464108d64a93430083119bfb0845af3c",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-rozhledny",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Rozhledny v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/2fe4d27ac10341f6bd2b4ea6380a2599",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-muzea",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Muzea a galerie v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/5aa3b9fe8da6474786ff2b9c81b006cb",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-skanzeny",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Muzea v přírodě a skanzeny v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/6be3423787fd4c1fa19a70b025e2eb64",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-divadla",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Divadla v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/805a0267da9e45eea0c20a2e3123189f",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-kina",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Kina a kinosály v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/94c4d284041c4412af231e96fe66cf6b",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-kulturni-domy",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Kulturní domy a centra v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/c548528f8601499d894cc7556e679de6",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-zoo",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "ZOO a zooparky v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/52658b60dacf474f80cf5bb7c8004cc6",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-lanova-centra",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Lanová a zábavní centra v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/90441fa783444e1ead5ad71464504d6a",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-agroturistika",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Agroturistické destinace v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/5e900a28dedd446aa8ae18d49ac88d70",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-prirodni-pozoruhodnosti",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Přírodní pozoruhodnosti v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/037f7b55d2d34fa88fd63bf2d2903839",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-botanicke-zahrady",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Botanické zahrady a arboreta v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/8ae1f28fc17f4918a0dba74bb11797ff",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-prameny",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Přístupné prameny v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/92327bf761e14d3c8cd169b7d65fa418",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-sportoviste",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Sportovní areály a haly v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/4ce7c8a0d4604d76965b2e3753288ef9",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-golf",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Golfová hřiště v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/58bc30d273d84926bc4e817aabca9321",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-jezdectvi",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Jezdectví v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/1233e8ab25e64a859ad3c88d51f0fdb8",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "dz-pivovary",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Pivovarnictví v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/datasets/0ddb05a36f0c4b319975df6a4b1ed90e",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "stav k 2026-10-09",
+   "status": "ok"
+  },
+  {
+   "id": "khs-koupani",
+   "provider": "Krajská hygienická stanice Karlovarského kraje (khskv.cz)",
+   "title": "Kontrola kvality vody ke koupání – poslední hodnocení (výtah z webových stránek koupacích míst)",
+   "url": "https://www.khskv.cz/",
+   "license": "neuvedeno poskytovatelem",
+   "downloadedAt": "2026-10-09T18:06:19.644Z",
+   "validFor": "koupací sezóna 2026",
+   "status": "ok"
   }
  ],
  "files": {
@@ -160,6 +380,7 @@
    "kv-orp": "geo/kv-orp.topo.json",
    "kv-obce": "geo/kv-obce.topo.json"
   },
-  "skoly": "skoly/obory.json"
+  "skoly": "skoly/obory.json",
+  "vylety": "vylety/mista.json"
  }
 }

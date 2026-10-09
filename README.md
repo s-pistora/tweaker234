@@ -1,6 +1,6 @@
 # KRAJ-TERM
 
-> Kam na střední? Kde by se mi dobře žilo? Jak se můj kraj změnil?
+> Kam na střední? Kam vyrazit? Kde by se mi dobře žilo? Jak se můj kraj změnil?
 
 **Hackathon otevřených dat Karlovarského kraje 2026** (Cheb, 9.–10. 10. 2026), kategorie SŠ.
 Živá verze: https://s-pistora.github.io/tweaker234/
@@ -51,6 +51,50 @@ je a spojujeme podle IZO školy + kódu oboru + formy; opravujeme překlep v kó
 a zdvojené uvozovky v názvech.
 Naplněnost = nově přijatí k 30. 9. 2025 ÷ záměr 2025/26. Aktualizace: `npm run data:skoly`.
 
+## Kam vyrazit
+
+Jedna stránka s menu kategorií (rozcestník) a z ní podstránky. Každá kategorie má **interaktivní mapu,
+seznam, detail místa a filtry přímo pro danou kategorii**. Vše je jen z Karlovarského kraje.
+
+| kategorie | filtry navíc ke vzdálenosti a hledání |
+|---|---|
+| Sjezdovky a vleky | velikost areálu (počet vleků a lanovek), lanovka, pás pro začátečníky, provoz jen v zimě / i mimo zimu |
+| Koupání v přírodě | **kvalita vody z posledního odběru** (výtah ze stránek Krajské hygienické stanice), s provozovatelem / volná příroda |
+| Bazény a aquaparky | aquapark / bazén / koupaliště, vstupné |
+| Hrady a zámky | hrad / zámek / zřícenina / tvrz, přístupné veřejnosti, kulturní památka, vstupné |
+| Rozhledny | rozhledna / vyhlídková věž / vyhlídka, volně přístupná, vstupné |
+| Muzea a galerie | muzeum / galerie / skanzen, vstupné |
+| Divadla a kina | divadlo / kino / letní kino / kulturní dům |
+| S dětmi | zvířata, lanové a zábavní centrum, farma, koně, pod střechou, vstupné |
+| Příroda | přírodní pozoruhodnost / botanická zahrada / arboretum, chráněné území |
+| Prameny | kolik vody teče, minerální / radioaktivní, pitný, v obci |
+| Sport | hala, areál, zimní stadion, golf, jezdectví |
+| Pivovary | pivovar / minipivovar |
+
+- **Odkud vyrážíte + jak daleko**: obec z nabídky nebo kliknutím do mapy. Mapa obcí je obarvená podle
+  počtu míst v dosahu, kolem bydliště je kružnice dosahu, seznam se řadí od nejbližšího.
+- **Detail místa**: věta lidskou řečí, popis, provoz, web, kontakt, odkaz na plánování cesty
+  (Mapy.cz) a co dalšího je do 5 km.
+- Stav (kategorie, filtry, vybrané místo) je v adrese a tlačítko **Sdílet** zkopíruje odkaz.
+- **Průvodce** pro nové uživatele: při první návštěvě (a kdykoli tlačítkem v liště) projde krok po
+  kroku menu, rozcestník, filtry, mapu a seznam. Pak vrátí stránku tam, kde uživatel byl.
+- „Mapa kraje“ a „Kde by se mi žilo“ ukazují jen Karlovarský kraj (7 ORP → 134 obcí). Data za Česko
+  zůstávají jen jako srovnávací základna v detailu území.
+
+### Data pro „Kam vyrazit“
+
+21 datových sad Karlovarského kraje z DATAZÁPADU (630 míst, licence CC BY 4.0). Sady čteme přes REST
+API jejich ArcGIS služeb, protože CSV export z Hubu u části sad vrací 404. Konkrétní seznam je
+v [SOURCES.md](SOURCES.md) a v aplikaci pod „Zdroje dat“.
+
+Kvalitu vody kraj jako otevřená data nezveřejňuje. Sada koupacích míst ale u každého místa odkazuje
+na stránku Krajské hygienické stanice. Z ní bereme poslední hodnocení (ikona v tabulce odběrů). Když
+má místo víc odběrných míst, platí nejhorší výsledek. Licence webu KHS není uvedena, proto u každého
+údaje odkazujeme přímo na zdrojovou stránku.
+
+Kraj nezveřejňuje kalendář akcí ani obsazenost sjezdovek. Místo toho ukazujeme místa, kde se akce
+konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm run data:vylety`.
+
 ## Použití AI
 
 - **Claude Code (Anthropic)** – průzkum datového katalogu, návrh a plán funkce, většina kódu režimu
@@ -64,8 +108,10 @@ Naplněnost = nově přijatí k 30. 9. 2025 ÷ záměr 2025/26. Aktualizace: `np
 Upřímně: základ aplikace **KRAJ-TERM** (mapa krajů/ORP/obcí, datová pipeline ČSÚ/ČÚZK/DATAZÁPAD,
 režim „Kde by se mi dobře žilo?“, původně v retro CRT vzhledu) napsal člen týmu před akcí (commity z 27.–28. 9. 2026).
 **Během hackathonu (9.–10. 10. 2026)** vznikl režim **„Kam na střední“** – nová data záměrů
-přijímání SŠ, výpočty naplněnosti, mapa dostupnosti, seznam, detail školy a přehled pro kraj
-a nový vzhled celé aplikace podle brandbooku (viz historie commitů od 9. 10. 2026).
+přijímání SŠ, výpočty naplněnosti, mapa dostupnosti, seznam, detail školy a přehled pro kraj,
+nový vzhled celé aplikace podle brandbooku, režim **„Kam vyrazit“** (12 kategorií z 21 sad kraje,
+kvalita vody z KHS), průvodce pro nové uživatele a omezení map jen na Karlovarský kraj
+(viz historie commitů od 9. 10. 2026).
 
 ## Tým
 
@@ -102,6 +148,7 @@ Další příkazy:
 | příkaz | co dělá |
 |---|---|
 | `npm run data:skoly` | stáhne záměry přijímání SŠ (3 roky) a zapíše `public/data/skoly/obory.json` |
+| `npm run data:vylety` | stáhne místa pro volný čas (21 sad DATAZÁPAD) a kvalitu vody (KHS), zapíše `public/data/vylety/mista.json` a `SOURCES.md` |
 | `npm run data:update` | stáhne data z oficiálních zdrojů, zvaliduje je a zapíše snapshot do `public/data/` + `SOURCES.md` |
 | `npm test` | testy (Vitest) |
 | `npm run build` | statický build do `dist/` (lze nasadit na GitHub Pages / Netlify / jakýkoli statický hosting) |
