@@ -62,6 +62,28 @@ describe('poradce – kde_se_mi_bude_zit', () => {
       velmi_dulezite: ['sjezdovka'],
     }) as Vysledek;
     expect(JSON.stringify(vaha)).toContain('velmi důležité');
+    // id jen ve velmi_dulezite se nezahodí (sjednocení s váhou 2)
+    const jenVelmi = spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['zastavka'], velmi_dulezite: ['sjezdovka'] }) as {
+      pozadavky: string[];
+      obce: Obec[];
+    };
+    expect(jenVelmi.pozadavky).toEqual(['Autobusová zastávka', 'Sjezdovka (velmi důležité)']);
+    expect(jenVelmi.obce.map((o) => o.skore)).toEqual(
+      (spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['zastavka', 'sjezdovka'], velmi_dulezite: ['sjezdovka'] }) as Vysledek).obce.map(
+        (o) => o.skore,
+      ),
+    );
+    // jen velmi_dulezite bez pozadavky stačí
+    expect(spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: [], velmi_dulezite: ['lekar'] })).not.toHaveProperty('chyba');
+  });
+
+  it('limit jako text a nejednoznačný začátek ORP', () => {
+    expect((spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['lekar'], limit: '3' }) as Vysledek).obce.length).toBe(3);
+    const k = spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['lekar'], orp: 'K' }) as { chyba: string };
+    expect(k.chyba).toContain('Karlovy Vary');
+    expect(k.chyba).toContain('Kraslice');
+    expect(k.chyba).toContain('jednoznačné');
+    expect((spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['lekar'], orp: 'Kras' }) as Vysledek).orp).toBe('Kraslice');
   });
 
   it('neobydlené Hradiště (555177) se nikdy neobjeví', () => {
@@ -77,7 +99,8 @@ describe('poradce – kde_se_mi_bude_zit', () => {
 
   it('neplatné požadavky nebo ORP → srozumitelná chyba se seznamem', () => {
     const r = spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['doktor', 'plavani'] }) as { chyba: string };
-    expect(r.chyba).toContain('lekar = Praktický lékař');
+    expect(r.chyba).toContain('doktor, plavani');
+    expect(r.chyba).toContain('výčtu');
     expect(spustNastroj(ctx, 'kde_se_mi_bude_zit', {})).toHaveProperty('chyba');
     const orp = spustNastroj(ctx, 'kde_se_mi_bude_zit', { pozadavky: ['lekar'], orp: 'Praha' }) as { chyba: string };
     expect(orp.chyba).toContain('Sokolov');
@@ -115,16 +138,50 @@ describe('poradce – obec_bydleni', () => {
   });
 
   it('nejednoznačný název vrací kandidáty, neznámá obec chybu', () => {
-    const r = spustNastroj(ctx, 'obec_bydleni', { obec: 'lazne' }) as { chyba: string; kandidati: string[] };
+    const r = spustNastroj(ctx, 'obec_bydleni', { obec: 'lazne' }) as { chyba: string; kandidati: { kod: string; nazev: string; orp: string }[] };
     expect(r.chyba).toBeTruthy();
     expect(r.kandidati.length).toBeGreaterThan(1);
+    expect(r.kandidati.every((k) => k.kod in ctx.obecNames && k.nazev && k.orp)).toBe(true);
     expect(spustNastroj(ctx, 'obec_bydleni', { obec: 'Brno' })).toHaveProperty('chyba');
     expect(spustNastroj(ctx, 'obec_bydleni', { obec: 'Cheb', pozadavky: ['xyz'] })).toHaveProperty('chyba');
+  });
+
+  it('stejnojmenné obce (2× Chodov): kandidáti s kódem a ORP, výběr kódem, orp i „Název (ORP)“', () => {
+    const r = spustNastroj(ctx, 'obec_bydleni', { obec: 'Chodov' }) as { chyba: string; kandidati: { kod: string; orp: string }[] };
+    expect(r.chyba).toBeTruthy();
+    expect(r.kandidati.map((k) => k.kod).sort()).toEqual(['560383', '578011']);
+    const orpMesta = r.kandidati.find((k) => k.kod === '560383')!.orp;
+    const kodem = spustNastroj(ctx, 'obec_bydleni', { obec: '560383' }) as { obec: string; kod: string };
+    expect(kodem).toMatchObject({ obec: 'Chodov', kod: '560383' });
+    const sOrp = spustNastroj(ctx, 'obec_bydleni', { obec: 'chodov', orp: orpMesta }) as { kod: string };
+    expect(sOrp.kod).toBe('560383');
+    const zavorka = spustNastroj(ctx, 'obec_bydleni', { obec: `Chodov (${orpMesta})` }) as { kod: string };
+    expect(zavorka.kod).toBe('560383');
+    const druhy = r.kandidati.find((k) => k.kod === '578011')!.orp;
+    expect((spustNastroj(ctx, 'obec_bydleni', { obec: `Chodov (ORP ${druhy})` }) as { kod: string }).kod).toBe('578011');
+    // Březová také 2×
+    expect((spustNastroj(ctx, 'obec_bydleni', { obec: 'Brezova' }) as { kandidati: unknown[] }).kandidati.length).toBe(2);
+  });
+
+  it('obec_bydleni: velmi_dulezite mění skóre jako v aplikaci', () => {
+    const a = spustNastroj(ctx, 'obec_bydleni', { obec: 'Cheb', pozadavky: ['sjezdovka', 'mesto'] }) as { skore: number };
+    const b = spustNastroj(ctx, 'obec_bydleni', { obec: 'Cheb', pozadavky: ['mesto'], velmi_dulezite: ['sjezdovka'] }) as {
+      skore: number;
+      velmi_dulezite: string[];
+      pozadavky: unknown[];
+    };
+    expect(b.velmi_dulezite).toEqual(['Sjezdovka']);
+    expect(b.pozadavky.length).toBe(2);
+    expect(b.skore).not.toBe(a.skore);
   });
 
   it('definice nástrojů obsahují id požadavků jako enum', () => {
     const d = definiceNastroju(ctx).find((x) => x.function.name === 'kde_se_mi_bude_zit')!;
     expect(JSON.stringify(d.function.parameters)).toContain('"bazen"');
     expect(definiceNastroju(ctx).some((x) => x.function.name === 'obec_bydleni')).toBe(true);
+    // výčet id jen jednou – definice se posílají s každým dotazem (limit tokenů Groq)
+    const vse = JSON.stringify(definiceNastroju(ctx));
+    expect(vse.split('"klidna-obec"').length - 1).toBe(1);
+    expect(vse.length).toBeLessThan(6500);
   });
 });
