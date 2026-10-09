@@ -49,7 +49,6 @@
   import {
     TRIDA_LABEL,
     agreguj,
-    dostupnostObci,
     proZakyZeZs,
     filtrujObory,
     naplnenostSkoly,
@@ -276,17 +275,6 @@
   const vysledky = $derived(
     filtrujObory(obory, { domov, typ: sk.typ, skupina: sk.skupina, maxKm: sk.maxKm }, sk.razeni),
   );
-  const dostupnost = $derived(
-    dostupnostObci(obory, obecCentroidy, { typ: sk.typ, skupina: sk.skupina, maxKm: sk.maxKm }),
-  );
-  const DOSTUPNOST_DEF: IndicatorDef = {
-    id: 'dostupnost',
-    label: 'Obory v dosahu',
-    unit: 'počet',
-    higherIsBetter: true,
-    sourceId: 'dz-prijimani-2026',
-    decimals: 0,
-  };
   let zvyraznena = $state<string | null>(null);
   const orpFeatures = $derived(snap ? areaFeatures(snap.geo['kv-orp']) : []);
   /** školy ve výsledcích pro mapu: místa a obsazenost jen z oborů odpovídajících filtru */
@@ -526,10 +514,7 @@
   function setSkoly(patch: Partial<SkolyState>) {
     appState.update((s) => ({ ...s, skoly: { ...(s.skoly ?? DEFAULT_SKOLY), ...patch } }));
   }
-  function dostupnostPreview(code: AreaCode): string[] {
-    const n = dostupnost[code] ?? 0;
-    return [`${n} ${n === 1 ? 'obor' : n >= 2 && n <= 4 ? 'obory' : 'oborů'} do ${sk.maxKm} km`, 'klik = tady bydlím'];
-  }
+
 
   let drill = $state<ReturnType<typeof Drilldown> | null>(null);
   let sourcesOpen = $state(false);
@@ -707,7 +692,6 @@
               <SkolyMapa
                 obce={obecFeatures}
                 orp={orpFeatures}
-                {dostupnost}
                 maxKm={sk.maxKm}
                 domov={sk.domov}
                 kruh={domov ? { ...domov, km: sk.maxKm } : null}

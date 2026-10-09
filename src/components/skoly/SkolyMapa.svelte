@@ -26,15 +26,12 @@
    */
   import type { AreaCode } from '../../lib/types.ts';
   import { makeProjector, type AreaFeature } from '../../lib/map/project.ts';
-  import { quantileClass, classRanges } from '../../lib/map/classify.ts';
   import { motionAllowed } from '../../lib/map/zoom.ts';
   import { procenta } from '../../lib/skoly.ts';
 
   interface Props {
     obce: AreaFeature[];
     orp: AreaFeature[];
-    /** počet oborů v dosahu z každé obce */
-    dostupnost: Record<AreaCode, number>;
     maxKm: number;
     domov: AreaCode | null;
     kruh: { lat: number; lon: number; km: number } | null;
@@ -50,7 +47,6 @@
   const {
     obce,
     orp,
-    dostupnost,
     maxKm,
     domov,
     kruh,
@@ -72,21 +68,19 @@
   const FULL = $derived<VB>([0, 0, W, H]);
 
   const proj = $derived(makeProjector(obce, W, H, 24));
-  const vals = $derived(obce.map((f) => dostupnost[f.properties.code] ?? null));
-  const SCALE = ['#eef4fb', '#d3e3f4', '#a9c9ea', '#76a7da', '#4b84c4'];
+  /** jednobarevný podklad – co je v dosahu, ukazují jen tečky škol */
+  const PODKLAD = '#dfe8f3';
   const obcePaths = $derived(
     obce.map((f) => {
-      const c = quantileClass(vals, dostupnost[f.properties.code] ?? null);
       return {
         code: f.properties.code,
         name: f.properties.name,
         d: proj.path(f) ?? '',
-        fill: c === null ? '#f3f4f6' : SCALE[c],
+        fill: PODKLAD,
       };
     }),
   );
   const orpPaths = $derived(orp.map((f) => ({ code: f.properties.code, d: proj.path(f) ?? '' })));
-  const ranges = $derived(classRanges(vals));
 
   // popisky měst: velká (sídla ORP) vždy, menší až při přiblížení
   const VELKA = ['Karlovy Vary', 'Cheb', 'Sokolov', 'Mariánské Lázně', 'Ostrov', 'Aš', 'Kraslice'];
@@ -260,12 +254,12 @@
       {#each obcePaths as o (o.code)}
         <path
           d={o.d}
-          fill={o.code === domov ? '#ffe9a8' : o.fill}
+          fill={o.fill}
           class="obec"
           class:domov={o.code === domov}
           role="button"
           tabindex="-1"
-          aria-label="{o.name}: {dostupnost[o.code] ?? 0} oborů do {maxKm} km"
+          aria-label="{o.name} – nastavit jako bydliště"
           data-code={o.code}
           onmouseenter={() => (tip = { ...tip, kind: 'obec', id: o.code })}
           onclick={() => !wasDrag() && onobec(o.code)}
@@ -352,7 +346,6 @@
         <em>Klikněte pro detail školy</em>
       {:else if tipObec}
         <strong>{tipObec.name}</strong>
-        <span>{dostupnost[tipObec.code] ?? 0} {pl(dostupnost[tipObec.code] ?? 0, 'obor', 'obory', 'oborů')} do {maxKm} km</span>
         <em>{tipObec.code === domov ? 'Tady bydlíte' : 'Klikněte – tady bydlím'}</em>
       {/if}
     </div>
@@ -366,19 +359,13 @@
 
   <div class="leg" aria-label="Legenda mapy">
     <div class="leg__row">
-      <span class="leg__t">Oborů v dosahu do {maxKm} km</span>
-      <span class="leg__mm">{ranges.find((r) => r)?.min ?? 0}</span>
-      <span class="leg__scale">
-        {#each SCALE as c, i (i)}
-          <span style="background: {c}"></span>
-        {/each}
-      </span>
-      <span class="leg__mm">{[...ranges].reverse().find((r) => r)?.max ?? 0}</span>
+      <span class="leg__t">{kruh ? `Školy do ${maxKm} km od bydliště` : 'Střední školy podle filtru'}</span>
     </div>
     <div class="leg__row leg__skoly">
       <span><i class="d d--volno"></i>hodně volno</span>
       <span><i class="d d--ok"></i>skoro plno</span>
       <span><i class="d d--pretlak"></i>přeplněno</span>
+      <span><i class="d d--mimo"></i>mimo dosah / filtr</span>
       <span class="leg__note">velikost = počet míst</span>
     </div>
   </div>
@@ -415,11 +402,11 @@
     outline: none;
   }
   .obec:hover {
-    fill: #ffe9a8;
+    fill: #c9d8ea;
   }
   .obec.domov {
     stroke: var(--brand-dark);
-    stroke-width: 1.5;
+    stroke-width: 2;
   }
   .orp path {
     fill: none;
@@ -592,17 +579,6 @@
     color: var(--brand-dark);
     width: 100%;
   }
-  .leg__scale {
-    display: flex;
-  }
-  .leg__scale span {
-    width: 26px;
-    height: 10px;
-  }
-  .leg__mm {
-    color: var(--text-muted);
-    font-weight: 500;
-  }
   .leg__skoly span {
     display: inline-flex;
     align-items: center;
@@ -623,6 +599,12 @@
   }
   .d--pretlak {
     background: var(--data-6);
+  }
+  .d--mimo {
+    width: 7px;
+    height: 7px;
+    border: 0;
+    background: #9aa5b4;
   }
   .leg__note {
     color: var(--text-muted);

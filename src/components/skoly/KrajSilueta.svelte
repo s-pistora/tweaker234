@@ -11,7 +11,7 @@
   const W = 520;
   const H = 400;
   const proj = $derived(makeProjector(orp, W, H, 6));
-  const TONY = ['#c9dcf1', '#a9c9ea', '#8db6e2', '#6f9fd6', '#5b93cf', '#3f7bc0', '#2f6db5'];
+  const TONY = ['#a9c9ea'];
   const plochy = $derived(orp.map((f, i) => ({ d: proj.path(f) ?? '', fill: TONY[i % TONY.length] })));
   const body = $derived(
     skoly.map((s) => {
