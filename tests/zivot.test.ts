@@ -10,6 +10,9 @@ import {
   spocitejSkore,
   vetaPozadavku,
   vytvorKontext,
+  kratkaHodnota,
+  srovnani,
+  textSrovnani,
 } from '../src/lib/zivot.ts';
 import { vzdalenostKm } from '../src/lib/skoly.ts';
 import { areaFeatures } from '../src/lib/map/project.ts';
@@ -193,5 +196,63 @@ describe('zivot – reálná data public/data', () => {
       const n = Object.values(metrika(c, p.id).values).filter((v) => v !== null).length;
       expect(n, p.id).toBeGreaterThanOrEqual(130);
     }
+  });
+
+  it('obec bez obyvatel (vojenský újezd Hradiště 555177) se nehodnotí ani neřadí', () => {
+    const c = vytvorKontext(real, centroidy(feats), names);
+    expect(c.neobydlene.has('555177')).toBe(true);
+    for (const id of ['klidna-obec', 'nezamestnanost']) {
+      const s = spocitejSkore(c, { [id]: 1 });
+      expect(s['555177']).toEqual({ score: null, parts: [], skipped: [], neobydlena: true });
+      const p = poradi(s, names);
+      expect(p.map((r) => r.code)).not.toContain('555177');
+      expect(p.length).toBe(133);
+    }
+    // pořadí ve výchozím výběru také bez neobydlené obce
+    expect(poradi(spocitejSkore(c, { zastavka: 1, nezamestnanost: 1 })).map((r) => r.code)).not.toContain('555177');
+  });
+
+  it('shoda na nejhorší hodnotě: obec bez zastávky není „lépe než X %“', () => {
+    const c = vytvorKontext(real, centroidy(feats), names);
+    const nula = Object.entries(metrika(c, 'zastavka').values).find(([, v]) => v === 0)![0];
+    const s = srovnani(c, 'zastavka', nula)!;
+    expect(s.horsich).toBe(0);
+    expect(textSrovnani(s)).toMatch(/^nejslabší v kraji \(spolu s \d+ dalšími obcemi\)$/);
+  });
+});
+
+describe('zivot – srovnání s ostatními obcemi', () => {
+  it('podíl obcí, které jsou na tom striktně hůř', () => {
+    const c = ctx();
+    expect(srovnani(c, 'zastavka', 'B')).toEqual({ horsich: 1, lepsich: 1, shodnych: 0, celkem: 3 });
+    expect(textSrovnani(srovnani(c, 'zastavka', 'B')!)).toBe('lépe než 50 % obcí');
+    expect(textSrovnani(srovnani(c, 'zastavka', 'A')!)).toBe('nejlépe v kraji');
+    expect(srovnani(c, 'mlada-obec', 'C')).toBeNull();
+  });
+
+  it('shody na okrajích', () => {
+    expect(textSrovnani({ horsich: 0, lepsich: 5, shodnych: 28, celkem: 34 })).toBe(
+      'nejslabší v kraji (spolu s 28 dalšími obcemi)',
+    );
+    expect(textSrovnani({ horsich: 4, lepsich: 0, shodnych: 1, celkem: 6 })).toBe('nejlépe v kraji (spolu s 1 další obcí)');
+    expect(textSrovnani({ horsich: 3, lepsich: 2, shodnych: 0, celkem: 6 })).toBe('lépe než 60 % obcí');
+    // shoda uprostřed se nepočítá jako „hůř“
+    expect(textSrovnani({ horsich: 2, lepsich: 2, shodnych: 2, celkem: 7 })).toBe('lépe než 33 % obcí');
+  });
+});
+
+describe('zivot – krátká hodnota do náhledu', () => {
+  it('správné tvary 1 / 2–4 / 5+ a okruh', () => {
+    expect(kratkaHodnota('zastavka', 1)).toBe('1 zastávka do 1 km');
+    expect(kratkaHodnota('zastavka', 3)).toBe('3 zastávky do 1 km');
+    expect(kratkaHodnota('zastavka', 6)).toBe('6 zastávek do 1 km');
+    expect(kratkaHodnota('priroda', 1)).toBe('1 místo do 5 km');
+    expect(kratkaHodnota('pamatky', 12)).toBe('12 míst do 10 km');
+    expect(kratkaHodnota('lekarna', 2.44)).toBe('2,4 km');
+  });
+
+  it('záporné číslo s typografickým minus, jako ve větách', () => {
+    expect(kratkaHodnota('obec-roste', -3.24)).toBe('−3,2 na 1000 obyv.');
+    expect(vetaPozadavku(ctx(), 'obec-roste', 'A', -3.24)).toMatch(/je −3,2 na 1000 obyvatel/);
   });
 });

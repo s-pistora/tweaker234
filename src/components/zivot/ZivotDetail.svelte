@@ -2,11 +2,19 @@
   /**
    * Detail obce v režimu „Kde by se mi dobře žilo?“: skóre, pořadí v kraji a věta
    * ke každému zvolenému požadavku s percentilem. Na desktopu panel vedle mapy,
-   * na mobilu vysouvací panel zespodu. Esc zavírá globálně App.
+   * na mobilu vysouvací panel zespodu (dialog, fokus zůstává uvnitř). Esc zavírá
+   * globálně App.
+   *
+   * Fokus: do detailu se přesune jen tehdy, když ho uživatel otevřel (`fokus`), nebo
+   * na mobilu, kde detail překryje stránku – otevření z odkazu fokus nekrade. Po
+   * zavření se fokus vrátí na prvek, odkud byl detail otevřen.
    */
+  import { onMount, untrack } from 'svelte';
   import type { AreaCode } from '../../lib/types.ts';
   import {
     POZADAVKY_BY_ID,
+    srovnani,
+    textSrovnani,
     vetaPozadavku,
     type ZivotKontext,
     type ZivotSkore,
@@ -19,33 +27,88 @@
     orpName: string;
     skore: ZivotSkore | undefined;
     rank: number | null;
+    /** počet obcí v pořadí (obce se skóre) */
     celkem: number;
+    /** počet všech obcí kraje (do vysvětlení) */
+    vsech: number;
+    /** přesunout fokus do detailu (uživatel ho právě otevřel) */
+    fokus?: boolean;
     onclose: () => void;
   }
-  const { ctx, code, name, orpName, skore, rank, celkem, onclose }: Props = $props();
+  const { ctx, code, name, orpName, skore, rank, celkem, vsech, fokus = false, onclose }: Props = $props();
 
   const casti = $derived(
     [...(skore?.parts ?? [])]
       .sort((a, b) => b.weight - a.weight || b.percentile - a.percentile)
-      .map((p) => ({
-        ...p,
-        label: POZADAVKY_BY_ID[p.id]?.label ?? p.id,
-        veta: vetaPozadavku(ctx, p.id, code, p.value),
-        pct: Math.round(p.percentile),
-      })),
+      .map((p) => {
+        const sr = srovnani(ctx, p.id, code);
+        return {
+          ...p,
+          label: POZADAVKY_BY_ID[p.id]?.label ?? p.id,
+          veta: vetaPozadavku(ctx, p.id, code, p.value),
+          pct: Math.round(p.percentile),
+          srovnani: sr ? textSrovnani(sr) : '',
+        };
+      }),
   );
   const vynechane = $derived((skore?.skipped ?? []).map((id) => POZADAVKY_BY_ID[id]?.label ?? id));
   const s = $derived(skore?.score ?? null);
 
+  /** ≤1000 px: detail je vysouvací dialog přes stránku */
+  let mobil = $state(false);
+  let el = $state<HTMLElement | null>(null);
   let closeBtn = $state<HTMLButtonElement | null>(null);
+
+  onMount(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    let mq: MediaQueryList | null = null;
+    const sync = () => (mobil = !!mq?.matches);
+    try {
+      mq = window.matchMedia?.('(max-width: 1000px)') ?? null;
+      sync();
+      mq?.addEventListener?.('change', sync);
+    } catch {
+      /* testovací prostředí */
+    }
+    return () => {
+      mq?.removeEventListener?.('change', sync);
+      // vrátit fokus tam, odkud byl detail otevřen (pokud tam ještě je)
+      if (opener && opener !== document.body && opener.isConnected) opener.focus({ preventScroll: true });
+    };
+  });
+
   $effect(() => {
     void code;
-    closeBtn?.focus();
+    if (closeBtn && untrack(() => fokus || mobil)) closeBtn.focus({ preventScroll: true });
   });
+
+  /** jednoduché držení fokusu uvnitř dialogu na mobilu (Tab / Shift+Tab dokola) */
+  function onKeydown(e: KeyboardEvent) {
+    if (!mobil || e.key !== 'Tab' || !el) return;
+    const f = [...el.querySelectorAll<HTMLElement>('button, summary, a[href], [tabindex]:not([tabindex="-1"])')];
+    if (!f.length) return;
+    const first = f[0];
+    const last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 </script>
 
 <div class="backdrop" onclick={onclose} aria-hidden="true"></div>
-<section class="detail" aria-labelledby="zd-h" data-testid="zivot-detail">
+<section
+  bind:this={el}
+  class="detail"
+  aria-labelledby="zd-h"
+  role={mobil ? 'dialog' : undefined}
+  aria-modal={mobil ? 'true' : undefined}
+  onkeydown={onKeydown}
+  data-testid="zivot-detail"
+>
   <header>
     <div class="ttl">
       <p class="kicker">Obec{orpName ? ` · ORP ${orpName}` : ''}</p>
@@ -67,6 +130,8 @@
         </div>
       {/if}
     </div>
+  {:else if skore?.neobydlena}
+    <p class="empty" data-testid="zivot-neobydlena">Obec nemá stálé obyvatele, nehodnotíme ji.</p>
   {:else}
     <p class="empty">Pro tuto obec nemáme k vybraným požadavkům žádné údaje, skóre proto nepočítáme.</p>
   {/if}
@@ -83,7 +148,7 @@
           <p class="veta">{c.veta}</p>
           <div class="pbar" role="img" aria-label="Percentil v kraji: {c.pct} ze 100">
             <span class="track"><span style="width: {c.pct}%"></span></span>
-            <span class="pv">{c.pct >= 100 ? 'nejlépe v kraji' : c.pct <= 0 ? 'nejslabší v kraji' : `lépe než ${c.pct} % obcí`}</span>
+            <span class="pv">{c.srovnani}</span>
           </div>
         </li>
       {/each}
@@ -100,9 +165,11 @@
   <details class="how">
     <summary>Jak se to počítá</summary>
     <p>
-      U každého požadavku porovnáme všech {celkem} obcí kraje. Percentil 80 znamená, že obec je na tom lépe než zhruba 80 %
-      ostatních. Skóre je průměr percentilů. „Velmi důležité“ má dvojnásobnou váhu.
+      U každého požadavku seřadíme všech {vsech} obcí kraje a pořadí převedeme na percentil 0–100 (100 = nejlepší). Obce se
+      stejnou hodnotou dostanou stejný, průměrný percentil. Skóre je průměr percentilů. „Velmi důležité“ má dvojnásobnou
+      váhu.
     </p>
+    <p>Obce bez stálých obyvatel nehodnotíme.</p>
     <p>
       Chybí-li obci údaj, požadavek u ní vynecháme a průměr spočítáme ze zbylých. Vzdálenosti měříme vzdušnou čarou od
       středu obce.

@@ -1,4 +1,4 @@
-// Vazene skore "Kde by se mi dobre zilo?" (ciste funkce, zadny pristup na DOM/sit).
+// Percentily a vazene skore uzemi (ciste funkce, zadny pristup na DOM/sit).
 //
 // percentileRank: percentil (0-100) hodnoty v ramci mnoziny uzemi. Pocita se z
 // poradi (0-indexovaneho), shodne hodnoty sdili prumerne poradi. Pro
@@ -10,7 +10,8 @@
 // renormalizuji tim, ze do jmenovatele vstupuji jen vahy pouzitych casti).
 // Kazdy ukazatel pouziva SVUJ vlastni posledni rok s daty (ne globalne
 // vybrany rok predany parametrem `year`) - ukazatele maji ruzne pokryti roky
-// a mixovani by bylo zavadejici; HowModal rok pro kazdou cast zobrazuje.
+// a mixovani by bylo zavadejici. Rezim „Kde by se mi dobre zilo?“ pouziva jen
+// percentileRank (viz lib/zivot.ts); score() zustava kvuli starsim odkazum s `w=`.
 import type { AreaCode, IndicatorDef, IndicatorFile } from './types.ts';
 
 export interface ScorePart {
@@ -143,7 +144,7 @@ export function score(file: IndicatorFile, _year: number, weights: Record<string
   return out;
 }
 
-/** Poslední rok s daty pro daný ukazatel - použito v HowModal pro transparentní rozpad (per-ukazatel rok). */
+/** Poslední rok s daty pro daný ukazatel (každá část skóre má svůj rok). */
 export function scoreIndicatorYear(file: IndicatorFile, id: string): number | null {
   return latestDataYear(file, id);
 }

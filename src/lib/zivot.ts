@@ -30,7 +30,7 @@ export type Metrika =
   /** km od středu obce k nejbližšímu bodu */
   | { druh: 'nejblizsi'; vyber: Vyber; co: string }
   /** počet bodů do `km` od středu obce; `tvary` = [1, 2–4, 5+], `nula` = věta pro 0 */
-  | { druh: 'pocet'; vyber: Vyber; km: number; tvary: [string, string, string]; nula: string }
+  | { druh: 'pocet'; vyber: Vyber; km: number; tvary: [string, string, string]; kratce: [string, string, string]; nula: string }
   /** ukazatel obce (poslední rok s daty) */
   | { druh: 'ukazatel'; ukazatel: string; nazev: string; jednotka: string; desetin: number }
   /** km od středu obce do středu města */
@@ -73,6 +73,7 @@ export const POZADAVKY: readonly Pozadavek[] = [
       vyber: { vrstva: 'zastavky' },
       km: 1,
       tvary: ['autobusová zastávka', 'autobusové zastávky', 'autobusových zastávek'],
+      kratce: ['zastávka', 'zastávky', 'zastávek'],
       nula: 'Do 1 km od středu obce není žádná autobusová zastávka.',
     },
     jednotka: 'zastávek do 1 km',
@@ -274,6 +275,7 @@ export const POZADAVKY: readonly Pozadavek[] = [
       vyber: { kat: ['priroda', 'prameny'] },
       km: 5,
       tvary: ['přírodní místo nebo pramen', 'přírodní místa nebo prameny', 'přírodních míst a pramenů'],
+      kratce: ['místo', 'místa', 'míst'],
       nula: 'Do 5 km od středu obce není žádné přírodní místo ani pramen z dat kraje.',
     },
     jednotka: 'míst do 5 km',
@@ -300,6 +302,7 @@ export const POZADAVKY: readonly Pozadavek[] = [
       vyber: { kat: ['hrady-zamky', 'muzea'] },
       km: 10,
       tvary: ['hrad, zámek nebo muzeum', 'hrady, zámky nebo muzea', 'hradů, zámků a muzeí'],
+      kratce: ['místo', 'místa', 'míst'],
       nula: 'Do 10 km od středu obce není žádný hrad, zámek ani muzeum.',
     },
     jednotka: 'míst do 10 km',
@@ -415,6 +418,11 @@ export interface ZivotKontext {
   /** střed každé obce kraje (= množina obcí, které se hodnotí) */
   obce: Record<AreaCode, LatLon>;
   names: Record<AreaCode, string>;
+  /**
+   * obce bez stálých obyvatel (např. vojenský újezd Hradiště): nehodnotí se vůbec –
+   * všechny metriky mají null a do percentilů ani pořadí nevstupují
+   */
+  neobydlene: Set<AreaCode>;
   /** memo: body, metriky a percentily podle id požadavku */
   body: Map<string, BodZivota[]>;
   metriky: Map<string, MetrikaObci>;
@@ -426,7 +434,22 @@ export function vytvorKontext(
   obce: Record<AreaCode, LatLon>,
   names: Record<AreaCode, string>,
 ): ZivotKontext {
-  return { snap, obce, names, body: new Map(), metriky: new Map(), percentily: new Map() };
+  const ctx: ZivotKontext = {
+    snap,
+    obce,
+    names,
+    neobydlene: new Set(),
+    body: new Map(),
+    metriky: new Map(),
+    percentily: new Map(),
+  };
+  // počet obyvatel v posledním roce s daty; 0 nebo chybějící údaj = obec bez obyvatel
+  // (jen když počty obyvatel vůbec máme – jinak nic nevylučujeme)
+  const pop = ukazatelObci(ctx, 'obyvatele');
+  if (pop.rok !== null) {
+    for (const [code, v] of Object.entries(pop.values)) if (v === null || v <= 0) ctx.neobydlene.add(code);
+  }
+  return ctx;
 }
 
 /** Body požadavku (pro metriku i pro mapu); [] u požadavků bez bodů nebo bez dat. */
@@ -528,6 +551,7 @@ export function metrika(ctx: ZivotKontext, id: string): MetrikaObci {
       out.values[code] = cil ? vzdalenostKm(c.lat, c.lon, cil.lat, cil.lon) : null;
     }
   }
+  for (const code of ctx.neobydlene) out.values[code] = null;
   ctx.metriky.set(id, out);
   return out;
 }
@@ -556,6 +580,8 @@ export interface ZivotSkore {
   parts: CastSkore[];
   /** zvolené požadavky, pro které obci chybí údaj (vynechány, váhy renormalizovány) */
   skipped: string[];
+  /** obec bez stálých obyvatel – nehodnotí se */
+  neobydlena?: boolean;
 }
 
 /** Skóre všech obcí podle zvolených požadavků; prázdný výběr → všude null. */
@@ -563,6 +589,10 @@ export function spocitejSkore(ctx: ZivotKontext, vybrane: Record<string, Dulezit
   const ids = Object.keys(vybrane).filter((id) => id in POZADAVKY_BY_ID && (vybrane[id] === 1 || vybrane[id] === 2));
   const out: Record<AreaCode, ZivotSkore> = {};
   for (const code of Object.keys(ctx.obce)) {
+    if (ctx.neobydlene.has(code)) {
+      out[code] = { score: null, parts: [], skipped: [], neobydlena: true };
+      continue;
+    }
     const parts: CastSkore[] = [];
     const skipped: string[] = [];
     for (const id of ids) {
@@ -604,6 +634,47 @@ export function poradi(skore: Record<AreaCode, ZivotSkore>, names: Record<AreaCo
   return list;
 }
 
+export interface Srovnani {
+  /** kolik ostatních obcí je v požadavku na tom hůř / lépe / stejně */
+  horsich: number;
+  lepsich: number;
+  shodnych: number;
+  /** obcí s údajem včetně této */
+  celkem: number;
+}
+
+/**
+ * Srovnání obce s ostatními obcemi kraje v jednom požadavku podle skutečných hodnot.
+ * Percentil (průměrné pořadí) se hodí pro skóre, ale do věty „lépe než X % obcí“ ne:
+ * při shodách (např. 29 obcí bez zastávky) by tvrdil, že obec někoho předčí.
+ */
+export function srovnani(ctx: ZivotKontext, id: string, code: AreaCode): Srovnani | null {
+  const p = POZADAVKY_BY_ID[id];
+  const values = metrika(ctx, id).values;
+  const v = values[code];
+  if (!p || v === null || v === undefined) return null;
+  const s: Srovnani = { horsich: 0, lepsich: 0, shodnych: 0, celkem: 1 };
+  for (const [c, x] of Object.entries(values)) {
+    if (c === code || x === null || x === undefined) continue;
+    s.celkem++;
+    if (x === v) s.shodnych++;
+    else if (x < v === p.higherIsBetter) s.horsich++;
+    else s.lepsich++;
+  }
+  return s;
+}
+
+/** „lépe než 62 % obcí“ / „nejlépe v kraji (spolu s 3 dalšími obcemi)“ / „nejslabší v kraji“. */
+export function textSrovnani(s: Srovnani): string {
+  if (s.celkem <= 1) return 'jediná obec s údajem';
+  const spolu = s.shodnych
+    ? ` (spolu s ${s.shodnych} ${plural(s.shodnych, ['další obcí', 'dalšími obcemi', 'dalšími obcemi'])})`
+    : '';
+  if (s.lepsich === 0) return `nejlépe v kraji${spolu}`;
+  if (s.horsich === 0) return `nejslabší v kraji${spolu}`;
+  return `lépe než ${Math.round((100 * s.horsich) / (s.celkem - 1))} % obcí`;
+}
+
 /** Nejsilnější stránky obce: části s nejvyšším percentilem (při shodě vyšší váha). */
 export function silneStranky(s: ZivotSkore | undefined, n = 2): CastSkore[] {
   if (!s) return [];
@@ -612,16 +683,19 @@ export function silneStranky(s: ZivotSkore | undefined, n = 2): CastSkore[] {
 
 // --- věty -----------------------------------------------------------------------
 
+/** České číslo (desetinná čárka, mezera v tisících), záporné s typografickým minus „−“. */
 const fmtCs = (n: number, desetin = 0) =>
-  new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: desetin, maximumFractionDigits: desetin }).format(n);
+  new Intl.NumberFormat('cs-CZ', { minimumFractionDigits: desetin, maximumFractionDigits: desetin })
+    .format(n)
+    .replace('-', '−');
 
 /** Krátká hodnota metriky do náhledu/seznamu, např. „2,4 km“, „6 zastávek do 1 km“, „16,2 %“. */
 export function kratkaHodnota(id: string, value: number): string {
   const p = POZADAVKY_BY_ID[id];
-  if (!p) return '';
+  if (!p || !Number.isFinite(value)) return '';
   const m = p.metrika;
   if (m.druh === 'nejblizsi' || m.druh === 'mesto') return fmtKm(value);
-  if (m.druh === 'pocet') return `${fmtCs(value)} ${p.jednotka}`;
+  if (m.druh === 'pocet') return `${fmtCs(value)} ${plural(value, m.kratce)} do ${m.km} km`;
   if (m.druh === 'ukazatel') return `${fmtCs(value, m.desetin)} ${m.jednotka === '%' ? '%' : p.jednotka}`;
   return `${fmtCs(value)} ${p.jednotka}`;
 }
@@ -641,7 +715,7 @@ export function vetaPozadavku(ctx: ZivotKontext, id: string, code: AreaCode, val
       return `Do ${m.km} km od středu obce ${sloveso} ${fmtCs(value)} ${plural(value, m.tvary)}.`;
     }
     case 'ukazatel': {
-      const num = fmtCs(value, m.desetin).replace('-', '−');
+      const num = fmtCs(value, m.desetin);
       const jed = m.jednotka === '%' ? '%' : m.jednotka;
       return `${m.nazev} je ${num} ${jed}${rok !== null ? ` (${rok})` : ''}.`;
     }

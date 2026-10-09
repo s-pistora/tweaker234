@@ -175,10 +175,9 @@
   function setYear(y: number) {
     appState.update((s) => ({ ...s, year: y }));
   }
-  // „Statistika kraje“ (explore) a „Kde by se mi žilo“ (score) sdílí level/area
-  // v appState. Výběr ORP/obce ve Statistice se do skóre nepřenáší: při odchodu
-  // ze Statistiky si pohled schováme, skóre začne na ORP celého kraje a při
-  // návratu do Statistiky se původní výběr obnoví.
+  // „Kde by se mi žilo“ (score) má vlastní stav (zivot) a level/area ze Statistiky
+  // nepoužívá. Při odchodu ze Statistiky si její pohled schováme a při návratu ho
+  // obnovíme, ať ho jiné režimy (nebo efekty nad hashem) nepřepíšou.
   let exploreView: View | null = null;
   function setMode(m: Mode) {
     if (m !== st.mode) {
@@ -416,6 +415,7 @@
   const ziVybrano = $derived(Object.keys(zi.pozadavky).length);
   function ziPreview(code: AreaCode): string[] {
     const s = ziSkore[code];
+    if (s?.neobydlena) return ['Obec nemá stálé obyvatele, nehodnotíme ji.'];
     if (!ziVybrano) return ['Vyberte, na čem vám záleží.'];
     if (!s || s.score === null) return ['Skóre nelze spočítat, chybí údaje.'];
     return [
@@ -426,6 +426,12 @@
   }
   function setZivot(patch: Partial<ZivotState>) {
     appState.update((s) => ({ ...s, zivot: { ...(s.zivot ?? DEFAULT_ZIVOT), ...patch } }));
+  }
+  /** detail obce otevřel uživatel (mapa, TOP 10) → fokus do detailu; z odkazu ne */
+  let ziFokus = $state(false);
+  function openZivotObec(code: AreaCode) {
+    ziFokus = true;
+    setZivot({ obec: code });
   }
 
   // --- sdílení odkazu --------------------------------------------------------
@@ -986,7 +992,7 @@
           selected={zi.obec}
           preview={ziPreview}
           points={ziPoints}
-          onselect={(code) => setZivot({ obec: code })}
+          onselect={openZivotObec}
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"
           hint="Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail."
         />
@@ -1009,7 +1015,9 @@
             orpName={ziOrp[zi.obec] ?? ''}
             skore={ziSkore[zi.obec]}
             rank={ziRank[zi.obec] ?? null}
-            celkem={obecFeatures.length}
+            celkem={ziPoradi.length}
+            vsech={obecFeatures.length}
+            fokus={ziFokus}
             onclose={() => setZivot({ obec: null })}
           />
         {/if}
@@ -1018,7 +1026,7 @@
           names={obecNames}
           orp={ziOrp}
           selected={zi.obec}
-          onselect={(code) => setZivot({ obec: code })}
+          onselect={openZivotObec}
         />
       </div>
     </main>

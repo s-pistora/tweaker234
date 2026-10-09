@@ -67,7 +67,10 @@ describe('App – Kde by se mi dobře žilo?', () => {
     expect(location.hash).toContain('zo=554961');
     const detail = screen.getByTestId('zivot-detail');
     expect(detail.textContent).toMatch(/Karlovy Vary/);
-    expect(detail.textContent).toMatch(/\d+\.\s+z 134/);
+    // pořadí jen mezi hodnocenými obcemi (obec bez obyvatel se neřadí)
+    expect(detail.textContent).toMatch(/\d+\.\s+z 133/);
+    // detail otevřel uživatel → fokus v detailu; po zavření zpět
+    expect(detail.contains(document.activeElement)).toBe(true);
     expect(detail.textContent).toMatch(/Nejbližší lékárna je \d+(,\d)? km od středu obce\./);
     expect(detail.textContent).toMatch(/Podíl nezaměstnaných je \d+,\d %/);
     expect(detail.textContent).not.toMatch(/NaN|undefined|null/);
@@ -95,5 +98,16 @@ describe('App – Kde by se mi dobře žilo?', () => {
     expect(detail.textContent).toMatch(/Tohle je přímo Cheb\./);
     expect(detail.textContent).toMatch(/Podíl dětí 0–14 let je \d+,\d % \(\d{4}\)\./);
     expect(detail.textContent).toMatch(/velmi důležité/);
+    // otevření z odkazu fokus nekrade
+    expect(detail.contains(document.activeElement)).toBe(false);
+  }, 20000);
+
+  it('obec bez stálých obyvatel: v detailu jen poznámka, v pořadí chybí', async () => {
+    location.hash = '#/kraj?m=score&zp=klidna-obec:1&zo=555177';
+    render(App);
+    const detail = await screen.findByTestId('zivot-detail', {}, { timeout: 8000 });
+    expect(screen.getByTestId('zivot-neobydlena').textContent).toMatch(/nemá stálé obyvatele, nehodnotíme ji/);
+    expect(detail.textContent).not.toMatch(/žije 0 obyvatel/);
+    expect(screen.getByTestId('zivot-top').querySelector('[data-testid="zt-555177"]')).toBeNull();
   }, 20000);
 });
