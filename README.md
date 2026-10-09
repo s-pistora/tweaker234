@@ -101,7 +101,7 @@ konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm 
   „Kam na střední“ (datový adaptér, výpočty, komponenty) a testy. Kód jsme procházeli, testovali
   a čísla ručně ověřovali proti CSV a webům škol.
 - Tým: výběr tématu a cílové skupiny, kontrola dat, texty v aplikaci, design, prezentace.
-- Aplikace sama AI nepoužívá – všechny věty jsou šablony nad daty.
+- Věty v aplikaci jsou šablony nad daty. Jedinou AI v aplikaci je volitelný **AI poradce** (Groq) – viz níže.
 
 ## Co vzniklo před hackathonem a co během něj
 
@@ -142,6 +142,19 @@ až na úroveň ORP a obcí. Hackathon Karlovarského kraje, 2026.
 npm install
 npm run dev        # http://localhost:5173
 ```
+
+### AI poradce (lokálně)
+
+Plovoucí chat vpravo dole odpovídá lidskou řečí, ale **jen z dat, která aplikace načetla**: model (Groq,
+výchozí `openai/gpt-oss-120b`) nevidí nic jiného než výsledky nástrojů v `src/lib/poradce/nastroje.ts`
+(obory SŠ, místa pro výlety, ukazatele obcí, body v mapě) a má pokyn říct „tohle v datech nemám“.
+
+1. Klíč zdarma z https://console.groq.com/keys
+2. `cp .env.example .env.local` a doplnit `GROQ_API_KEY=…` (`.env.local` je v `.gitignore`)
+3. `npm run dev` – klíč drží jen lokální proxy `/api/poradce` (`vite-plugin-poradce.ts`), do prohlížeče
+   ani do buildu se nedostane
+
+Na statickém webu (GitHub Pages) proxy není, takže se poradce vůbec nezobrazí.
 
 Další příkazy:
 

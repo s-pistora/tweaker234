@@ -5,6 +5,7 @@
   import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
+  import Poradce from './components/Poradce.svelte';
   import StatusBar from './components/StatusBar.svelte';
   import Timeline from './components/Timeline.svelte';
   import Map from './components/Map.svelte';
@@ -1049,6 +1050,10 @@
 
   {#if sourcesOpen && snap}
     <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
+  {/if}
+
+  {#if snap}
+    <Poradce ctx={{ snap, obecNames, obecCentroidy }} />
   {/if}
 </div>
 
