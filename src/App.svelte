@@ -14,7 +14,6 @@
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
-  import KrajSilueta from './components/skoly/KrajSilueta.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
   import VyletyHub from './components/vylety/VyletyHub.svelte';
@@ -308,16 +307,6 @@
       .filter((o) => !v.has(o.izo) && !seen.has(o.izo) && seen.add(o.izo))
       .map((o) => ({ izo: o.izo, lat: o.lat, lon: o.lon }));
   });
-  const siluetaSkoly = $derived.by(() => {
-    const m = new globalThis.Map<string, { lat: number; lon: number; mist: number }>();
-    for (const o of obory) {
-      const g = m.get(o.izo) ?? { lat: o.lat, lon: o.lon, mist: 0 };
-      g.mist += o.zamer[2026] ?? 0;
-      m.set(o.izo, g);
-    }
-    return [...m.values()];
-  });
-
   const vybraneObory = $derived(sk.skola ? obory.filter((o) => o.izo === sk.skola) : []);
   const vybranaKm = $derived(
     domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
@@ -643,9 +632,6 @@
               </div>
             </div>
           {/if}
-        </div>
-        <div class="hero__art">
-          <KrajSilueta orp={orpFeatures} skoly={siluetaSkoly} />
         </div>
       </div>
     </section>
@@ -1330,15 +1316,7 @@
     color: var(--text);
   }
   .hero__grid {
-    display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
-    gap: 32px;
-    align-items: center;
-  }
-  .hero__art {
-    max-width: 440px;
-    justify-self: end;
-    width: 100%;
+    display: block;
   }
   .kpis {
     display: grid;
@@ -1501,12 +1479,6 @@
     }
   }
   @media (max-width: 1000px) {
-    .hero__grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .hero__art {
-      display: none;
-    }
     .split {
       grid-template-columns: minmax(0, 1fr);
     }
