@@ -24,7 +24,7 @@ describe('Detail', () => {
     const { container, getByTestId } = render(Detail, {
       props: { snap, level: 'kraj', code: 'CZ041', name: 'Karlovarský', indicator: 'nezamestnanost', year: 2024 },
     });
-    expect(container.textContent).toContain('> DOTAZ UZEMI=CZ041 UKAZATEL=nezamestnanost ROK=2024');
+    expect(container.textContent).toContain('Karlovarský');
     expect(container.querySelectorAll('tbody tr')).toHaveLength(3);
     expect(container.querySelector('.src a')?.textContent).toBe('FIKTIVNÍ TESTOVACÍ DATA');
     // screen reader dostane plnou větu přes aria-label Typewriteru
@@ -37,7 +37,7 @@ describe('Detail', () => {
     const { container } = render(Detail, {
       props: { snap, level: 'obec', code: '555215', name: 'Nejdek', indicator: 'skoly', year: 2024 },
     });
-    const row = [...container.querySelectorAll('tbody tr')].find((r) => r.textContent?.includes('ŠKOLY'))!;
+    const row = [...container.querySelectorAll('tbody tr')].find((r) => r.textContent?.toLowerCase().includes('školy'))!;
     expect(row.textContent).toContain('N/A');
     expect(row.textContent).toContain('Údaj za rok 2024 není k dispozici.');
   });
@@ -107,13 +107,13 @@ describe('Detail – obec nezaměstnanost (prosincová hodnota vs roční prům�
 });
 
 describe('Sources', () => {
-  it('tabulka zdrojů, STALE amber, zavření', async () => {
+  it('tabulka zdrojů, starší zdroj zvýrazněný, zavření', async () => {
     const onclose = vi.fn();
     const sources = [...manifest.sources, { ...manifest.sources[0], id: 'x', provider: 'ČSÚ', status: 'stale' }];
     const { container, getByText } = render(Sources, { props: { sources, updatedAt: manifest.updatedAt, onclose } });
     expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
-    expect(getByText('STALE').classList.contains('stale')).toBe(true);
-    await fireEvent.click(getByText('[ZAVŘÍT ✕]'));
+    expect(getByText('Starší').classList.contains('stale')).toBe(true);
+    await fireEvent.click(getByText('Zavřít'));
     expect(onclose).toHaveBeenCalled();
   });
 });

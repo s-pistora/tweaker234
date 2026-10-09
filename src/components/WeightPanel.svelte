@@ -31,7 +31,7 @@
 </script>
 
 <div class="weight-panel ascii-panel">
-  <h2 class="ascii-panel__title">&gt; NASTAV VÁHY KRITÉRIÍ</h2>
+  <h2 class="ascii-panel__title">Na čem vám záleží?</h2>
   <p class="hint">0 = kritérium se do skóre nepočítá, 5 = nejvyšší důraz.</p>
   <ul class="sliders">
     {#each indicators as d (d.id)}
@@ -53,7 +53,7 @@
       </li>
     {/each}
   </ul>
-  <button type="button" class="btn" onclick={onhow} data-testid="how-btn">[JAK SE TO POČÍTÁ?]</button>
+  <button type="button" class="btn-secondary" onclick={onhow} data-testid="how-btn">Jak se skóre počítá</button>
 
   <div class="top5">
     <h3>TOP 5</h3>
@@ -122,15 +122,6 @@
     accent-color: var(--phosphor-100);
     width: 140px;
     max-width: 40vw;
-  }
-  .btn {
-    align-self: flex-start;
-    background: var(--bg-panel);
-    color: var(--amber);
-    border: 1px solid var(--amber-dim);
-    font-family: var(--font-mono);
-    padding: 4px 10px;
-    cursor: pointer;
   }
   .top5 {
     border-top: 1px dotted var(--phosphor-40);

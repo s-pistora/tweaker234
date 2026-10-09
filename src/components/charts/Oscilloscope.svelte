@@ -82,11 +82,11 @@
       <text class="lbl" x={W - PAD_L} y="12" text-anchor="end">max {formatValue(yDom[1], def)}</text>
     </svg>
     <figcaption>
-      <span class="k-trace">━</span> {def.label} [{def.unit}]
+      <span class="k-trace">━</span> {def.label} ({def.unit})
       {#if refSegs.length}<span class="k-ref">╌</span> {refLabel}{/if}
     </figcaption>
   {:else}
-    <p class="empty">&gt; STOPA: žádná data pro {def.label}.</p>
+    <p class="empty">Pro ukazatel {def.label} nemáme časovou řadu.</p>
   {/if}
 </figure>
 
@@ -119,7 +119,7 @@
     stroke: var(--phosphor-100);
     stroke-width: 2;
     stroke-linejoin: round;
-    filter: drop-shadow(0 0 3px var(--phosphor-100));
+    filter: none;
   }
   .dot {
     fill: var(--phosphor-100);

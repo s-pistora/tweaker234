@@ -1,16 +1,12 @@
 /*
- * KRAJ-TERM – CRT efekty.
- *
- * `.crt-screen` obaluje obsah obrazovky a přidává scanlines, vinětaci, jemné zakřivení
- * rámu a "glow" (text-shadow). `.crt-off` na <html> (přepínač CrtToggle) i
- * `prefers-reduced-motion: reduce` vypínají VŠECHNY animace a vizuální efekty
- * (scanlines/vinětace/zakřivení/flicker/glow zůstávají vypnuté, text čitelný beze změny).
+ * Globální základ (dříve CRT efekty). Vzhled podle brandbooku: bílé a ledové plochy,
+ * Roboto, karty s jemnou linkou. Třídy .crt-* zůstávají jen kvůli kompatibilitě – nic nedělají.
  */
 
 html,
 body {
   background: var(--bg);
-  color: var(--phosphor-80);
+  color: var(--text);
   min-height: 100%;
 }
 
@@ -18,142 +14,119 @@ body {
   margin: 0;
   font-family: var(--font-mono);
   font-size: 16px;
-  line-height: 1.4;
-  /* zabránit horizontálnímu scrollu na mobilu */
+  line-height: 1.6;
+  font-feature-settings: 'tnum' 1; /* tabulkové číslice */
+  -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--brand-dark);
+  font-family: var(--font-display);
+}
+
+a {
+  color: var(--brand);
+}
+a:visited {
+  color: #5b2a86;
 }
 
 *:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
+  border-radius: 4px;
 }
-
-/* --- CRT obrazovka -------------------------------------------------- */
 
 .crt-screen {
   position: relative;
-  isolation: isolate;
-  border-radius: 12px;
-  overflow: hidden;
 }
 
-/* jemné zakřivení rámu – vinětace v rozích */
-.crt-screen::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 2;
-  background: radial-gradient(
-    ellipse at center,
-    transparent 60%,
-    rgba(0, 0, 0, 0.45) 100%
-  );
-}
-
-/* scanlines */
-.crt-screen::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.18) 0,
-    rgba(0, 0, 0, 0.18) 1px,
-    transparent 2px,
-    transparent 3px
-  );
-  mix-blend-mode: multiply;
-  animation: crt-flicker 6s steps(60) infinite;
-}
-
-/* jemné "žhnutí" fosforového textu */
-.crt-glow {
-  text-shadow:
-    0 0 2px currentColor,
-    0 0 6px rgba(51, 255, 102, 0.35);
-}
-
-.crt-glow-amber {
-  text-shadow:
-    0 0 2px currentColor,
-    0 0 6px rgba(255, 176, 0, 0.4);
-}
-
-/* flicker: amplituda ≤3 % jasu */
-@keyframes crt-flicker {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.97;
-  }
-}
-
-/* --- Vypnutí efektů ----------------------------------------------------
- * `.crt-off` (ruční přepínač CrtToggle) a `prefers-reduced-motion: reduce`
- * (systémové nastavení) musí vypínat efekty STEJNĚ. Pouze pseudo-elementy
- * (::before/::after – vinětace, zakřivení, scanlines, flicker; prázdný
- * `content: ''`, žádný reálný text) smí jít na `display: none`. Nikdy
- * NESMÍ jít na `display: none` cokoliv, co může nést reálný text (např.
- * `.crt-glow` na <h1 class="crt-glow">…</h1>) – tam se odstraňuje pouze
- * `text-shadow`/`filter`, text zůstává viditelný beze změny.
- * Obě podmínky proto sdílí identický deklarační blok níže (jediný zdroj
- * pravdy pro to, co se při vypnutí ruší – při úpravě měnit na obou místech
- * stejně).
- */
-
-.crt-off .crt-screen::before,
-.crt-off .crt-screen::after {
-  content: none;
-  display: none;
-}
-
-.crt-off * {
-  animation: none !important;
-  transition: none !important;
-  text-shadow: none !important;
-  filter: none !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .crt-screen::before,
-  .crt-screen::after {
-    content: none;
-    display: none;
-  }
-
-  * {
-    animation: none !important;
-    transition: none !important;
-    text-shadow: none !important;
-    filter: none !important;
-  }
-}
-
-/* --- Layout základ ---------------------------------------------------- */
-
+/* karta (dříve ASCII panel) */
 .ascii-panel {
-  border: 1px solid var(--phosphor-40);
   background: var(--bg-panel);
-  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  padding: 16px 20px;
   box-sizing: border-box;
   max-width: 100%;
 }
 
 .ascii-panel__title {
   font-family: var(--font-display);
-  font-size: 1.4rem;
-  color: var(--phosphor-100);
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--brand-dark);
   margin: 0 0 8px 0;
-  letter-spacing: 0.03em;
+}
+
+/* tlačítka (Gov.cz): primární plná modrá, sekundární obrys, min. výška 44 px */
+.btn-primary,
+.btn-secondary {
+  font: inherit;
+  font-weight: 500;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--brand-hover);
+}
+.btn-secondary {
+  background: #fff;
+  border: 1px solid var(--brand);
+  color: var(--brand);
+}
+.btn-secondary:hover {
+  background: var(--brand-ice);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 @media (max-width: 480px) {
   .ascii-panel {
-    padding: 8px 10px;
+    padding: 12px 14px;
   }
+}
+
+/* výběrová pole (Gov.cz): 44 px, vlastní šipka, jednotný vzhled ve všech prohlížečích */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 44px;
+  padding-right: 40px !important;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9' viewBox='0 0 14 9'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%2300469B' stroke-width='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  border: 1px solid #8a94a3;
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+}
+select:hover {
+  border-color: var(--brand);
+}
+
+input[type='range'] {
+  accent-color: var(--brand);
 }

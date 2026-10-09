@@ -41,7 +41,7 @@
   <div class="drawer" role="dialog" aria-modal="true" aria-label="Detail školy {s.skola}" data-testid="skola-detail">
     <header>
       <div>
-        <p class="kicker">Střední škola · {s.obec}</p>
+        <p class="kicker">Střední škola, {s.obec}</p>
         <h2>{s.skola.replace(/,?\s*příspěvková organizace$/i, '')}</h2>
       </div>
       <button type="button" class="x" bind:this={closeBtn} onclick={onclose} aria-label="Zavřít detail školy">✕</button>
@@ -66,9 +66,9 @@
       </div>
     </div>
 
-    <p class="bus">🚌 {vetaDoprava(s)}</p>
+    <p class="bus">{vetaDoprava(s)}</p>
     {#if web}
-      <a class="web" href={web} target="_blank" rel="noopener noreferrer">Otevřít web školy ↗</a>
+      <a class="btn-secondary web" href={web} target="_blank" rel="noopener noreferrer">Otevřít web školy</a>
     {/if}
 
     <h3>Obory, kam se hlásí na 2026/27</h3>
@@ -139,8 +139,10 @@
     font-size: 1.1rem;
     width: 36px;
     height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--c-border);
+    border-radius: 4px;
+    min-width: 44px;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
     background: #fff;
     cursor: pointer;
     flex: none;
@@ -152,8 +154,8 @@
     margin: 16px 0 10px;
   }
   .tile {
-    background: var(--bg);
-    border-radius: 10px;
+    background: var(--brand-ice);
+    border-radius: 6px;
     padding: 10px 12px;
     display: flex;
     flex-direction: column;
@@ -170,10 +172,11 @@
     margin: 6px 0;
   }
   .web {
-    display: inline-block;
-    margin: 4px 0 6px;
-    color: var(--c-accent);
-    font-weight: 600;
+    margin: 8px 0 4px;
+    text-decoration: none;
+  }
+  .web:visited {
+    color: var(--brand);
   }
   h3 {
     margin: 18px 0 8px;

@@ -23,7 +23,7 @@
   }
   const { snap, level, code, name, indicator, year }: Props = $props();
 
-  const LEVEL_LABEL: Record<Level, string> = { kraj: 'KRAJ', orp: 'ORP', obec: 'OBEC' };
+  const LEVEL_LABEL: Record<Level, string> = { kraj: '', orp: 'ORP', obec: 'Obec' };
 
   const file = $derived(snap.indicators[level]);
   // ukazatel/rok přizpůsobené úrovni detailu (kontextový detail může být o úroveň výš)
@@ -85,30 +85,28 @@
   const refLabel = $derived(def && file?.national?.[def.id] ? 'ČR' : 'průměr kraje');
 </script>
 
-<AsciiPanel title={`${LEVEL_LABEL[level]} ${name}`}>
-  <p class="query">&gt; DOTAZ UZEMI={code} UKAZATEL={fit.indicator} ROK={fit.year}</p>
+<AsciiPanel title={`${LEVEL_LABEL[level]} ${name}`.trim()}>
 
   {#if !file}
-    <p class="na">N/A – ukazatele pro úroveň {level} nejsou k dispozici.</p>
+    <p class="na">Pro tuto úroveň nemáme ukazatele.</p>
   {:else}
     <table class="rows">
       <tbody>
         {#each rows as r (r.def.id)}
           <tr class:sel={r.selected}>
-            <th scope="row">{r.def.label.toUpperCase()}</th>
+            <th scope="row">{r.def.label}</th>
             {#if r.lv}
-              <td class="val">{formatValue(r.lv.value, r.def)} {r.def.unit}</td>
-              <td class="yr">[{r.lv.year}]</td>
+              <td class="val">{formatValue(r.lv.value, r.def)} <span class="unit">{r.def.unit}</span></td>
             {:else}
-              <td class="val na">N/A</td>
-              <td class="yr na-reason">{r.reason}</td>
+              <td class="val na">N/A <span class="na-reason">{r.reason}</span></td>
             {/if}
             <td class="src">
-              {#if r.src}
-                [<a href={r.src.url} target="_blank" rel="noopener noreferrer" title={r.src.title}>{r.src.provider}</a>]
-              {:else}
-                [?]
-              {/if}
+              {#if r.lv}<span class="yr">{r.lv.year}</span> · {/if}{#if r.src}<a
+                  href={r.src.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={r.src.title}>{r.src.provider}</a
+                >{:else}zdroj neuveden{/if}
             </td>
           </tr>
         {/each}
@@ -118,7 +116,7 @@
     {#if sentence}
       <p class="sentence">
         {#key sentence}
-          <Typewriter text={sentence} />
+          <Typewriter text={sentence} speed={0} />
         {/key}
       </p>
     {/if}
@@ -131,56 +129,63 @@
 </AsciiPanel>
 
 <style>
-  .query {
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    color: var(--amber);
-    margin: 0 0 8px;
-    overflow-wrap: anywhere;
-  }
   .rows {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
   }
   th,
   td {
     text-align: left;
-    padding: 2px 6px 2px 0;
-    vertical-align: top;
+    padding: 8px 8px 8px 0;
+    vertical-align: baseline;
     font-weight: normal;
+    border-bottom: 1px solid var(--line);
   }
   th {
-    color: var(--phosphor-60);
-    overflow-wrap: anywhere;
+    color: var(--text);
+    width: 42%;
   }
   .val {
-    font-family: var(--font-display);
-    font-size: 1.15rem;
-    color: var(--phosphor-100);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--brand-dark);
     white-space: nowrap;
   }
+  .unit {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
   tr.sel th {
-    color: var(--phosphor-100);
+    color: var(--brand);
+    font-weight: 500;
   }
-  tr.sel th::before {
-    content: '▸ ';
+  tr.sel {
+    box-shadow: inset 3px 0 0 var(--brand);
   }
+  tr.sel th {
+    padding-left: 10px;
+  }
+  .src,
   .yr {
-    color: var(--phosphor-60);
+    color: var(--text-muted);
+    font-size: 0.82rem;
   }
   .na,
   .na-reason {
-    color: var(--amber);
-  }
-  .src a {
-    color: var(--phosphor-80);
+    color: var(--text-muted);
+    font-weight: 400;
+    white-space: normal;
   }
   .sentence {
-    margin: 10px 0 0;
-    color: var(--phosphor-100);
+    margin: 14px 0 0;
+    padding: 12px 14px;
+    background: var(--brand-ice);
+    border-left: 4px solid var(--brand);
+    color: var(--brand-dark);
   }
-  @media (max-width: 480px) {
+  @media (max-width: 600px) {
     .rows,
     .rows tbody,
     .rows tr {
@@ -190,11 +195,17 @@
       display: flex;
       flex-wrap: wrap;
       gap: 0 8px;
-      padding: 3px 0;
-      border-bottom: 1px dotted var(--phosphor-40);
+      padding: 6px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    th,
+    td {
+      border: 0;
+      padding: 0;
     }
     th {
       flex-basis: 100%;
+      width: auto;
     }
   }
 </style>

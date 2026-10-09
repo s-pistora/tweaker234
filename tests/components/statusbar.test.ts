@@ -5,43 +5,25 @@ import StatusBar from '../../src/components/StatusBar.svelte';
 
 afterEach(() => cleanup());
 
+const def = (id: string, label: string) => ({ id, label, unit: '%', higherIsBetter: true, sourceId: 's', decimals: 1 });
+
 describe('StatusBar', () => {
-  it('přepínač režimu zobrazuje aktuální režim a volá onmode', async () => {
-    const onmode = vi.fn();
-    const { getByTestId, rerender } = render(StatusBar, {
+  it('výběr ukazatele volá onindicator, datum aktualizace je česky', async () => {
+    const onindicator = vi.fn();
+    const { getByTestId, getByText } = render(StatusBar, {
       props: {
         updatedAt: '2026-01-01T00:00:00.000Z',
-        indicators: [],
-        indicator: '',
-        years: [],
+        indicators: [def('a', 'Ukazatel A'), def('b', 'Ukazatel B')],
+        indicator: 'a',
+        years: [2023, 2024],
         year: 2024,
-        mode: 'explore' as const,
-        onindicator: vi.fn(),
+        onindicator,
         onyear: vi.fn(),
-        onmode,
-        onsources: vi.fn(),
       },
     });
-    expect(getByTestId('mode-explore').getAttribute('aria-pressed')).toBe('true');
-    expect(getByTestId('mode-score').getAttribute('aria-pressed')).toBe('false');
-    expect(getByTestId('mode-skoly').textContent).toContain('KAM NA STŘEDNÍ');
-    await fireEvent.click(getByTestId('mode-skoly'));
-    expect(onmode).toHaveBeenCalledWith('skoly');
-
-    await rerender({
-      updatedAt: '2026-01-01T00:00:00.000Z',
-      indicators: [],
-      indicator: '',
-      years: [],
-      year: 2024,
-      mode: 'score' as const,
-      onindicator: vi.fn(),
-      onyear: vi.fn(),
-      onmode,
-      onsources: vi.fn(),
-    });
-    expect(getByTestId('mode-score').textContent).toContain('KDE BY SE MI DOBŘE ŽILO?');
-    expect(getByTestId('mode-score').getAttribute('aria-pressed')).toBe('true');
-    expect(getByTestId('mode-explore').getAttribute('aria-pressed')).toBe('false');
+    expect(getByTestId('updated-at').textContent).toContain('1. ledna 2026');
+    expect(getByText('Rok')).toBeTruthy();
+    await fireEvent.change(getByTestId('indicator-select'), { target: { value: 'b' } });
+    expect(onindicator).toHaveBeenCalledWith('b');
   });
 });

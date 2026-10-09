@@ -1,9 +1,7 @@
 <script lang="ts">
   import './styles/tokens.css';
   import './styles/crt.css';
-  import './styles/clean.css';
   import { onDestroy } from 'svelte';
-  import Boot from './components/crt/Boot.svelte';
   import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
@@ -23,6 +21,7 @@
   import { centroidy } from './lib/map/centroids.ts';
   import {
     TRIDA_LABEL,
+    agreguj,
     dostupnostObci,
     filtrujObory,
     naplnenostSkoly,
@@ -42,13 +41,11 @@
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data';
 
-  // „Kam na střední“ je výchozí stránka: prázdná adresa → rovnou tento režim, bez CRT boot sekvence.
+  // „Kam na střední“ je výchozí stránka: prázdná adresa → rovnou tento režim.
   if (!location.hash || location.hash === '#' || location.hash === '#/') {
     history.replaceState(null, '', '#/kraj?m=skoly');
   }
-  const startClean = /[?&]m=skoly(&|$)/.test(location.hash);
 
-  let booted = $state(startClean);
   let snap = $state<Snapshot | null>(null);
   let loadError = $state<string | null>(null);
   let snapPromise: Promise<Snapshot> | null = null;
@@ -71,14 +68,8 @@
 
   onDestroy(() => stopSync?.());
 
-  if (startClean) load(() => {}).catch(() => {});
+  load(() => {}).catch(() => {});
 
-  /** světlý vzhled pro „Kam na střední“, CRT pro ostatní režimy */
-  const clean = $derived(snap ? $appState.mode === 'skoly' : startClean);
-  $effect(() => {
-    document.documentElement.classList.toggle('theme-clean', clean);
-    return () => document.documentElement.classList.remove('theme-clean');
-  });
   let skolyTab = $state<'hledat' | 'kraj'>('hledat');
 
   const st = $derived($appState);
@@ -238,8 +229,8 @@
   );
   const DOSTUPNOST_DEF: IndicatorDef = {
     id: 'dostupnost',
-    label: 'Oborů v dosahu',
-    unit: 'oborů',
+    label: 'Obory v dosahu',
+    unit: 'počet',
     higherIsBetter: true,
     sourceId: 'dz-prijimani-2026',
     decimals: 0,
@@ -274,6 +265,17 @@
     snap ? snap.manifest.sources.filter((x) => snap?.skoly?.sourceIds.includes(x.id)) : [],
   );
 
+  const krajCelkem = $derived(agreguj(obory, () => 'kraj', () => 'Karlovarský kraj')[0] ?? null);
+  const oboru2026 = $derived(obory.filter((o) => (o.zamer[2026] ?? 0) > 0).length);
+  const fmtCs = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
+  const domovNazev = $derived(sk.domov ? (obecNames[sk.domov] ?? '') : '');
+
+  const MODE_NAV: { m: Mode; label: string }[] = [
+    { m: 'skoly', label: 'Kam na střední' },
+    { m: 'explore', label: 'Mapa kraje' },
+    { m: 'score', label: 'Kde by se mi žilo' },
+  ];
+
   function setSkoly(patch: Partial<SkolyState>) {
     appState.update((s) => ({ ...s, skoly: { ...(s.skoly ?? DEFAULT_SKOLY), ...patch } }));
   }
@@ -306,7 +308,7 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !booted || !snap) return;
+    if (e.key !== 'Escape' || !snap) return;
     if (sourcesOpen) {
       closeSources();
       return;
@@ -325,173 +327,200 @@
 
 <svelte:window onkeydown={onKey} />
 
-{#if !booted}
-  <Boot {load} ondone={() => (booted = true)} />
-{:else if clean}
-  <div class="c-app">
-    <header class="c-header">
-      <div>
-        <p class="c-kicker">Karlovarský kraj · otevřená data</p>
-        <h1>Kam na střední?</h1>
-        <p class="c-lead">
-          Najdi střední školy a obory ve svém okolí. Uvidíš, kolik míst nabízejí a jestli byly loni plné,
-          nebo zůstala volná místa.
-        </p>
-      </div>
-      <nav class="c-nav" aria-label="Další pohledy">
-        <button type="button" onclick={openSources}>Zdroje dat</button>
-        <button type="button" onclick={() => setMode('explore')} data-testid="mode-explore">Mapa kraje</button>
-        <button type="button" onclick={() => setMode('score')} data-testid="mode-score">Kde by se mi žilo</button>
+<div class="shell">
+  <header class="topbar">
+    <div class="wrap topbar__in">
+      <a class="brandmark" href="#/kraj?m=skoly" onclick={(e) => { e.preventDefault(); setMode('skoly'); }}>
+        <span class="brandmark__bar" aria-hidden="true"></span>
+        <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
+      </a>
+      <nav class="mainnav" aria-label="Hlavní navigace">
+        {#each MODE_NAV as n (n.m)}
+          <button
+            type="button"
+            class:on={st.mode === n.m}
+            aria-current={st.mode === n.m ? 'page' : undefined}
+            onclick={() => setMode(n.m)}
+            data-testid="mode-{n.m}">{n.label}</button
+          >
+        {/each}
+        <button type="button" class="mainnav__src" onclick={openSources} data-testid="sources-btn">Zdroje dat</button>
       </nav>
-    </header>
+    </div>
+  </header>
 
-    {#if loadError}
-      <p class="c-error" role="alert">Data se nepodařilo načíst ({loadError}).</p>
-    {:else if !snap}
-      <p class="c-loading" role="status">Načítám data…</p>
-    {:else if !snap.skoly}
-      <p class="c-error" role="alert">Data o středních školách se nepodařilo načíst.</p>
-    {:else}
-      <div class="c-tabs" role="tablist" aria-label="Pohled">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={skolyTab === 'hledat'}
-          class:on={skolyTab === 'hledat'}
-          onclick={() => (skolyTab = 'hledat')}
-          data-testid="tab-hledat">🔎 Najít školu</button
-        >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={skolyTab === 'kraj'}
-          class:on={skolyTab === 'kraj'}
-          onclick={() => (skolyTab = 'kraj')}
-          data-testid="tab-kraj">📊 Přehled pro kraj</button
-        >
+  {#if $linkInvalid && !linkWarningDismissed}
+    <div class="wrap">
+      <p class="notice" role="alert" data-testid="link-invalid">
+        Odkaz obsahoval neplatné údaje, zobrazujeme výchozí pohled.
+        <button type="button" aria-label="Zavřít upozornění" onclick={() => (linkWarningDismissed = true)}>✕</button>
+      </p>
+    </div>
+  {/if}
+
+  {#if loadError}
+    <div class="wrap"><p class="state state--err" role="alert">Data se nepodařilo načíst ({loadError}). Zkuste stránku obnovit.</p></div>
+  {:else if !snap}
+    <div class="wrap"><p class="state" role="status">Načítáme data…</p></div>
+  {:else if st.mode === 'skoly'}
+    <section class="hero">
+      <div class="wrap">
+        <p class="kicker">Střední školy · přijímací řízení 2026/27</p>
+        <h1>Kam na střední?</h1>
+        <p class="perex">
+          Najděte obory ve svém okolí. U každého ukazujeme, kolik míst škola otevírá a jak byl obor
+          obsazený loni.
+        </p>
+        {#if krajCelkem}
+          <div class="kpis">
+            <div class="kpi">
+              <span class="kpi__label">Obory pro 2026/27</span>
+              <span class="kpi__value">{fmtCs(oboru2026)}</span>
+              <span class="kpi__note">na {fmtCs(new Set(obory.map((o) => o.izo)).size)} středních školách v kraji</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi__label">Místa v 1. ročnících</span>
+              <span class="kpi__value">{fmtCs(krajCelkem.zamer2026)}</span>
+              <span class="kpi__note">plán škol na 2026/27</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi__label">Loňská obsazenost</span>
+              <span class="kpi__value">{procenta(krajCelkem.naplnenost).replace('.', ',')}</span>
+              <span class="kpi__note">{fmtCs(krajCelkem.prijato2025)} žáků na {fmtCs(krajCelkem.zamer2025)} míst (2025)</span>
+            </div>
+            <div class="kpi">
+              <span class="kpi__label">Volná místa loni</span>
+              <span class="kpi__value">{fmtCs(Math.max(0, krajCelkem.zamer2025 - krajCelkem.prijato2025))}</span>
+              <span class="kpi__note">zůstalo po přijímačkách neobsazeno</span>
+            </div>
+          </div>
+        {/if}
       </div>
+    </section>
 
-      {#if skolyTab === 'hledat'}
-        <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
-        <main class="c-grid">
-          <OboryList
-            {vysledky}
-            vybrana={sk.skola}
-            maDomov={!!domov}
-            razeni={sk.razeni}
-            onrazeni={(r) => setSkoly({ razeni: r })}
-            onselect={(izo) => setSkoly({ skola: izo })}
-          />
-          <section class="c-map" aria-label="Mapa">
-            <h2>Kolik oborů máš v dosahu</h2>
-            <p class="c-hint">
-              Čím tmavší obec, tím víc oborů je odtud do {sk.maxKm} km. Body jsou školy:
-              <span class="sym">○</span> volno, <span class="sym">□</span> skoro plno,
-              <span class="sym red">▲</span> přeplněno. Klikni na obec, kde bydlíš.
-            </p>
-            <Map
-              features={obecFeatures}
-              values={dostupnost}
-              def={DOSTUPNOST_DEF}
-              year={2026}
-              selected={sk.domov}
-              preview={dostupnostPreview}
-              points={skolaPoints}
-              onselect={(code) => setSkoly({ domov: code, skola: null })}
-              label="Mapa obcí Karlovarského kraje podle počtu oborů v dosahu"
-            />
-            <Legend
-              values={obecFeatures.map((f) => dostupnost[f.properties.code] ?? null)}
-              def={DOSTUPNOST_DEF}
-              year={2026}
-            />
-          </section>
-        </main>
+    <main class="wrap main">
+      {#if !snap.skoly}
+        <p class="state state--err" role="alert">Data o středních školách se nepodařilo načíst.</p>
       {:else}
-        <KrajPrehled
-          obory={obory}
-          names={geoIndex.names}
-          onselect={(izo) => setSkoly({ skola: izo })}
-        />
-      {/if}
+        <div class="tabs" role="tablist" aria-label="Pohled">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={skolyTab === 'hledat'}
+            class:on={skolyTab === 'hledat'}
+            onclick={() => (skolyTab = 'hledat')}
+            data-testid="tab-hledat">Najít školu</button
+          >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={skolyTab === 'kraj'}
+            class:on={skolyTab === 'kraj'}
+            onclick={() => (skolyTab = 'kraj')}
+            data-testid="tab-kraj">Přehled pro kraj</button
+          >
+        </div>
 
-      {#if vybraneObory.length}
-        {#key sk.skola}
-          <SkolaDetail obory={vybraneObory} km={vybranaKm} sources={skolySources} onclose={() => setSkoly({ skola: null })} />
-        {/key}
+        {#if skolyTab === 'hledat'}
+          <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
+          <div class="grid">
+            <OboryList
+              {vysledky}
+              vybrana={sk.skola}
+              maDomov={!!domov}
+              {domovNazev}
+              maxKm={sk.maxKm}
+              razeni={sk.razeni}
+              onrazeni={(r) => setSkoly({ razeni: r })}
+              onselect={(izo) => setSkoly({ skola: izo })}
+            />
+            <section class="mapcard" aria-label="Mapa">
+              <h2>Kolik oborů je v dosahu</h2>
+              <p class="mapcard__hint">
+                Tmavší obec = víc oborů do {sk.maxKm} km. Kliknutím na obec nastavíte, kde bydlíte.
+              </p>
+              <Map
+                features={obecFeatures}
+                values={dostupnost}
+                def={DOSTUPNOST_DEF}
+                year={2026}
+                selected={sk.domov}
+                preview={dostupnostPreview}
+                points={skolaPoints}
+                onselect={(code) => setSkoly({ domov: code, skola: null })}
+                label="Mapa obcí Karlovarského kraje podle počtu oborů v dosahu"
+                hint="Najeďte na obec a uvidíte, kolik oborů je odtud v dosahu. Kliknutím ji vyberete jako bydliště."
+              />
+              <Legend
+                values={obecFeatures.map((f) => dostupnost[f.properties.code] ?? null)}
+                def={DOSTUPNOST_DEF}
+                year={2026}
+              />
+              <ul class="maplegend" aria-label="Značky škol">
+                <li><span class="g g--volno">○</span> loni hodně volných míst</li>
+                <li><span class="g g--ok">□</span> loni skoro plno</li>
+                <li><span class="g g--pretlak">▲</span> loni přeplněno</li>
+              </ul>
+            </section>
+          </div>
+        {:else}
+          <KrajPrehled obory={obory} names={geoIndex.names} onselect={(izo) => setSkoly({ skola: izo })} />
+        {/if}
+
+        {#if vybraneObory.length}
+          {#key sk.skola}
+            <SkolaDetail obory={vybraneObory} km={vybranaKm} sources={skolySources} onclose={() => setSkoly({ skola: null })} />
+          {/key}
+        {/if}
       {/if}
-      <footer class="c-footer">
-        Data: Karlovarský kraj (DATAZÁPAD) – záměry přijímání středních škol 2024/25–2026/27, autobusové
-        zastávky; hranice obcí ČÚZK. Vzdálenosti vzdušnou čarou. Prototyp z Hackathonu otevřených dat
-        Karlovarského kraje 2026, nejde o oficiální službu kraje.
-      </footer>
-    {/if}
-    {#if sourcesOpen && snap}
-      <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
-    {/if}
-  </div>
-{:else}
-  <div class="crt-screen app">
-    <header>
-      <h1 class="crt-glow">KRAJ-TERM</h1>
-      {#if snap}
+    </main>
+  {:else}
+    <section class="hero hero--slim">
+      <div class="wrap">
+        <p class="kicker">Karlovarský kraj v číslech</p>
+        <h1>{st.mode === 'score' ? 'Kde by se mi dobře žilo?' : 'Mapa kraje'}</h1>
+        <p class="perex">
+          {st.mode === 'score'
+            ? 'Nastavte, na čem vám záleží, a mapa seřadí území podle skóre. U každého výsledku vysvětlujeme, jak vzniklo.'
+            : 'Vyberte ukazatel a rok. Klikněte na Karlovarský kraj a dál na jednotlivá ORP a obce.'}
+        </p>
         <StatusBar
           updatedAt={snap.updatedAt}
           indicators={Object.values(file?.indicators ?? {})}
           indicator={st.indicator}
           {years}
           year={st.year}
-          mode={st.mode}
           onindicator={setIndicator}
           onyear={setYear}
-          onmode={setMode}
-          onsources={openSources}
         />
-      {/if}
-    </header>
-    {#if $linkInvalid && !linkWarningDismissed}
-      <p class="link-invalid" role="alert" data-testid="link-invalid">
-        ! NEPLATNÝ ODKAZ – ZOBRAZUJI VÝCHOZÍ POHLED
-        <button
-          type="button"
-          class="link-invalid__close"
-          aria-label="Zavřít upozornění"
-          onclick={() => (linkWarningDismissed = true)}
-        >
-          [x]
-        </button>
-      </p>
-    {/if}
-    {#if loadError}
-      <p class="error" role="alert">&gt; CHYBA: data nelze načíst ({loadError}).</p>
-    {:else if !snap}
-      <p role="status">&gt; NAČÍTÁM DATA…</p>
-    {:else}
-      <main class="layout">
-        <section class="map-col" aria-label="Mapa">
-          {#if st.mode === 'explore'}
-            <Drilldown
-              bind:this={drill}
-              {snap}
-              {view}
-              indicator={st.indicator}
-              year={st.year}
-              names={geoIndex.names}
-              onnavigate={navigate}
-            />
-            <Timeline {years} year={st.year} onyear={setYear} />
-          {:else}
-            <WeightPanel
-              indicators={eligible}
-              weights={scoreWeights}
-              names={geoIndex.names}
-              scores={scoresInView}
-              selected={view.area}
-              onweight={setWeight}
-              onselect={selectScoreArea}
-              onhow={openHow}
-            />
-            {#if totalWeight > 0}
+      </div>
+    </section>
+    <main class="wrap main layout">
+      <section class="map-col" aria-label="Mapa">
+        {#if st.mode === 'explore'}
+          <Drilldown
+            bind:this={drill}
+            {snap}
+            {view}
+            indicator={st.indicator}
+            year={st.year}
+            names={geoIndex.names}
+            onnavigate={navigate}
+          />
+          <Timeline {years} year={st.year} onyear={setYear} />
+        {:else}
+          <WeightPanel
+            indicators={eligible}
+            weights={scoreWeights}
+            names={geoIndex.names}
+            scores={scoresInView}
+            selected={view.area}
+            onweight={setWeight}
+            onselect={selectScoreArea}
+            onhow={openHow}
+          />
+          {#if totalWeight > 0}
+            <div class="ascii-panel">
               <Map
                 features={scoreFeatures}
                 values={scoreValues}
@@ -507,245 +536,343 @@
                 def={SCORE_DEF}
                 year={st.year}
               />
-            {:else}
-              <div class="ascii-panel">
-                <h2 class="ascii-panel__title">&gt; NASTAV VÁHY KRITÉRIÍ</h2>
-                <p>
-                  Bez alespoň jedné nenulové váhy nemá obarvení mapy smysl. Nastavte váhy kritérií v panelu
-                  vlevo posuvníky 0–5.
-                </p>
-              </div>
-            {/if}
-          {/if}
-        </section>
-        <section class="panel-col" aria-label="Detail území">
-          <p class="sr-only" aria-live="polite">
-            {target ? `Detail: ${geoIndex.names[target.code] ?? target.code}` : ''}
-          </p>
-          {#if target}
-            {#key `${target.level}:${target.code}`}
-              <Detail
-                {snap}
-                level={target.level}
-                code={target.code}
-                name={geoIndex.names[target.code] ?? target.code}
-                indicator={st.indicator}
-                year={st.year}
-              />
-            {/key}
+            </div>
           {:else}
             <div class="ascii-panel">
-              <h2 class="ascii-panel__title">&gt; ČEKÁM NA DOTAZ_</h2>
-              <p>
-                Vyberte kraj na mapě (klik, nebo Tab a Enter; šipky přeskakují mezi sousedy). Karlovarský kraj
-                lze rozkliknout na ORP a obce. Esc = o úroveň výš.
-              </p>
+              <h2 class="ascii-panel__title">Nastavte, na čem vám záleží</h2>
+              <p>Posuňte aspoň jeden posuvník výš než 0. Teprve pak má obarvení mapy smysl.</p>
             </div>
           {/if}
-        </section>
-      </main>
-      {#if sourcesOpen}
-        <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
-      {/if}
-      {#if howOpen}
-        <HowModal
-          indicators={howIndicators}
-          selectedName={view.area ? (geoIndex.names[view.area] ?? view.area) : null}
-          parts={selectedParts}
-          skipped={selectedSkippedDefs}
-          onclose={closeHow}
-        />
-      {/if}
+        {/if}
+      </section>
+      <section class="panel-col" aria-label="Detail území">
+        <p class="sr-only" aria-live="polite">
+          {target ? `Detail: ${geoIndex.names[target.code] ?? target.code}` : ''}
+        </p>
+        {#if target}
+          {#key `${target.level}:${target.code}`}
+            <Detail
+              {snap}
+              level={target.level}
+              code={target.code}
+              name={geoIndex.names[target.code] ?? target.code}
+              indicator={st.indicator}
+              year={st.year}
+            />
+          {/key}
+        {:else}
+          <div class="ascii-panel">
+            <h2 class="ascii-panel__title">Vyberte území na mapě</h2>
+            <p>
+              Klikněte na kraj (nebo Tab a Enter, šipky přeskakují mezi sousedy). Karlovarský kraj jde
+              rozkliknout na ORP a obce. Klávesa Esc vrací o úroveň výš.
+            </p>
+          </div>
+        {/if}
+      </section>
+    </main>
+    {#if howOpen}
+      <HowModal
+        indicators={howIndicators}
+        selectedName={view.area ? (geoIndex.names[view.area] ?? view.area) : null}
+        parts={selectedParts}
+        skipped={selectedSkippedDefs}
+        onclose={closeHow}
+      />
     {/if}
-  </div>
-{/if}
+  {/if}
+
+  <footer class="footer">
+    <div class="wrap footer__in">
+      <p>
+        <strong>Prototyp z Hackathonu otevřených dat Karlovarského kraje 2026.</strong> Nejde o oficiální
+        službu Karlovarského kraje ani jiného úřadu.
+      </p>
+      <p>
+        Data: Karlovarský kraj (DATAZÁPAD), Český statistický úřad, ČÚZK, ÚZIS – podrobně v
+        <button type="button" class="linklike" onclick={openSources}>Zdrojích dat</button>. Vzdálenosti vzdušnou čarou.
+      </p>
+    </div>
+  </footer>
+
+  {#if sourcesOpen && snap}
+    <Sources sources={snap.manifest.sources} updatedAt={snap.updatedAt} onclose={closeSources} />
+  {/if}
+</div>
 
 <style>
-  .c-app {
+  .shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+  }
+  .wrap {
+    width: 100%;
     max-width: 1280px;
     margin: 0 auto;
-    padding: 24px 20px 40px;
+    padding: 0 24px;
     box-sizing: border-box;
-    color: var(--c-text);
   }
-  .c-header {
+  /* horní lišta */
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar__in {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px 24px;
-    margin-bottom: 18px;
+    gap: 8px 24px;
+    min-height: 72px;
   }
-  .c-kicker {
-    margin: 0;
-    color: var(--c-accent);
-    font-weight: 600;
+  .brandmark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--brand-dark);
+  }
+  .brandmark:visited {
+    color: var(--brand-dark);
+  }
+  .brandmark__bar {
+    width: 8px;
+    height: 40px;
+    background: var(--brand);
+    border-radius: 2px;
+  }
+  .brandmark__txt {
     font-size: 0.9rem;
+    line-height: 1.25;
   }
-  .c-header h1 {
-    font-family: var(--font-display);
-    color: var(--c-text);
-    font-size: clamp(1.8rem, 4vw, 2.6rem);
-    font-weight: 800;
-    margin: 2px 0 6px;
-    letter-spacing: -0.02em;
-  }
-  .c-lead {
-    margin: 0;
-    max-width: 62ch;
-    color: var(--c-muted);
+  .brandmark__txt strong {
     font-size: 1.05rem;
   }
-  .c-nav {
+  .mainnav {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-  }
-  .c-nav button {
-    font: inherit;
-    font-size: 0.85rem;
-    padding: 6px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--c-border);
-    background: #fff;
-    color: var(--c-muted);
-    cursor: pointer;
-  }
-  .c-nav button:hover {
-    color: var(--c-text);
-  }
-  .c-tabs {
-    display: flex;
     gap: 4px;
-    border-bottom: 1px solid var(--c-border);
-    margin-bottom: 16px;
   }
-  .c-tabs button {
+  .mainnav button {
     font: inherit;
-    font-weight: 600;
-    padding: 10px 16px;
+    font-weight: 500;
+    min-height: 44px;
+    padding: 0 14px;
     border: 0;
     border-bottom: 3px solid transparent;
     background: none;
-    color: var(--c-muted);
+    color: var(--brand-dark);
+    cursor: pointer;
+  }
+  .mainnav button:hover {
+    color: var(--brand);
+  }
+  .mainnav button.on {
+    color: var(--brand);
+    border-bottom-color: var(--brand);
+  }
+  .mainnav .mainnav__src {
+    color: var(--text-muted);
+  }
+  /* úvodní pruh */
+  .hero {
+    background: var(--brand-ice);
+    border-bottom: 1px solid var(--line);
+    padding: 32px 0 28px;
+  }
+  .hero--slim {
+    padding-bottom: 20px;
+  }
+  .kicker {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--brand);
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 4.5vw, 2.5rem);
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 6px 0 8px;
+  }
+  .perex {
+    margin: 0 0 20px;
+    max-width: 68ch;
+    font-size: 1.15rem;
+    line-height: 1.5;
+    color: var(--text);
+  }
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .kpi {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .kpi__label {
+    font-weight: 500;
+    color: var(--brand);
+    font-size: 0.95rem;
+  }
+  .kpi__value {
+    font-size: 2.25rem;
+    line-height: 1.15;
+    font-weight: 700;
+    color: var(--brand-dark);
+  }
+  .kpi__note {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  /* obsah */
+  .main {
+    padding-top: 24px;
+    padding-bottom: 48px;
+    flex: 1;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+  }
+  .tabs button {
+    font: inherit;
+    font-weight: 500;
+    min-height: 44px;
+    padding: 0 16px;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    background: none;
+    color: var(--text-muted);
     cursor: pointer;
     margin-bottom: -1px;
   }
-  .c-tabs button.on {
-    color: var(--c-accent);
-    border-bottom-color: var(--c-accent);
+  .tabs button.on {
+    color: var(--brand);
+    border-bottom-color: var(--brand);
   }
-  .c-grid {
+  .grid {
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    gap: 20px;
+    gap: 24px;
     align-items: start;
-    margin-top: 20px;
+    margin-top: 24px;
   }
-  .c-map {
+  .mapcard {
     position: sticky;
-    top: 12px;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--c-radius);
-    box-shadow: var(--c-shadow);
-    padding: 14px 16px;
+    top: 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 18px 20px;
     min-width: 0;
   }
-  .c-map h2 {
+  .mapcard h2 {
     margin: 0 0 4px;
-    font-size: 1.05rem;
+    font-size: 1.25rem;
   }
-  .c-hint {
-    margin: 0 0 10px;
-    color: var(--c-muted);
-    font-size: 0.85rem;
-  }
-  .sym {
-    font-weight: 800;
-    color: #0f172a;
-  }
-  .sym.red {
-    color: #dc2626;
-  }
-  .c-loading,
-  .c-error {
-    padding: 24px;
-    background: var(--c-surface);
-    border-radius: var(--c-radius);
-    border: 1px solid var(--c-border);
-  }
-  .c-error {
-    color: var(--c-bad);
-  }
-  .c-footer {
-    margin-top: 32px;
-    color: var(--c-muted);
-    font-size: 0.8rem;
-    border-top: 1px solid var(--c-border);
-    padding-top: 12px;
-  }
-  @media (max-width: 900px) {
-    .c-grid {
-      grid-template-columns: minmax(0, 1fr);
-    }
-    .c-map {
-      position: static;
-      order: -1;
-    }
-  }
-  @media (max-width: 480px) {
-    .c-app {
-      padding: 16px 12px 32px;
-    }
-  }
-  .app {
-    min-height: 100vh;
-    padding: 12px 16px;
-    box-sizing: border-box;
-  }
-  h1 {
-    font-family: var(--font-display);
-    color: var(--phosphor-100);
-    margin: 0;
-  }
-  header {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .error {
-    color: var(--amber);
-  }
-  .link-invalid {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+  .mapcard__hint {
     margin: 0 0 12px;
-    padding: 4px 8px;
-    color: var(--amber);
-    border: 1px solid var(--amber-dim, var(--amber));
-    font-family: var(--font-mono);
+    color: var(--text-muted);
+    font-size: 0.9rem;
   }
-  .link-invalid__close {
+  .maplegend {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .g {
+    font-weight: 900;
+  }
+  .g--volno,
+  .g--ok {
+    color: var(--brand-dark);
+  }
+  .g--pretlak {
+    color: var(--data-6);
+  }
+  .state {
+    margin: 32px 0;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+  }
+  .state--err {
+    color: var(--error);
+    border-color: var(--error);
+  }
+  .notice {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 10px 14px;
+    border-left: 4px solid var(--accent);
+    background: #fff8e6;
+    color: var(--brand-dark);
+  }
+  .notice button {
+    font: inherit;
     background: none;
-    color: var(--amber);
-    border: 1px solid var(--amber);
-    font-family: var(--font-mono);
+    border: 0;
     cursor: pointer;
-    padding: 0 6px;
+    min-width: 44px;
+    min-height: 44px;
   }
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    gap: 16px;
+    gap: 24px;
     align-items: start;
   }
   .map-col,
   .panel-col {
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .footer {
+    background: var(--brand-dark);
+    color: #dbe5f3;
+    padding: 24px 0;
+    font-size: 0.88rem;
+  }
+  .footer p {
+    margin: 4px 0;
+    max-width: 90ch;
+  }
+  .footer strong {
+    color: #fff;
+  }
+  .linklike {
+    font: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #fff;
+    text-decoration: underline;
+    cursor: pointer;
   }
   .sr-only {
     position: absolute;
@@ -755,15 +882,28 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1000px) {
+    .kpis {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .grid,
     .layout {
       grid-template-columns: minmax(0, 1fr);
     }
+    .mapcard {
+      position: static;
+      order: -1;
+    }
   }
-  @media (max-width: 480px) {
-    .app {
-      padding: 8px;
-      border-radius: 0;
+  @media (max-width: 560px) {
+    .wrap {
+      padding: 0 16px;
+    }
+    .kpi__value {
+      font-size: 1.75rem;
+    }
+    .hero {
+      padding: 24px 0 20px;
     }
   }
 </style>

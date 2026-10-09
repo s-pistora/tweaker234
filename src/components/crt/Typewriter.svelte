@@ -63,7 +63,7 @@
 
   $effect(() => {
     finished = false;
-    if (prefersReducedMotion() || crtOff()) {
+    if (speed <= 0 || prefersReducedMotion() || crtOff()) {
       finish();
     } else {
       step(0);

@@ -18,13 +18,10 @@
   type Pohled = 'skupiny' | 'orp' | 'volno' | 'plno';
   let pohled = $state<Pohled>('skupiny');
 
-  const celkem = $derived(agreguj(obory, () => 'kraj', () => 'Karlovarský kraj')[0]);
   const skupiny = $derived(agreguj(obory, (o) => o.skupina, nazevSkupiny));
   const orp = $derived(agreguj(obory, (o) => o.orp, (k) => names[k] ?? `ORP ${k}`));
   const volno = $derived(oboryPodleNaplnenosti(obory, 'nejmene', 10));
   const plno = $derived(oboryPodleNaplnenosti(obory, 'nejvice', 10));
-  const volnaMista = $derived(celkem ? Math.max(0, celkem.zamer2025 - celkem.prijato2025) : 0);
-  const fmt = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
 
   const TABS: [Pohled, string][] = [
     ['skupiny', 'Podle oborů'],
@@ -39,15 +36,11 @@
 </script>
 
 <section class="prehled" aria-label="Přehled pro kraj" data-testid="kraj-prehled">
-  {#if celkem}
-    <div class="tiles">
-      <div class="tile"><span class="v">{fmt(celkem.zamer2025)}</span><span class="l">plánovaných míst v 1. ročnících (2025)</span></div>
-      <div class="tile"><span class="v">{fmt(celkem.prijato2025)}</span><span class="l">žáků opravdu nastoupilo</span></div>
-      <div class="tile tile--good"><span class="v">{fmt(volnaMista)}</span><span class="l">míst zůstalo volných ({procenta(celkem.naplnenost === null ? null : 1 - celkem.naplnenost)})</span></div>
-      <div class="tile"><span class="v">{fmt(celkem.zamer2026)}</span><span class="l">míst školy plánují na 2026/27</span></div>
-    </div>
-  {/if}
-
+  <h2 class="title">Jak byla místa obsazená loni</h2>
+  <p class="lead">
+    Porovnáváme plán škol na 2025/26 s počtem žáků, kteří k 30. 9. 2025 opravdu nastoupili. Přehled
+    ukazuje, kde zůstávají volná místa a kde zájem převyšuje nabídku.
+  </p>
   <div class="tabs" role="tablist" aria-label="Pohled přehledu">
     {#each TABS as [id, label] (id)}
       <button
@@ -104,83 +97,65 @@
 <style>
   .prehled {
     min-width: 0;
-    color: var(--c-text);
   }
-  .tiles {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
+  .title {
+    margin: 0 0 4px;
+    font-size: 1.5rem;
   }
-  .tile {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--c-radius);
-    box-shadow: var(--c-shadow);
-    padding: 14px 16px;
-    display: flex;
-    flex-direction: column;
-  }
-  .tile .v {
-    font-size: 1.8rem;
-    font-weight: 800;
-  }
-  .tile--good .v {
-    color: var(--c-good);
-  }
-  .tile .l {
-    color: var(--c-muted);
-    font-size: 0.85rem;
+  .lead {
+    margin: 0 0 8px;
+    max-width: 70ch;
   }
   .tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
-    margin: 18px 0 10px;
+    gap: 8px;
+    margin: 16px 0 12px;
   }
   .tabs button {
     font: inherit;
-    font-size: 0.9rem;
-    padding: 7px 14px;
-    border-radius: 999px;
-    border: 1px solid var(--c-border);
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 4px;
+    border: 1px solid var(--brand);
     background: #fff;
-    color: var(--c-text);
+    color: var(--brand);
     cursor: pointer;
   }
   .tabs button.on {
-    background: var(--c-text);
-    border-color: var(--c-text);
+    background: var(--brand);
     color: #fff;
   }
   .card {
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--c-radius);
-    box-shadow: var(--c-shadow);
-    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 16px 20px;
     overflow-x: auto;
   }
   .hint {
-    color: var(--c-muted);
-    font-size: 0.88rem;
-    margin: 4px 0 10px;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin: 0 0 12px;
   }
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.92rem;
   }
   th {
     text-align: left;
-    font-size: 0.8rem;
-    color: var(--c-muted);
-    font-weight: 600;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--c-border);
+    font-size: 0.85rem;
+    color: var(--brand-dark);
+    font-weight: 500;
+    padding: 8px;
+    background: var(--brand-ice);
+    border-bottom: 1px solid var(--line);
   }
   td {
-    padding: 8px;
-    border-bottom: 1px solid var(--c-border);
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
   }
   tr:last-child td {
     border-bottom: 0;
@@ -189,39 +164,40 @@
     text-align: right;
     white-space: nowrap;
   }
+  .num strong {
+    color: var(--brand-dark);
+  }
   ol {
     margin: 0;
-    padding-left: 1.4em;
+    padding-left: 1.6em;
+    color: var(--text-muted);
   }
   li + li {
-    border-top: 1px solid var(--c-border);
+    border-top: 1px solid var(--line);
   }
   ol button {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
     width: 100%;
     text-align: left;
     font: inherit;
     background: none;
     border: 0;
-    padding: 10px 4px;
-    color: var(--c-text);
+    padding: 12px 4px;
+    color: var(--text);
     cursor: pointer;
   }
-  ol button:hover {
-    background: var(--bg);
+  ol button:hover .obor {
+    color: var(--brand);
+    text-decoration: underline;
   }
   .obor {
     font-weight: 700;
+    color: var(--brand-dark);
   }
   .skola {
-    color: var(--c-muted);
-    font-size: 0.88rem;
-  }
-  @media (max-width: 900px) {
-    .tiles {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+    color: var(--text-muted);
+    font-size: 0.92rem;
   }
 </style>

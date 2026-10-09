@@ -21,7 +21,7 @@
 
 <div class="legend" aria-label="Legenda mapy">
   <div class="legend__title">
-    {def ? `${def.label} [${def.unit}]` : 'UKAZATEL'} · {year}
+    {def ? `${def.label} (${def.unit}), ${year}` : `Ukazatel, ${year}`}
   </div>
   <ul>
     {#each ranges as r, i (i)}
@@ -35,7 +35,7 @@
     {#if hasNA}
       <li>
         <svg width="22" height="14" aria-hidden="true"><rect x="0.5" y="0.5" width="21" height="13" fill="url(#pna)" class="sw sw--na" /></svg>
-        <span class="na">N/A – údaj chybí</span>
+        <span class="na">údaj chybí</span>
       </li>
     {/if}
   </ul>
@@ -46,8 +46,9 @@
     font-size: 0.85rem;
   }
   .legend__title {
-    color: var(--phosphor-60);
-    margin-bottom: 4px;
+    color: var(--brand-dark);
+    font-weight: 500;
+    margin: 10px 0 6px;
   }
   ul {
     list-style: none;
@@ -63,12 +64,12 @@
     gap: 6px;
   }
   .sw {
-    stroke: var(--phosphor-40);
+    stroke: #fff;
   }
   .sw--na {
-    stroke: var(--amber-dim);
+    stroke: var(--line-strong);
   }
   .na {
-    color: var(--amber);
+    color: var(--text-muted);
   }
 </style>

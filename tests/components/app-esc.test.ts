@@ -42,8 +42,8 @@ describe('App – Esc s otevřeným HowModal', () => {
     location.hash = '#/kraj?m=explore'; // výchozí stránka je „Kam na střední“ (bez boot sekvence)
     const { container } = render(App);
 
-    await fireEvent.click(screen.getByTestId('boot-skip'));
-    await waitFor(() => expect(screen.getByTestId('mode-score')).toBeTruthy());
+    // navigace je vidět hned, mapa až po načtení dat
+    await waitFor(() => expect(container.querySelector('path[data-code="CZ041"]')).toBeTruthy());
 
     // z kraje do ORP (klik na Karlovarský kraj) - odsud je kam jít "o úroveň výš"
     await fireEvent.click(container.querySelector('path[data-code="CZ041"]')!);
@@ -59,7 +59,7 @@ describe('App – Esc s otevřeným HowModal', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // pořád v režimu skóre - Esc modál zavřel a nic víc nezměnil
-    expect(screen.getByTestId('mode-score').getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('mode-score').getAttribute('aria-current')).toBe('page');
 
     // návrat do průzkumu potvrdí, že mapa pořád je na úrovni ORP (kdyby Esc
     // omylem zavolal drill.up(), byli bychom zpět na úrovni krajů a tlačítko

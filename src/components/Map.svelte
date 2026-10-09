@@ -61,6 +61,8 @@
     onhover?: (code: AreaCode | null) => void;
     onselect?: (code: AreaCode) => void;
     label?: string;
+    /** nápověda pod mapou, když nic není pod kurzorem */
+    hint?: string;
   }
 
   const {
@@ -77,6 +79,7 @@
     onhover,
     onselect,
     label = 'Mapa',
+    hint = 'Najeďte na území (nebo Tab a šipky). Enter otevře detail, Esc vrací o úroveň výš.',
   }: Props = $props();
 
   const W = 600;
@@ -352,7 +355,7 @@
   <Tooltip
     title={tipTitle}
     lines={tipLines}
-    hint="Najeďte na území (nebo Tab + šipky). Enter = detail, Esc = o úroveň výš."
+    {hint}
   />
 </div>
 
@@ -368,8 +371,9 @@
     height: auto;
     aspect-ratio: 600 / 420;
     display: block;
-    background: var(--bg);
-    border: 1px solid var(--phosphor-40);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
     box-sizing: border-box;
     touch-action: manipulation;
   }
@@ -377,22 +381,22 @@
     pointer-events: none;
   }
   .area {
-    stroke: var(--phosphor-60);
-    stroke-width: 1;
+    stroke: #fff;
+    stroke-width: 0.8;
     vector-effect: non-scaling-stroke;
     cursor: pointer;
     outline: none;
   }
   .area.hovered {
-    stroke: var(--phosphor-100);
-    stroke-width: 2.5;
+    stroke: var(--brand-dark);
+    stroke-width: 2;
   }
   .area.selected {
-    stroke: var(--amber);
-    stroke-width: 3;
+    stroke: var(--accent);
+    stroke-width: 3.5;
   }
   .area:focus-visible {
-    stroke: var(--amber);
+    stroke: var(--accent);
     stroke-width: 3.5;
     stroke-dasharray: 6 3;
     box-shadow: none;
@@ -404,18 +408,22 @@
     pointer-events: none;
   }
   .pt {
-    font-size: 9px;
+    font-size: 13px;
+    font-weight: 900;
     font-family: var(--font-mono);
-    stroke: none;
+    stroke: #fff;
+    stroke-width: 3px;
+    paint-order: stroke;
+    stroke-linejoin: round;
   }
   .pt--phosphor {
-    fill: var(--phosphor-100);
+    fill: var(--brand-dark);
   }
   .pt--amber {
-    fill: var(--amber);
+    fill: var(--data-6);
   }
   .pt--hover {
-    font-size: 13px;
+    font-size: 18px;
   }
   .sweep {
     stroke: var(--phosphor-100);

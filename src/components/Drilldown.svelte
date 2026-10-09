@@ -127,9 +127,9 @@
 
 <div class="drill">
   <nav class="crumbs" aria-label="Úroveň mapy">
-    <span>&gt; {crumbs.join(' › ')}</span>
+    <span class="crumbs">{crumbs.join(' › ')}</span>
     {#if view.level !== 'kraj' || view.area}
-      <button type="button" onclick={() => up()} data-testid="level-up">[↑ ÚROVEŇ VÝŠ]</button>
+      <button type="button" onclick={() => up()} data-testid="level-up" class="btn-secondary">↑ O úroveň výš</button>
     {/if}
   </nav>
   <Map

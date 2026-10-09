@@ -23,10 +23,10 @@
 <div class="backdrop">
   <div class="dialog ascii-panel" role="dialog" aria-modal="true" aria-labelledby="sources-title">
     <div class="head">
-      <h2 id="sources-title" class="ascii-panel__title">ZDROJE DAT</h2>
-      <button type="button" bind:this={closeBtn} onclick={onclose}>[ZAVŘÍT ✕]</button>
+      <h2 id="sources-title" class="ascii-panel__title">Zdroje dat</h2>
+      <button type="button" bind:this={closeBtn} onclick={onclose} class="btn-secondary">Zavřít</button>
     </div>
-    <p class="meta">&gt; SNAPSHOT {fmtDate(updatedAt)} · {sources.length} zdrojů · STALE = zdroj se nepodařilo obnovit, použita poslední data</p>
+    <p class="meta">Stav dat k {fmtDate(updatedAt)} · {sources.length} zdrojů · „Starší“ = zdroj se nepodařilo obnovit, použita poslední data</p>
     <div class="scroll">
       <table>
         <thead>
@@ -50,7 +50,7 @@
               <td>{s.license}</td>
               <td>{fmtDate(s.downloadedAt)}</td>
               <td>{s.validFor}</td>
-              <td class:stale={s.status === 'stale'}>{s.status === 'stale' ? 'STALE' : 'OK'}</td>
+              <td class:stale={s.status === 'stale'}>{s.status === 'stale' ? 'Starší' : 'Aktuální'}</td>
             </tr>
           {/each}
         </tbody>
@@ -64,7 +64,7 @@
     position: fixed;
     inset: 0;
     z-index: 10;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(12, 24, 56, 0.45);
     display: flex;
     align-items: flex-start;
     justify-content: center;

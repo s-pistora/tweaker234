@@ -38,10 +38,12 @@ describe('App – Kam na střední', () => {
     expect(screen.queryByTestId('boot')).toBeNull();
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
     expect(location.hash).toContain('m=skoly');
-    expect(document.documentElement.classList.contains('theme-clean')).toBe(true);
-    // bez domova: obory celého kraje
-    const vse = screen.getAllByTestId('obor-row').length;
-    expect(vse).toBeGreaterThan(20);
+    // bez domova: obory celého kraje (zobrazuje se po 12)
+    const nadpis = () => screen.getByTestId('obory-list').querySelector('h2')!.textContent ?? '';
+    expect(nadpis()).toMatch(/oborů v celém kraji/);
+    const vse = Number(nadpis().match(/\d+/)![0]);
+    expect(vse).toBeGreaterThan(100);
+    expect(screen.getAllByTestId('obor-row')).toHaveLength(12);
 
     const domov = screen.getByTestId('skoly-domov') as HTMLSelectElement;
     await fireEvent.change(domov, { target: { value: '554481' } }); // Cheb
@@ -51,7 +53,8 @@ describe('App – Kam na střední', () => {
 
     const rows = screen.getAllByTestId('obor-row');
     expect(rows.length).toBeGreaterThan(0);
-    expect(rows.length).toBeLessThan(vse);
+    expect(nadpis()).toMatch(/od obce Cheb/);
+    expect(Number(nadpis().match(/\d+/)![0])).toBeLessThan(vse);
     expect(rows[0].textContent).toMatch(/Cheb/);
 
     await fireEvent.click(rows[0]);
@@ -65,9 +68,9 @@ describe('App – Kam na střední', () => {
 
     // záložka Přehled pro kraj a přechod do jiného režimu vrátí CRT vzhled
     await fireEvent.click(screen.getByTestId('tab-kraj'));
-    expect(screen.getByTestId('kraj-prehled').textContent).toMatch(/nastoupilo/);
+    expect(screen.getByTestId('kraj-prehled').textContent).toMatch(/nastoupili/);
     await fireEvent.click(screen.getByTestId('mode-explore'));
-    await waitFor(() => expect(document.documentElement.classList.contains('theme-clean')).toBe(false));
+    await waitFor(() => expect(location.hash).toContain('m=explore'));
   }, 20000);
 
   it('odkaz s filtry obnoví stejný pohled', async () => {

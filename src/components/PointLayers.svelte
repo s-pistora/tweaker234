@@ -16,7 +16,7 @@
 
 {#if layers.length}
   <fieldset class="layers">
-    <legend>BODOVÉ VRSTVY</legend>
+    <legend>Zobrazit na mapě</legend>
     {#each layers as l, i (l.id)}
       {@const st = styleOf(i)}
       <button
@@ -26,7 +26,7 @@
         onclick={() => ontoggle(l.id)}
         data-testid="layer-{l.id}"
       >
-        [{active[l.id] ? '■' : ' '}] <span class="glyph glyph--{st.tone}" aria-hidden="true">{GLYPH_CHAR[st.glyph]}</span>
+        <span class="box" aria-hidden="true">{active[l.id] ? '✓' : ''}</span> <span class="glyph glyph--{st.tone}" aria-hidden="true">{GLYPH_CHAR[st.glyph]}</span>
         {l.label}
         <span class="cnt">({counts[l.id] ?? l.features.length})</span>
       </button>
@@ -36,43 +36,63 @@
 
 <style>
   .layers {
-    border: 1px solid var(--phosphor-40);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: #fff;
     margin: 0;
-    padding: 4px 8px 8px;
+    padding: 10px 14px 12px;
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    min-width: 0;
   }
   legend {
-    color: var(--phosphor-60);
-    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--brand-dark);
     padding: 0 4px;
   }
   button {
-    background: var(--bg);
-    color: var(--phosphor-80);
-    border: 1px solid var(--phosphor-40);
-    font-family: var(--font-mono);
-    font-size: 0.85rem;
-    padding: 2px 6px;
+    font: inherit;
+    font-size: 0.9rem;
+    min-height: 40px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    color: var(--text);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
     cursor: pointer;
-    white-space: pre;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   button.on {
-    border-color: var(--phosphor-60);
-    color: var(--phosphor-100);
+    border-color: var(--brand);
+    background: var(--brand-ice);
+    color: var(--brand-dark);
+  }
+  .box {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--brand);
+    border-radius: 3px;
+    font-size: 0.75rem;
+    color: #fff;
+    background: #fff;
+  }
+  button.on .box {
+    background: var(--brand);
+  }
+  .glyph {
+    font-weight: 900;
   }
   .glyph--amber {
-    color: var(--amber);
+    color: var(--data-6);
   }
   .glyph--phosphor {
-    color: var(--phosphor-100);
+    color: var(--brand-dark);
   }
   .cnt {
-    color: var(--phosphor-60);
+    color: var(--text-muted);
   }
 </style>

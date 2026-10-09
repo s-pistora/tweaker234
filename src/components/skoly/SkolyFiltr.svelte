@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Filtry režimu „Kam na střední“ ve 4 očíslovaných krocích. */
+  /** Filtr „Kam na střední“ ve 4 krocích. Formulář podle Gov.cz: popisek nad polem, nápověda pod ním. */
   import type { AreaCode } from '../../lib/types.ts';
   import { KM_MAX, KM_MIN, type SkolyState } from '../../lib/state.ts';
   import { nazevSkupiny } from '../../lib/skoly.ts';
@@ -19,31 +19,31 @@
     [...skupiny].sort((a, b) => nazevSkupiny(a).localeCompare(nazevSkupiny(b), 'cs')),
   );
   const TYPY = [
-    ['vse', 'Je mi to jedno'],
+    ['vse', 'Všechny'],
     ['maturita', 'S maturitou'],
     ['vyucni', 'S výučním listem'],
   ] as const;
 </script>
 
-<section class="filtr" aria-label="Co hledáš" data-testid="skoly-filtr">
+<section class="filtr" aria-label="Co hledáte" data-testid="skoly-filtr">
   <div class="step">
-    <label for="f-domov"><span class="n">1</span> Kde bydlíš?</label>
+    <label for="f-domov"><span class="n" aria-hidden="true">1</span>Kde bydlíte?</label>
     <select
       id="f-domov"
       value={filtr.domov ?? ''}
       onchange={(e) => onchange({ domov: e.currentTarget.value || null, skola: null })}
       data-testid="skoly-domov"
     >
-      <option value="">Vyber obec…</option>
+      <option value="">Vyberte obec</option>
       {#each obceSerazene as [code, name] (code)}
         <option value={code}>{name}</option>
       {/each}
     </select>
-    <small>nebo klikni na obec v mapě</small>
+    <small>Obec můžete vybrat i kliknutím do mapy.</small>
   </div>
 
   <div class="step">
-    <span class="lbl" id="f-typ"><span class="n">2</span> Jakou školu chceš?</span>
+    <span class="lbl" id="f-typ"><span class="n" aria-hidden="true">2</span>Jakou školu hledáte?</span>
     <div class="seg" role="radiogroup" aria-labelledby="f-typ">
       {#each TYPY as [v, l] (v)}
         <button
@@ -59,22 +59,23 @@
   </div>
 
   <div class="step">
-    <label for="f-obor"><span class="n">3</span> Co tě baví?</label>
+    <label for="f-obor"><span class="n" aria-hidden="true">3</span>Jaké zaměření?</label>
     <select
       id="f-obor"
       value={filtr.skupina}
       onchange={(e) => onchange({ skupina: e.currentTarget.value })}
       data-testid="skoly-skupina"
     >
-      <option value="">Všechny obory</option>
+      <option value="">Všechna zaměření</option>
       {#each skupinySerazene as g (g)}
         <option value={g}>{nazevSkupiny(g)}</option>
       {/each}
     </select>
+    <small>Skupiny oborů podle kódu oboru.</small>
   </div>
 
   <div class="step">
-    <label for="f-km"><span class="n">4</span> Jak daleko můžeš dojíždět?</label>
+    <label for="f-km"><span class="n" aria-hidden="true">4</span>Jak daleko můžete dojíždět?</label>
     <div class="range">
       <input
         id="f-km"
@@ -87,9 +88,9 @@
         aria-valuetext="{filtr.maxKm} km"
         data-testid="skoly-km"
       />
-      <output for="f-km">do {filtr.maxKm} km</output>
+      <output for="f-km">{filtr.maxKm} km</output>
     </div>
-    <small>vzdušnou čarou</small>
+    <small>Vzdušnou čarou. Jízdní řády kraj jako otevřená data nezveřejňuje.</small>
   </div>
 </section>
 
@@ -97,12 +98,12 @@
   .filtr {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--c-radius);
-    box-shadow: var(--c-shadow);
-    padding: 16px;
+    gap: 20px 24px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 20px 24px;
   }
   .step {
     display: flex;
@@ -112,37 +113,39 @@
   }
   label,
   .lbl {
-    font-weight: 600;
-    color: var(--c-text);
+    font-weight: 500;
+    color: var(--brand-dark);
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .n {
     display: inline-grid;
     place-items: center;
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
-    background: var(--c-accent);
+    background: var(--brand);
     color: #fff;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     font-weight: 700;
     flex: none;
   }
   small {
-    color: var(--c-muted);
-    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
   }
   select {
     font: inherit;
-    padding: 9px 10px;
-    border: 1px solid var(--c-border);
-    border-radius: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    border: 1px solid #8a94a3;
+    border-radius: 4px;
     background: #fff;
-    color: var(--c-text);
-    min-width: 0;
+    color: var(--text);
     width: 100%;
+    min-width: 0;
   }
   .seg {
     display: flex;
@@ -151,44 +154,47 @@
   }
   .seg button {
     font: inherit;
-    font-size: 0.9rem;
-    padding: 8px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--c-border);
+    font-size: 0.95rem;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: 4px;
+    border: 1px solid var(--brand);
     background: #fff;
-    color: var(--c-text);
+    color: var(--brand);
     cursor: pointer;
   }
   .seg button.on {
-    background: var(--c-accent);
-    border-color: var(--c-accent);
+    background: var(--brand);
     color: #fff;
-    font-weight: 600;
   }
   .range {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    min-height: 44px;
   }
   input[type='range'] {
     flex: 1;
-    accent-color: var(--c-accent);
+    accent-color: var(--brand);
     min-width: 0;
   }
   output {
     font-weight: 700;
-    color: var(--c-accent);
+    font-size: 1.1rem;
+    color: var(--brand);
     white-space: nowrap;
+    min-width: 3.5em;
+    text-align: right;
   }
-  @media (max-width: 1000px) {
+  @media (max-width: 1100px) {
     .filtr {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
-  @media (max-width: 560px) {
+  @media (max-width: 600px) {
     .filtr {
       grid-template-columns: minmax(0, 1fr);
-      padding: 12px;
+      padding: 16px;
     }
   }
 </style>

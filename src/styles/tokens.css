@@ -1,36 +1,82 @@
 /*
- * KRAJ-TERM – design tokeny (retro CRT terminál).
+ * Design tokeny – podle brandbooku (Gov.cz design systém + jednotný vizuální styl státu, JVS).
  *
- * Barvy: pozadí téměř černá zeleň, fosfor ve 4 jasech, amber jen jako akcent/varování/focus.
- * Kontrast vůči --bg (#0a0f0a), měřeno dle WCAG relativní luminance:
- *   --phosphor-100  #33ff66  14.40:1  (nadpisy, zvýrazněný text)
- *   --phosphor-80   #2bd956  10.28:1  (běžný text)
- *   --phosphor-60   #24b347   7.01:1  (sekundární text – ještě splňuje ≥7:1)
- *   --phosphor-40   #166629   2.73:1  (POUZE dekorace – rámečky, scanlines, neaktivní stavy;
- *                                      NIKDY jako barva textu)
- *   --amber         #ffb000  10.56:1  (akcent, varování, focus ring)
- * Fonty: VT323 (nadpisy/čísla), IBM Plex Mono (běžný text) – načteny v index.html.
+ * Paleta: 60 % bílá a světlé plochy · 25 % modrá · 10 % neutrální text · 5 % akcenty.
+ * Červená jen pro chyby (v UI znamená chybu), žlutá pro fokus a zvýraznění.
+ * Kontrast vůči bílé (WCAG): #0C1838 17,6:1 · #3B3B3B 11,0:1 · #00469B 9,3:1 · #5A6370 6,1:1.
+ * Písmo: Roboto (web, Gov.cz), tabulkové číslice v číslech.
+ *
+ * Historické názvy --phosphor-* / --amber zůstávají (používají je sdílené komponenty),
+ * ale nesou barvy značky: phosphor-100 = státní modrá, 80 = text, 60 = popisky, 40 = linky.
  */
 
 :root {
-  --bg: #0a0f0a;
-  --bg-panel: #0d140d;
+  /* plochy */
+  --bg: #f2f6fc; /* ledová – plochy sekcí, pozadí stránky */
+  --bg-panel: #ffffff;
 
-  --phosphor-100: #33ff66;
-  --phosphor-80: #2bd956;
-  --phosphor-60: #24b347;
-  --phosphor-40: #166629;
+  /* značka */
+  --brand: #00469b; /* státní modrá – tlačítka, odkazy, klíčová řada */
+  --brand-hover: #0e3578;
+  --brand-dark: #0c1838; /* tmavě modrá – nadpisy, patička */
+  --brand-mid: #3771b8;
+  --brand-light: #9ec8e9;
+  --brand-ice: #f2f6fc;
+  --accent: #fab413; /* zvýraznění, fokus */
+  --error: #d70c0f;
 
-  --amber: #ffb000;
-  --amber-dim: #cc8d00;
+  /* text a linky */
+  --text: #3b3b3b;
+  --text-muted: #5a6370;
+  --line: #dde3ec;
+  --line-strong: #c3cdd9;
 
-  --font-display: 'VT323', 'IBM Plex Mono', monospace;
-  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  /* datová paleta (pořadí = doporučení brandbooku), zbytek šedě */
+  --data-1: #00469b;
+  --data-2: #00998f;
+  --data-3: #ffaa00;
+  --data-4: #462e73;
+  --data-5: #9ec8e9;
+  --data-6: #680526;
+  --data-rest: #b0b0b0;
 
-  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--amber);
+  /* kompatibilita se sdílenými komponentami */
+  --phosphor-100: var(--brand);
+  --phosphor-80: var(--text);
+  --phosphor-60: var(--text-muted);
+  --phosphor-40: var(--line);
+  --amber: var(--brand);
+  --amber-dim: var(--line-strong);
 
-  --radius: 2px;
+  --font-display: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Roboto', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
 
-  /* rychlost typewriteru ve výchozím stavu (ms na znak) */
-  --typewriter-speed: 22ms;
+  /* fokus = žlutý rámeček (Gov.cz) */
+  --focus-ring: 0 0 0 2px #fff, 0 0 0 5px var(--accent);
+
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow: 0 1px 2px rgba(12, 24, 56, 0.06), 0 2px 8px rgba(12, 24, 56, 0.05);
+
+  /* starší aliasy z první verze „Kam na střední“ */
+  --c-text: var(--brand-dark);
+  --c-muted: var(--text-muted);
+  --c-border: var(--line);
+  --c-surface: #fff;
+  --c-accent: var(--brand);
+  --c-accent-soft: #e3edf8;
+  --c-radius: var(--radius-lg);
+  --c-shadow: var(--shadow);
+
+  /* stavy naplněnosti – datová paleta, vždy i slovy (nikdy jen červená/zelená) */
+  --st-volno: #00796f;
+  --st-volno-soft: #dcf2ef;
+  --st-ok: #8a5a00;
+  --st-ok-soft: #fff1d1;
+  --st-pretlak: #680526;
+  --st-pretlak-soft: #f6e1e6;
+  --st-na: #5a6370;
+  --st-na-soft: #eef1f5;
+
+  --typewriter-speed: 0ms;
 }

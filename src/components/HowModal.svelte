@@ -74,8 +74,8 @@
     onkeydown={onKeydown}
   >
     <div class="head">
-      <h2 id="how-title" class="ascii-panel__title">JAK SE TO POČÍTÁ?</h2>
-      <button type="button" onclick={onclose} data-testid="how-close">[ZAVŘÍT ✕]</button>
+      <h2 id="how-title" class="ascii-panel__title">Jak se skóre počítá</h2>
+      <button type="button" onclick={onclose} data-testid="how-close" class="btn-secondary">Zavřít</button>
     </div>
 
     <div class="scroll">

@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** Výsledky hledání jako karty: jeden obor = jedna karta, klik otevře detail školy. */
+  /** Výsledky hledání: karta = obor, klik otevře detail školy. Po 12, „Zobrazit další“. */
   import { trend, type OborVysledek, type Razeni } from '../../lib/skoly.ts';
   import Naplnenost from './Naplnenost.svelte';
 
@@ -7,15 +7,23 @@
     vysledky: OborVysledek[];
     vybrana: string | null;
     maDomov: boolean;
+    /** název obce domova ('' = nezadán) */
+    domovNazev?: string;
+    maxKm?: number;
     razeni: Razeni;
     onrazeni: (r: Razeni) => void;
     onselect: (izo: string) => void;
   }
-  const { vysledky, vybrana, maDomov, razeni, onrazeni, onselect }: Props = $props();
+  const { vysledky, vybrana, maDomov, domovNazev = '', maxKm = 0, razeni, onrazeni, onselect }: Props = $props();
 
-  const LIMIT = 40;
-  let vse = $state(false);
-  const zobrazene = $derived(vse ? vysledky : vysledky.slice(0, LIMIT));
+  const KROK = 12;
+  let limit = $state(KROK);
+  // nový dotaz → znovu od začátku
+  $effect(() => {
+    void vysledky;
+    limit = KROK;
+  });
+  const zobrazene = $derived(vysledky.slice(0, limit));
   const pocetSkol = $derived(new Set(vysledky.map((r) => r.obor.izo)).size);
 
   function kratce(skola: string): string {
@@ -24,50 +32,47 @@
       .replace(/,?\s*s\.\s*r\.\s*o\.$/i, '')
       .replace(/,?\s*o\.\s*p\.\s*s\.$/i, '');
   }
-  function oboru(n: number): string {
-    return n === 1 ? 'obor' : n >= 2 && n <= 4 ? 'obory' : 'oborů';
-  }
-  function skol(n: number): string {
-    return n === 1 ? 'škole' : 'školách';
-  }
-  function zastavek(n: number): string {
-    return n === 1 ? '1 zastávka' : n <= 4 ? `${n} zastávky` : `${n} zastávek`;
-  }
-  const TYP_TXT = { maturita: 's maturitou', vyucni: 's výučním listem', jine: 'jiné' } as const;
-  const TREND_TXT = { '1': 'víc míst než dřív', '-1': 'méně míst než dřív', '0': '' } as const;
+  const pl = (n: number, a: string, b: string, c: string) => (n === 1 ? a : n >= 2 && n <= 4 ? b : c);
+  const TYP_TXT = { maturita: 'Maturita', vyucni: 'Výuční list', jine: 'Jiné vzdělání' } as const;
+  const kmTxt = (km: number) => (km < 1 ? 'do 1 km' : `${km.toFixed(0)} km`);
 </script>
 
 <section class="list" aria-label="Nalezené obory" data-testid="obory-list">
   <div class="head">
     <h2>
-      {vysledky.length}
-      {oboru(vysledky.length)} na {pocetSkol}
-      {skol(pocetSkol)}
+      {#if maDomov}
+        {vysledky.length} {pl(vysledky.length, 'obor', 'obory', 'oborů')} do {maxKm} km{domovNazev ? ` od obce ${domovNazev}` : ''}
+      {:else}
+        {vysledky.length} {pl(vysledky.length, 'obor', 'obory', 'oborů')} v celém kraji
+      {/if}
     </h2>
-    <div class="sort" role="radiogroup" aria-label="Řazení">
-      <span>Seřadit:</span>
-      <button
-        type="button"
-        role="radio"
-        aria-checked={razeni === 'vzdalenost'}
-        class:on={razeni === 'vzdalenost'}
-        onclick={() => onrazeni('vzdalenost')}>{maDomov ? 'Nejblíž' : 'Podle školy'}</button
-      >
-      <button
-        type="button"
-        role="radio"
-        aria-checked={razeni === 'volno'}
-        class:on={razeni === 'volno'}
-        onclick={() => onrazeni('volno')}>Nejvíc volných míst</button
-      >
-    </div>
+    <p class="sub">na {pocetSkol} {pl(pocetSkol, 'škole', 'školách', 'školách')}</p>
   </div>
+
+  <div class="sort" role="radiogroup" aria-label="Řazení výsledků">
+    <span>Seřadit</span>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={razeni === 'vzdalenost'}
+      class:on={razeni === 'vzdalenost'}
+      onclick={() => onrazeni('vzdalenost')}>{maDomov ? 'Nejblíž' : 'Podle školy'}</button
+    >
+    <button
+      type="button"
+      role="radio"
+      aria-checked={razeni === 'volno'}
+      class:on={razeni === 'volno'}
+      onclick={() => onrazeni('volno')}>Nejvíc volných míst</button
+    >
+  </div>
+
   {#if !maDomov}
-    <p class="tip">💡 Zatím ukazujeme celý kraj. Vyber v kroku 1, kde bydlíš, a uvidíš, co máš v dosahu.</p>
+    <p class="tip">Vyberte v kroku 1, kde bydlíte. Ukážeme jen obory v dosahu a seřadíme je podle vzdálenosti.</p>
   {/if}
 
   {#if vysledky.length === 0}
-    <p class="empty">Nic jsme nenašli. Zkus dojíždět dál nebo změnit typ školy či obor.</p>
+    <p class="empty">Nenašli jsme žádný obor. Zkuste zvětšit vzdálenost nebo změnit typ školy či zaměření.</p>
   {:else}
     <ul>
       {#each zobrazene as r (r.obor.izo + r.obor.kodOboru + r.obor.forma)}
@@ -84,22 +89,28 @@
           >
             <span class="top">
               <span class="obor">{o.nazevOboru}</span>
-              {#if r.km !== null}<span class="km">{r.km < 1 ? '< 1' : r.km.toFixed(0)} km</span>{/if}
+              {#if r.km !== null}<span class="km">{kmTxt(r.km)}</span>{/if}
             </span>
-            <span class="skola">{kratce(o.skola)} · {o.obec}</span>
+            <span class="skola">{kratce(o.skola)}, {o.obec}</span>
             <span class="facts">
-              <span>🎓 {TYP_TXT[o.typ]}, {o.delka}{o.forma !== 'denní' ? `, ${o.forma}` : ''}</span>
-              <span>👥 {o.zamer[2026]} míst pro 2026/27{t !== null && t !== 0 ? ` (${TREND_TXT[String(t) as '1' | '-1']})` : ''}</span>
-              <span>🚌 {o.zastavky500m > 0 ? `${zastavek(o.zastavky500m)} do 500 m` : 'zastávka dál než 500 m'}</span>
+              <span><b>{TYP_TXT[o.typ]}</b> · {o.delka}{o.forma !== 'denní' ? ` · ${o.forma}` : ''}</span>
+              <span>
+                <b>{o.zamer[2026]}</b> {pl(o.zamer[2026] ?? 0, 'místo', 'místa', 'míst')} na 2026/27{#if t === 1}<span class="tr"> · víc než v 2024</span>{:else if t === -1}<span class="tr"> · méně než v 2024</span>{/if}
+              </span>
+              <span>
+                Autobus: {o.zastavky500m > 0
+                  ? `${o.zastavky500m} ${pl(o.zastavky500m, 'zastávka', 'zastávky', 'zastávek')} do 500 m`
+                  : 'nejbližší zastávka dál než 500 m'}
+              </span>
             </span>
             <Naplnenost podil={r.naplnenost} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           </button>
         </li>
       {/each}
     </ul>
-    {#if vysledky.length > LIMIT}
-      <button type="button" class="more" onclick={() => (vse = !vse)}>
-        {vse ? 'Zobrazit méně' : `Zobrazit všech ${vysledky.length}`}
+    {#if vysledky.length > limit}
+      <button type="button" class="btn-secondary more" onclick={() => (limit += KROK)}>
+        Zobrazit další obory ({vysledky.length - limit})
       </button>
     {/if}
   {/if}
@@ -109,52 +120,51 @@
   .list {
     min-width: 0;
   }
-  .head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 16px;
-    margin-bottom: 8px;
-  }
-  h2 {
-    font-size: 1.15rem;
+  .head h2 {
+    font-size: 1.5rem;
+    line-height: 1.25;
     margin: 0;
-    color: var(--c-text);
+  }
+  .sub {
+    margin: 2px 0 12px;
+    color: var(--text-muted);
   }
   .sort {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    color: var(--c-muted);
+    gap: 8px;
+    margin-bottom: 12px;
   }
-  .sort button,
-  .more {
+  .sort > span {
+    font-weight: 500;
+    color: var(--brand-dark);
+    margin-right: 4px;
+  }
+  .sort button {
     font: inherit;
-    font-size: 0.85rem;
-    padding: 5px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--c-border);
+    font-size: 0.95rem;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 4px;
+    border: 1px solid var(--brand);
     background: #fff;
-    color: var(--c-text);
+    color: var(--brand);
     cursor: pointer;
   }
   .sort button.on {
-    background: var(--c-text);
-    border-color: var(--c-text);
+    background: var(--brand);
     color: #fff;
   }
   .tip {
-    background: var(--c-accent-soft);
-    color: #1e3a8a;
-    border-radius: 8px;
-    padding: 8px 12px;
-    margin: 0 0 10px;
-    font-size: 0.9rem;
+    margin: 0 0 14px;
+    padding: 12px 14px;
+    border-left: 4px solid var(--brand);
+    background: #fff;
+    color: var(--brand-dark);
   }
   .empty {
-    color: var(--c-muted);
+    color: var(--text-muted);
   }
   ul {
     list-style: none;
@@ -162,7 +172,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
   }
   .card {
     display: flex;
@@ -171,56 +181,56 @@
     width: 100%;
     text-align: left;
     font: inherit;
-    color: var(--c-text);
-    background: var(--c-surface);
-    border: 1px solid var(--c-border);
-    border-radius: var(--c-radius);
-    box-shadow: var(--c-shadow);
-    padding: 14px 16px;
+    color: var(--text);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: 16px 18px;
     cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s;
   }
   .card:hover {
-    border-color: #b8c4d4;
-    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+    border-color: var(--brand-mid);
   }
   .card.sel {
-    border-color: var(--c-accent);
-    box-shadow: 0 0 0 2px var(--c-accent-soft);
+    border-color: var(--brand);
+    box-shadow: inset 4px 0 0 var(--brand);
   }
   .top {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    gap: 10px;
+    gap: 12px;
   }
   .obor {
-    font-size: 1.05rem;
+    font-size: 1.15rem;
+    line-height: 1.3;
     font-weight: 700;
+    color: var(--brand-dark);
   }
   .km {
     flex: none;
     font-weight: 700;
-    color: var(--c-accent);
-    background: var(--c-accent-soft);
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.85rem;
+    font-size: 1.05rem;
+    color: var(--brand);
   }
   .skola {
-    color: var(--c-muted);
-    font-size: 0.92rem;
+    color: var(--text-muted);
   }
   .facts {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 16px;
-    font-size: 0.85rem;
-    color: var(--c-text);
+    gap: 2px 20px;
+    font-size: 0.92rem;
+  }
+  .facts b {
+    font-weight: 500;
+    color: var(--brand-dark);
+  }
+  .tr {
+    color: var(--text-muted);
   }
   .more {
-    margin-top: 12px;
+    margin-top: 16px;
     width: 100%;
-    padding: 10px;
   }
 </style>
