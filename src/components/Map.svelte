@@ -74,6 +74,10 @@
     circle?: { lat: number; lon: number; km: number; label?: string } | null;
     /** id zvýrazněného bodu (vybrané místo) */
     selectedPoint?: string | null;
+    /** jednobarevný podklad (obce bez obarvení podle hodnot) – co je v dosahu, ukazují body */
+    jednobarevna?: boolean;
+    /** po zadání kružnice dosahu přiblížit mapu na ni (a po zrušení zpět na celek) */
+    priblizitNaKruh?: boolean;
   }
 
   const {
@@ -94,6 +98,8 @@
     onpointselect,
     circle = null,
     selectedPoint = null,
+    jednobarevna = false,
+    priblizitNaKruh = false,
     hint = 'Najeďte na území (nebo Tab a šipky). Enter otevře detail, Esc vrací o úroveň výš.',
   }: Props = $props();
 
@@ -112,7 +118,7 @@
         code,
         name: f.properties.name,
         d: projector.path(f) ?? '',
-        fill: cls === null ? 'url(#pna)' : `url(#p${cls})`,
+        fill: jednobarevna ? '#dfe8f3' : cls === null ? 'url(#pna)' : `url(#p${cls})`,
         aria: `${f.properties.name}: ${def ? formatValue(v, def) : 'N/A'}${year !== null ? ` (${year})` : ''}`,
         feature: f,
       };
@@ -320,6 +326,37 @@
     }
     vb = [...box];
     return animate(box, [...FULL]);
+  });
+
+  // přiblížení na kružnici dosahu (stejně jako mapa škol); bez kružnice zpět na celek
+  // deklarováno až za resetem pohledu při změně `features` → při načtení dat vyhraje přiblížení
+  let kruhPoprve = true;
+  $effect(() => {
+    if (!priblizitNaKruh) return;
+    void features;
+    const c = circ;
+    const from = untrack(() => [...vb] as ViewBox);
+    if (!c) {
+      kruhPoprve = false;
+      return animate(from, [...FULL]);
+    }
+    const ar = W / H;
+    let w = c.r * 2.5;
+    let h = c.r * 2.5;
+    if (w / h < ar) w = h * ar;
+    else h = w / ar;
+    if (w > W) {
+      w = W;
+      h = H;
+    }
+    const cil: ViewBox = [c.cx - w / 2, c.cy - h / 2, w, h];
+    // první zobrazení (odkaz s bydlištěm, načtení dat) hned bez animace
+    if (kruhPoprve) {
+      kruhPoprve = false;
+      vb = cil;
+      return;
+    }
+    return animate(from, cil);
   });
 
   const animating = $derived(sweep !== null);

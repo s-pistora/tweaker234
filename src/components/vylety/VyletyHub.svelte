@@ -27,7 +27,7 @@
             <span class="lbl">{k.label}</span>
             <span class="num"
               ><strong>{n}</strong>
-              {plural(n, k.jednotky)}{#if vDosahu}<span class="near"> do {maxKm} km od obce {domovNazev}</span
+              {plural(n, k.jednotky)}{#if vDosahu}<span class="near">&nbsp;do {maxKm} km od obce {domovNazev}</span
                 >{/if}</span
             >
             <span class="perex">{k.perex}</span>

@@ -138,3 +138,15 @@ describe('App – Kam vyrazit', () => {
     expect(location.hash).not.toContain('ho=');
   }, 30000);
 });
+
+describe('App – mapa Kam vyrazit se přiblíží na dosah', () => {
+  it('s bydlištěm je výřez mapy menší než celý kraj a podklad je jednobarevný', async () => {
+    location.hash = '#/kraj?m=vylety&vk=hrady-zamky&vd=554481&vkm=15';
+    const { container } = render(App);
+    await waitFor(() => expect(container.querySelector('[data-testid="map"] svg')).toBeTruthy(), { timeout: 5000 });
+    const svg = container.querySelector('[data-testid="map"] svg')!;
+    await waitFor(() => expect(Number(svg.getAttribute('viewBox')!.split(' ')[2])).toBeLessThan(600));
+    const vyplne = new Set([...svg.querySelectorAll('path.area')].map((p) => p.getAttribute('fill')));
+    expect([...vyplne]).toEqual(['#dfe8f3']);
+  }, 20000);
+});
