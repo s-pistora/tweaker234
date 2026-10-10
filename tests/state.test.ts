@@ -93,6 +93,7 @@ function makeSnap(): Snapshot {
     vylety: null,
     urady: null,
     penize: null,
+    podnikani: null,
     updatedAt: manifest.updatedAt,
   };
 }
@@ -444,5 +445,18 @@ describe('režim „Peníze kraje“ v hashi', () => {
     const bad = parseHash('#/kraj?m=penize&pt=xx&pv=yy&po=abc', snap);
     expect(bad.invalid).toBe(true);
     expect(bad.state.penize).toEqual(DEFAULT_PENIZE);
+  });
+});
+
+describe('režim „Podnikání“ v hashi', () => {
+  it('kt/ko/kq round-trip, výchozí záložka se nepíše', async () => {
+    const { DEFAULT_PODNIKANI } = await import('../src/lib/state.ts');
+    const snap = makeSnap();
+    const { state } = parseHash('#/kraj?m=podnikani', snap);
+    expect(state.podnikani).toEqual(DEFAULT_PODNIKANI);
+    state.podnikani = { tab: 'zony', obor: 'Fotografie', q: 'keramika Cheb' };
+    expect(toHash(state)).toContain('kt=zony');
+    expect(parseHash(toHash(state), snap).state.podnikani).toEqual(state.podnikani);
+    expect(parseHash('#/kraj?m=podnikani&kt=nic', snap).invalid).toBe(true);
   });
 });

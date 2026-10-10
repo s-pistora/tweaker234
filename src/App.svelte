@@ -18,6 +18,7 @@
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import Urady from './components/urady/Urady.svelte';
   import Penize from './components/penize/Penize.svelte';
+  import Podnikani from './components/podnikani/Podnikani.svelte';
   import { vouchery as nactiVouchery } from './lib/penize.ts';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
@@ -40,12 +41,14 @@
     DEFAULT_ZIVOT,
     DEFAULT_URADY,
     DEFAULT_PENIZE,
+    DEFAULT_PODNIKANI,
     type Mode,
     type SkolyState,
     type VyletyState,
     type ZivotState,
     type UradyState,
     type PenizeState,
+    type PodnikaniState,
   } from './lib/state.ts';
   import {
     DOPORUCENY_VYBER,
@@ -206,6 +209,7 @@
       zivot: m === 'score' ? (s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }) : s.zivot,
       // obec z jiného režimu se převezme i pro úřady
       penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
+      podnikani: m === 'podnikani' ? (s.podnikani ?? { ...DEFAULT_PODNIKANI }) : s.podnikani,
       urady:
         m === 'urady'
           ? (s.urady ?? { ...DEFAULT_URADY, obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? null })
@@ -307,7 +311,14 @@
     { m: 'score', label: 'Kde by se mi žilo' },
     { m: 'urady', label: 'Úřady' },
     { m: 'penize', label: 'Peníze kraje' },
+    { m: 'podnikani', label: 'Podnikání' },
   ];
+
+  // --- režim „Podnikání“ ------------------------------------------------------
+  const pod = $derived<PodnikaniState>(st.podnikani ?? DEFAULT_PODNIKANI);
+  function setPodnikani(patch: Partial<PodnikaniState>) {
+    appState.update((s) => ({ ...s, podnikani: { ...(s.podnikani ?? DEFAULT_PODNIKANI), ...patch } }));
+  }
 
   // --- režim „Peníze kraje“ ----------------------------------------------------
   const pe = $derived<PenizeState>(st.penize ?? DEFAULT_PENIZE);
@@ -694,13 +705,13 @@
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
       <div class="tools">
-        <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn">
+        <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn" aria-label="Sdílet odkaz" title="Sdílet odkaz">
           <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
-          <span>Sdílet</span>
+          <span class="tool__t">Sdílet</span>
         </button>
-        <button type="button" class="tool" onclick={openTour} data-tour="help" data-testid="tour-btn">
+        <button type="button" class="tool" onclick={openTour} data-tour="help" data-testid="tour-btn" aria-label="Průvodce aplikací" title="Průvodce aplikací">
           <Ikona d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" size={18} />
-          <span>Průvodce</span>
+          <span class="tool__t">Průvodce</span>
         </button>
       </div>
       <nav class="mainnav" aria-label="Hlavní navigace" data-tour="nav">
@@ -1043,6 +1054,12 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'podnikani'}
+    {#if snap.podnikani}
+      <Podnikani data={snap.podnikani} stav={pod} onchange={setPodnikani} />
+    {:else}
+      <div class="wrap"><p class="state state--err" role="alert">Data o podnikání se nepodařilo načíst.</p></div>
+    {/if}
   {:else if st.mode === 'penize'}
     {#if snap.penize}
       <Penize
@@ -1323,10 +1340,10 @@
   }
   .mainnav button {
     font: inherit;
-    font-size: 0.95rem;
+    font-size: 0.93rem;
     font-weight: 500;
     min-height: 44px;
-    padding: 0 10px;
+    padding: 0 8px;
     white-space: nowrap;
     border: 0;
     border-bottom: 3px solid transparent;
@@ -1356,6 +1373,20 @@
     display: flex;
     gap: 6px;
     order: 3;
+  }
+  /* na středních šířkách jen ikony, ať se lišta vejde na jeden řádek */
+  @media (min-width: 1001px) and (max-width: 1599px) {
+    .tool__t {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+    .tools .tool {
+      padding: 0 10px;
+    }
   }
   .tool {
     font: inherit;

@@ -13,8 +13,8 @@ import type { Snapshot } from './data/loader.ts';
 import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
-export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize';
-export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize'];
+export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani';
+export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani'];
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -87,6 +87,17 @@ export const DEFAULT_PENIZE: PenizeState = { tab: 'projekty', typ: '', orp: '' }
 const PENIZE_TABY: PenizeState['tab'][] = ['projekty', 'vouchery', 'strategie'];
 const VOUCHER_TYPY = ['inovacni', 'kreativni', 'asistencni', 'startovaci'];
 
+/** Režim „Podnikání“. */
+export interface PodnikaniState {
+  tab: 'kreativci' | 'centra' | 'zony';
+  /** obor kreativců ('' = všechny) */
+  obor: string;
+  q: string;
+}
+
+export const DEFAULT_PODNIKANI: PodnikaniState = { tab: 'kreativci', obor: '', q: '' };
+const PODNIKANI_TABY: PodnikaniState['tab'][] = ['kreativci', 'centra', 'zony'];
+
 /** Režim „Kde by se mi dobře žilo?“ – vlastní stav, nezávislý na drill-downu Statistiky. */
 export interface ZivotState {
   /** zvolené požadavky (id z `POZADAVKY`) s důležitostí 1 = důležité, 2 = velmi důležité */
@@ -124,6 +135,8 @@ export interface AppState {
   urady?: UradyState;
   /** jen když se režim „Peníze kraje“ použil */
   penize?: PenizeState;
+  /** jen když se režim „Podnikání“ použil */
+  podnikani?: PodnikaniState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -296,7 +309,35 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const pe = parsePenize(params);
   if (pe.used || mode === 'penize') state.penize = pe.state;
   if (pe.invalid) invalid = true;
+  const po = parsePodnikani(params, snap);
+  if (po.used || mode === 'podnikani') state.podnikani = po.state;
+  if (po.invalid) invalid = true;
   return { state, invalid };
+}
+
+/** Parametry režimu „Podnikání“: kt=<tab>, ko=<obor>, kq=<hledání>. */
+function parsePodnikani(params: URLSearchParams, snap: Snapshot): { state: PodnikaniState; used: boolean; invalid: boolean } {
+  const st: PodnikaniState = { ...DEFAULT_PODNIKANI };
+  let used = false;
+  let invalid = false;
+  const kt = params.get('kt');
+  if (kt !== null) {
+    used = true;
+    if ((PODNIKANI_TABY as string[]).includes(kt)) st.tab = kt as PodnikaniState['tab'];
+    else invalid = true;
+  }
+  const ko = params.get('ko');
+  if (ko !== null) {
+    used = true;
+    if (ko === '' || !snap.podnikani || snap.podnikani.kreativci.some((k) => k.obory.includes(ko))) st.obor = ko;
+    else invalid = true;
+  }
+  const kq = params.get('kq');
+  if (kq !== null) {
+    used = true;
+    st.q = kq.slice(0, 80);
+  }
+  return { state: st, used, invalid };
 }
 
 /** Parametry režimu „Peníze kraje“: pt=<tab>, pv=<typ voucheru>, po=<kód ORP>. */
@@ -524,6 +565,12 @@ export function toHash(state: AppState): string {
     parts.push(`zp=${Object.entries(z.pozadavky).map(([id, w]) => `${id}:${w}`).join(',')}`);
     if (z.obec) parts.push(`zo=${z.obec}`);
     if (z.ukaz) parts.push(`zu=${z.ukaz}`);
+  }
+  if (state.podnikani) {
+    const p = state.podnikani;
+    if (p.tab !== DEFAULT_PODNIKANI.tab) parts.push(`kt=${p.tab}`);
+    if (p.obor) parts.push(`ko=${encodeURIComponent(p.obor)}`);
+    if (p.q) parts.push(`kq=${encodeURIComponent(p.q)}`);
   }
   if (state.penize) {
     const p = state.penize;

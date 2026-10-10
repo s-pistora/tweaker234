@@ -17,6 +17,7 @@ const snap: Snapshot = {
     vylety: null,
     urady: null,
     penize: null,
+    podnikani: null,
   updatedAt: manifest.updatedAt,
 };
 

@@ -290,6 +290,8 @@ export interface Manifest {
     urady?: string;
     /** projekty a strategie kraje (režim „Peníze kraje“), volitelné */
     penize?: string;
+    /** kreativci, inovační infrastruktura, průmyslové zóny (režim „Podnikání“), volitelné */
+    podnikani?: string;
   };
 }
 
@@ -306,6 +308,7 @@ export function isManifest(x: unknown): x is Manifest {
     (x.files.skoly === undefined || typeof x.files.skoly === 'string') &&
     (x.files.vylety === undefined || typeof x.files.vylety === 'string') &&
     (x.files.urady === undefined || typeof x.files.urady === 'string') &&
-    (x.files.penize === undefined || typeof x.files.penize === 'string')
+    (x.files.penize === undefined || typeof x.files.penize === 'string') &&
+    (x.files.podnikani === undefined || typeof x.files.podnikani === 'string')
   );
 }

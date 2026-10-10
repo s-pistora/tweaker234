@@ -499,6 +499,36 @@
    "downloadedAt": "2026-10-10T11:00:24.671Z",
    "validFor": "koupací sezóna 2026",
    "status": "ok"
+  },
+  {
+   "id": "dz-podnikani-kreativci",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Galerie kreativců Karlovarského kraje",
+   "url": "https://www.datazapad.cz/api/download/v1/items/5ad57de2f5ea4f4483fd123f48beee47/csv?layers=0",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-10T11:07:14.596Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-podnikani-infra",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Inovační infrastruktury Karlovarského kraje",
+   "url": "https://www.datazapad.cz/api/download/v1/items/f98f8248cdf140ad84649976f2d6f499/csv?layers=3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-10T11:07:14.596Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-podnikani-zony",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Průmyslové zóny a parky v Karlovarském kraji",
+   "url": "https://www.datazapad.cz/api/download/v1/items/6fb15a0f28fe41d083ac150dc7405171/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-10T11:07:14.596Z",
+   "validFor": "2026",
+   "status": "ok"
   }
  ],
  "files": {
@@ -523,6 +553,7 @@
   "skoly": "skoly/obory.json",
   "vylety": "vylety/mista.json",
   "urady": "urady/urady.json",
-  "penize": "penize/penize.json"
+  "penize": "penize/penize.json",
+  "podnikani": "podnikani/podnikani.json"
  }
 }

@@ -109,6 +109,21 @@ kde je najdete, co vyrábějí (maso, mléčné výrobky, pečivo, nápoje, ovoc
 a jestli vyhráli svou kategorii. Data: DATAZÁPAD, sada „Dobroty Karlovarského kraje“ (CC0),
 součást `npm run data:vylety`.
 
+## Podnikání – „Kdo v kraji tvoří a kde začít podnikat“
+
+- **Kreativci:** 197 lidí a firem z Galerie kreativců (grafici, fotografové, řemeslníci, webdesign…)
+  v 43 oborech, hledání a filtr oboru, odkazy na web a profil.
+- **Inkubátory a coworkingy:** 22 míst – podnikatelské inkubátory, coworkingy, inovační centra,
+  otevřená dílna, pobočky vysokých škol, CzechInvest, API, hospodářská komora.
+- **Průmyslové zóny:** 11 stávajících a 8 plánovaných.
+
+Data (DATAZÁPAD): Galerie kreativců (CC BY 4.0), Inovační infrastruktury (CC BY 4.0), Průmyslové zóny
+a parky (CC0). Aktualizace: `npm run data:podnikani`.
+
+**Nalezené nesrovnalosti:** 64 z 197 kreativců bez obce; inovační infrastruktura uvádí stejné místo
+pro každý typ zvlášť (3 duplicity); mezi „průmyslovými zónami“ je věznice a zkušební polygon BMW;
+obory kreativců obsahují čárky uvnitř názvů („Průmyslový, produktový a módní design“).
+
 ## Peníze kraje – „Co kraj buduje a komu dává“
 
 - **Projekty kraje:** 6 běžících projektů s rozpočtem, dotací, termínem a průběhem v čase
