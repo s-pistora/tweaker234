@@ -5,8 +5,18 @@ import { describe, expect, it } from 'vitest';
 import type { Snapshot } from '../src/lib/data/loader.ts';
 import { areaFeatures } from '../src/lib/map/project.ts';
 import { centroidy } from '../src/lib/map/centroids.ts';
-import { vytvorKontext } from '../src/lib/zivot.ts';
-import { hledejObce, obecVKostce, otazkaOObci, tipyNaVylet, VYLET_KM, type Blizko } from '../src/lib/domu.ts';
+import { bodyPozadavku, vytvorKontext } from '../src/lib/zivot.ts';
+import {
+  hledejObce,
+  jednoznacneNazvy,
+  obecVKostce,
+  otazkaOObci,
+  stredObce,
+  tipyNaVylet,
+  VYLET_KM,
+  type Blizko,
+} from '../src/lib/domu.ts';
+import { ustavniSkola } from '../src/lib/skoly.ts';
 import { MENU, skupinaRezimu } from '../src/lib/menu.ts';
 import { MODES } from '../src/lib/state.ts';
 
@@ -88,6 +98,49 @@ describe('domu – obec v kostce', () => {
     expect(o.urady!.orp?.nazev).toMatch(/Karlovy Vary/);
     expect(o.urady!.matrika).not.toBeNull();
     expect(JSON.stringify(o)).not.toMatch(/NaN|undefined/);
+  });
+
+  it('střed obce: radnice/zastávky místo těžiště; zastávky v obci i do 1 km', () => {
+    // těžiště rozlehlých obcí leží mimo zástavbu → dřív 2 zastávky v Sokolově, 0 v Aši
+    for (const [n, min] of [['Sokolov', 15], ['Aš', 20], ['Karlovy Vary', 30], ['Kraslice', 10]] as const) {
+      const code = kod(n);
+      const s = stredObce(ctx, code)!;
+      expect(s.zdroj, n).not.toBe('teziste');
+      const o = obecVKostce(ctx, code)!;
+      expect(o.zastavky, n).toBeGreaterThan(min);
+      expect(o.stred).toEqual(s);
+    }
+    expect(stredObce(ctx, '000000')).toBeNull();
+  });
+
+  it('ústavní školy se jako nejbližší MŠ/ZŠ nenabízejí', () => {
+    expect(ustavniSkola('Dětský domov se školou, základní škola a školní jídelna Žlutice, Jiráskova 344')).toBe(true);
+    expect(ustavniSkola('Základní škola a mateřská škola při zdravotnických zařízeních Karlovy Vary')).toBe(true);
+    expect(ustavniSkola('Základní škola Žlutice, příspěvková organizace')).toBe(false);
+    for (const n of ['Žlutice', 'Čichalov', 'Verušičky']) {
+      const o = obecVKostce(ctx, kod(n))!;
+      expect(o.zs!.nazev, n).not.toMatch(/domov se školou/i);
+      expect(o.ms!.nazev, n).not.toMatch(/domov se školou|zdravotnick/i);
+    }
+    // i „Kde by se mi žilo“ používá stejný filtr
+    expect(bodyPozadavku(ctx, 'zakladni-skola').some((b) => ustavniSkola(b.nazev))).toBe(false);
+    expect(bodyPozadavku(ctx, 'materska-skola').some((b) => ustavniSkola(b.nazev))).toBe(false);
+  });
+
+  it('neobydlená obec (vojenský újezd Hradiště): bez služeb', () => {
+    const o = obecVKostce(ctx, '555177')!;
+    expect(o.neobydlena).toBe(true);
+    expect([o.ms, o.zs, o.lekar, o.nemocnice, o.zastavky]).toEqual([null, null, null, null, null]);
+    expect(o.vylety).toEqual([]);
+  });
+
+  it('stejné názvy obcí se rozliší podle ORP', () => {
+    const orp = Object.fromEntries(feats.map((f) => [f.properties.code, f.properties.parent === '4107' ? 'Sokolov' : 'Karlovy Vary']));
+    const u = jednoznacneNazvy(names, orp);
+    expect(u['560383']).toBe('Chodov (ORP Sokolov)');
+    expect(u['578011']).toBe('Chodov (ORP Karlovy Vary)');
+    expect(u[KV]).toBe('Karlovy Vary');
+    expect(new Set(Object.values(u)).size).toBe(134);
   });
 
   it('neznámá obec → null; otázka pro AI', () => {

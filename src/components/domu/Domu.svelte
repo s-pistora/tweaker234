@@ -17,11 +17,13 @@
     obec: AreaCode | null;
     kostka: ObecVKostce | null;
     onobec: (code: AreaCode) => void;
+    /** zrušit vybranou obec (karta zmizí, ho= z adresy) */
+    onzrusit: () => void;
     jdi: (c: Cil) => void;
     href: (c: Cil) => string;
     onzdroje: () => void;
   }
-  const { names, obec, kostka, onobec, jdi, href, onzdroje }: Props = $props();
+  const { names, obec, kostka, onobec, onzrusit, jdi, href, onzdroje }: Props = $props();
 
   const RYCHLE: { code: AreaCode; nazev: string }[] = [
     { code: '554961', nazev: 'Karlovy Vary' },
@@ -54,7 +56,7 @@
       </p>
     </div>
     <div class="hledani" data-tour="hledani">
-      <ObecHledani {names} {obec} onselect={onobec} />
+      <ObecHledani {names} {obec} onselect={onobec} onclear={onzrusit} />
       {#if !obec}
         <p class="rychle">
           <span>Například:</span>
@@ -68,9 +70,9 @@
 </section>
 
 <main class="wrap main">
-  <p class="sr-only" aria-live="polite">{kostka ? `Obec v kostce: ${kostka.nazev}` : ''}</p>
+  <p class="sr-only" aria-live="polite">{kostka ? `Obec v kostce: ${names[kostka.code] ?? kostka.nazev}` : ''}</p>
   {#if kostka}
-    <ObecKostka k={kostka} {jdi} {href} ai={$poradceDostupny} />
+    <ObecKostka k={kostka} nazev={names[kostka.code]} {jdi} {href} ai={$poradceDostupny} />
   {/if}
 
   <section class="oblasti" aria-labelledby="oblasti-h" data-tour="oblasti">

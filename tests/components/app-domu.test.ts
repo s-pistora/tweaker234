@@ -12,14 +12,20 @@ import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
-/** fetch z public/; `poradce` = proxy AI poradce odpoví „bez klíče“ (503 JSON) → poradce je vidět */
-function fetchFromPublic(poradce = false): typeof fetch {
-  return (async (input: RequestInfo | URL) => {
+const JSON_H = { 'content-type': 'application/json' };
+/**
+ * fetch z public/; `poradce`: 'pripraveno' = proxy s klíčem (GET ok, POST vrátí odpověď modelu),
+ * 'bez-klice' = 503 JSON; jinak proxy neexistuje (404).
+ */
+function fetchFromPublic(poradce: 'pripraveno' | 'bez-klice' | null = null): typeof fetch {
+  return (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     if (url.includes('/api/poradce')) {
-      return poradce
-        ? new Response(JSON.stringify({ ok: false }), { status: 503, headers: { 'content-type': 'application/json' } })
-        : new Response('not found', { status: 404 });
+      if (poradce === 'bez-klice') return new Response(JSON.stringify({ ok: false }), { status: 503, headers: JSON_H });
+      if (poradce !== 'pripraveno') return new Response('not found', { status: 404 });
+      if (init?.method !== 'POST') return new Response(JSON.stringify({ ok: true }), { status: 200, headers: JSON_H });
+      const odpoved = { choices: [{ message: { role: 'assistant', content: 'V Chebu je nemocnice i nádraží.' } }] };
+      return new Response(JSON.stringify(odpoved), { status: 200, headers: JSON_H });
     }
     const full = path.join(PUBLIC_DIR, url.replace(/^\.\//, ''));
     if (!existsSync(full)) return new Response('not found', { status: 404 });
@@ -191,18 +197,72 @@ describe('App – hlavní menu', () => {
 });
 
 describe('App – AI poradce z úvodní stránky', () => {
-  it('tlačítko „Zeptat se AI na obec“ otevře chat s otázkou', async () => {
-    vi.stubGlobal('fetch', fetchFromPublic(true));
+  it('poradce s klíčem: „Zeptat se AI na obec“ otevře chat a otázku odešle', async () => {
+    vi.stubGlobal('fetch', fetchFromPublic('pripraveno'));
     location.hash = '#/kraj?m=domu&ho=554481';
     render(App);
     await screen.findByTestId('obec-kostka', {}, { timeout: 5000 });
-    // poradce bez klíče je vidět → ukážou se i otázky na úvodní stránce
     await screen.findByTestId('domu-ai');
     await fireEvent.click(screen.getByTestId('kostka-ai'));
     const panel = await screen.findByTestId('poradce-panel');
-    // bez klíče se otázka jen vloží do pole (odeslat nejde)
-    await waitFor(() =>
-      expect((panel.querySelector('textarea') as HTMLTextAreaElement).value).toBe('Jak se žije v obci Cheb? Co je tam blízko?'),
-    );
+    await waitFor(() => expect(panel.textContent).toMatch(/Jak se žije v obci Cheb\? Co je tam blízko\?/));
+    await waitFor(() => expect(panel.textContent).toMatch(/V Chebu je nemocnice/));
+  }, 20000);
+
+  it('poradce bez klíče: tlačítka „Zeptat se AI“ ani krok průvodce se neukážou', async () => {
+    vi.stubGlobal('fetch', fetchFromPublic('bez-klice'));
+    location.hash = '#/kraj?m=domu&ho=554481';
+    render(App);
+    await screen.findByTestId('obec-kostka', {}, { timeout: 5000 });
+    await screen.findByTestId('poradce-btn'); // plovoucí tlačítko je (ukáže návod ke klíči)
+    expect(screen.queryByTestId('domu-ai')).toBeNull();
+    expect(screen.queryByTestId('kostka-ai')).toBeNull();
+    await fireEvent.click(screen.getByTestId('tour-btn'));
+    const tour = await screen.findByTestId('pruvodce');
+    expect(tour.textContent).toMatch(/Krok 1 z 9/);
+  }, 20000);
+});
+
+describe('App – úvod: zvláštní obce a fokus', () => {
+  it('stejné názvy obcí se rozliší podle ORP; ✕ zruší obec; vojenský újezd bez služeb', async () => {
+    render(App);
+    await waitFor(() => expect(hledat()).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.input(hledat(), { target: { value: 'chodov' } });
+    const moznosti = [...screen.getByTestId('domu-nabidka').querySelectorAll('[role="option"]')].map((o) => o.textContent?.trim());
+    expect(moznosti).toEqual(expect.arrayContaining(['Chodov (ORP Sokolov)', 'Chodov (ORP Karlovy Vary)']));
+    await fireEvent.mouseDown(screen.getByTestId('domu-moznost-578011'));
+    const k = await screen.findByTestId('obec-kostka');
+    expect(hledat().value).toBe('Chodov (ORP Karlovy Vary)');
+    expect(k.querySelector('h2')!.textContent).toBe('Chodov (ORP Karlovy Vary)');
+    expect(location.hash).toContain('ho=578011');
+
+    // ✕ smaže pole i vybranou obec
+    await fireEvent.click(screen.getByTestId('domu-smazat'));
+    expect(hledat().value).toBe('');
+    expect(screen.queryByTestId('obec-kostka')).toBeNull();
+    expect(location.hash).not.toContain('ho=');
+    expect(document.activeElement).toBe(hledat());
+
+    // vojenský újezd Hradiště: poznámka místo služeb, bez odkazu na Kde by se mi žilo
+    await fireEvent.input(hledat(), { target: { value: 'hradiste' } });
+    await fireEvent.keyDown(hledat(), { key: 'Enter' });
+    await screen.findByTestId('kostka-neobydlena');
+    expect(screen.queryByTestId('kostka-zastavky')).toBeNull();
+    expect(screen.queryByTestId('kostka-zivot')).toBeNull();
+  }, 20000);
+
+  it('po výběru stránky z menu jde fokus na nadpis; po zavření Zdrojů dat na tlačítko skupiny', async () => {
+    render(App);
+    await waitFor(() => expect(hledat()).toBeTruthy(), { timeout: 5000 });
+    await zMenu('bydleni', 'mode-urady');
+    const h1 = screen.getByRole('heading', { level: 1 });
+    await waitFor(() => expect(document.activeElement).toBe(h1));
+    expect(h1.textContent).toMatch(/úřad/);
+
+    await zMenu('data', 'sources-btn');
+    const dialog = await screen.findByRole('dialog');
+    await fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(document.activeElement).toBe(screen.getByTestId('menu-data'));
   }, 20000);
 });

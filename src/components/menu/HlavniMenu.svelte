@@ -5,6 +5,7 @@
    * Panel se otevře klikem, zavře se Esc (fokus zpět na tlačítko skupiny), klikem mimo
    * nebo výběrem položky. Šipky ↓/↑ procházejí položky otevřeného panelu.
    */
+  import { tick } from 'svelte';
   import Ikona from '../vylety/Ikona.svelte';
   import { MENU, skupinaRezimu, type SkupinaId } from '../../lib/menu.ts';
   import { KATEGORIE } from '../../lib/vylety.ts';
@@ -18,8 +19,11 @@
     onmode: (m: Mode) => void;
     onkat: (k: KategorieId) => void;
     onzdroje: () => void;
+    /** Sdílet a Průvodce – na úzkém mobilu jsou v panelu menu místo v liště */
+    onshare: () => void;
+    ontour: () => void;
   }
-  const { mode, kat = null, onmode, onkat, onzdroje }: Props = $props();
+  const { mode, kat = null, onmode, onkat, onzdroje, onshare, ontour }: Props = $props();
 
   /** otevřený panel skupiny (počítač) */
   let otevrena = $state<SkupinaId | null>(null);
@@ -39,18 +43,42 @@
     const byloMobil = mobil;
     otevrena = null;
     mobil = false;
-    if (fokus && bylo) root?.querySelector<HTMLElement>(`[data-testid="menu-${bylo}"]`)?.focus();
-    else if (fokus && byloMobil) root?.querySelector<HTMLElement>('[data-testid="menu-toggle"]')?.focus();
+    if (fokus && (bylo || byloMobil)) fokusZpet(bylo);
     return !!bylo || byloMobil;
+  }
+
+  const viditelny = (el: HTMLElement | null | undefined): el is HTMLElement =>
+    !!el && (typeof el.checkVisibility === 'function' ? el.checkVisibility() : true);
+  /** fokus na tlačítko skupiny (počítač), jinak na tlačítko Menu (mobil) */
+  function fokusZpet(id: SkupinaId | null) {
+    const btn = id ? root?.querySelector<HTMLElement>(`[data-testid="menu-${id}"]`) : null;
+    if (viditelny(btn)) btn.focus();
+    else root?.querySelector<HTMLElement>('[data-testid="menu-toggle"]')?.focus();
   }
 
   function prepni(id: SkupinaId) {
     otevrena = otevrena === id ? null : id;
   }
-  function vyber(fn: () => void) {
+  /**
+   * Výběr položky: panel se zavře (položka s fokusem zmizí), proto fokus přesuneme –
+   * po přechodu na jinou stránku na její nadpis h1, u akcí (Zdroje dat, Sdílet…) zpět
+   * na tlačítko skupiny / Menu, ať se tam dialog po zavření vrátí.
+   */
+  async function vyber(fn: () => void, id: SkupinaId | null, cil: 'obsah' | 'zpet' = 'obsah') {
     otevrena = null;
     mobil = false;
+    if (cil === 'zpet') {
+      fokusZpet(id);
+      fn();
+      return;
+    }
     fn();
+    await tick();
+    const h = document.querySelector<HTMLElement>('h1');
+    if (h) {
+      if (!h.hasAttribute('tabindex')) h.setAttribute('tabindex', '-1');
+      h.focus({ preventScroll: true });
+    }
   }
 
   function polozky(id: SkupinaId): HTMLElement[] {
@@ -101,6 +129,16 @@
   </button>
 
   <nav id="hlavni-menu" class="nav" class:nav--open={mobil} aria-label="Hlavní navigace" data-tour="nav" data-testid="hlavni-menu">
+    <div class="mtools">
+      <button type="button" onclick={() => vyber(onshare, null, 'zpet')} data-testid="menu-share">
+        <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
+        <span>Sdílet odkaz</span>
+      </button>
+      <button type="button" onclick={() => vyber(ontour, null, 'zpet')} data-testid="menu-tour">
+        <Ikona d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01" size={18} />
+        <span>Průvodce aplikací</span>
+      </button>
+    </div>
     <ul class="groups">
       {#each MENU as g (g.id)}
         <li class="grp grp--{g.id}" class:grp--open={otevrena === g.id}>
@@ -139,14 +177,14 @@
                       class="item"
                       class:on={mode === m}
                       aria-current={mode === m ? 'page' : undefined}
-                      onclick={() => vyber(() => onmode(m))}
+                      onclick={() => vyber(() => onmode(m), g.id)}
                       data-testid="mode-{m}"
                     >
                       <span class="item__t">{p.label}</span>
                       <span class="item__p">{p.popis}</span>
                     </button>
                   {:else}
-                    <button type="button" class="item" onclick={() => vyber(onzdroje)} data-testid="sources-btn">
+                    <button type="button" class="item" onclick={() => vyber(onzdroje, g.id, 'zpet')} data-testid="sources-btn">
                       <span class="item__t">{p.label}</span>
                       <span class="item__p">{p.popis}</span>
                     </button>
@@ -163,7 +201,7 @@
                       type="button"
                       class:on={mode === 'vylety' && kat === k.id}
                       aria-current={mode === 'vylety' && kat === k.id ? 'page' : undefined}
-                      onclick={() => vyber(() => onkat(k.id))}
+                      onclick={() => vyber(() => onkat(k.id), g.id)}
                       data-testid="menu-kat-{k.id}"
                     >
                       <Ikona d={k.ikona} size={18} color={k.barva} />
@@ -229,7 +267,8 @@
     color: var(--brand);
     border-bottom-color: var(--brand);
   }
-  .grp__h {
+  .grp__h,
+  .mtools {
     display: none;
   }
   /* rozbalovací panel */
@@ -336,6 +375,7 @@
   .kat button.on {
     font-weight: 500;
   }
+  .mtools button:focus-visible,
   .grp__btn:focus-visible,
   .item:focus-visible,
   .kat button:focus-visible,
@@ -427,6 +467,30 @@
     }
     .kat button {
       padding: 0 8px;
+    }
+  }
+  /* úzký mobil: Sdílet a Průvodce jsou nahoře v panelu (lišta = logo + Menu) */
+  @media (max-width: 560px) {
+    .mtools {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      padding: 12px 0 4px;
+    }
+    .mtools button {
+      font: inherit;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 44px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--brand);
+      cursor: pointer;
     }
   }
   @media (max-width: 600px) {

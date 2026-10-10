@@ -12,8 +12,11 @@
     /** vybraná obec (z adresy nebo z výběru) */
     obec: AreaCode | null;
     onselect: (code: AreaCode) => void;
+    /** smazat pole a zrušit vybranou obec */
+    onclear: () => void;
   }
-  const { names, obec, onselect }: Props = $props();
+  const { names, obec, onselect, onclear }: Props = $props();
+  let pole = $state<HTMLInputElement | null>(null);
 
   let q = $state('');
   let otevreno = $state(false);
@@ -26,6 +29,21 @@
 
   const nalezy = $derived(hledejObce(names, q, 8));
   const ukazat = $derived(otevreno && q.trim().length > 0);
+
+  // aktivní možnost (šipkami) vždy viditelná v posouvaném seznamu
+  $effect(() => {
+    if (!ukazat || aktivni < 0) return;
+    const n = nalezy[aktivni];
+    if (n) document.getElementById(`domu-obec-${n.code}`)?.scrollIntoView?.({ block: 'nearest' });
+  });
+
+  function smazat() {
+    q = '';
+    aktivni = -1;
+    otevreno = false;
+    onclear();
+    pole?.focus();
+  }
 
   function vyber(code: AreaCode) {
     q = names[code] ?? '';
@@ -79,6 +97,7 @@
       aria-controls="domu-obce"
       aria-activedescendant={ukazat && aktivni >= 0 && nalezy[aktivni] ? `domu-obec-${nalezy[aktivni].code}` : undefined}
       aria-describedby="domu-obec-help"
+      bind:this={pole}
       value={q}
       oninput={onInput}
       onkeydown={onKey}
@@ -86,7 +105,12 @@
       onblur={() => (otevreno = false)}
       data-testid="domu-hledat"
     />
-    <ul id="domu-obce" class="cb__list" role="listbox" aria-label="Nalezené obce" hidden={!ukazat} data-testid="domu-nabidka">
+    {#if q || obec}
+      <button type="button" class="cb__smazat" onclick={smazat} aria-label="Smazat hledání a vybranou obec" data-testid="domu-smazat">
+        <Ikona d="M6 6l12 12M18 6L6 18" size={18} />
+      </button>
+    {/if}
+    <ul id="domu-obce" class="cb__list" role="listbox" aria-label="Nalezené obce" hidden={!ukazat} onmousedown={(e) => e.preventDefault()} data-testid="domu-nabidka">
       {#each nalezy as n, i (n.code)}
         <li
           id="domu-obec-{n.code}"
@@ -125,7 +149,7 @@
     align-items: center;
     color: var(--text-muted);
   }
-  .cb__pole :global(svg) {
+  .cb__pole > :global(svg) {
     position: absolute;
     left: 12px;
     pointer-events: none;
@@ -135,13 +159,30 @@
     font-size: 1.05rem;
     width: 100%;
     min-height: 52px;
-    padding: 0 14px 0 42px;
+    padding: 0 50px 0 42px;
     box-sizing: border-box;
     border: 1px solid #8a94a3;
     border-radius: 4px;
     background: #fff;
     color: var(--text);
   }
+  .cb__smazat {
+    position: absolute;
+    right: 4px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 4px;
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .cb__smazat:hover {
+    color: var(--brand);
+  }
+  .cb__smazat:focus-visible,
   input:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);

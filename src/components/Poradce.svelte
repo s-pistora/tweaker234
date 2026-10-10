@@ -50,9 +50,9 @@
     }
   });
 
-  // tlačítka „Zeptat se AI“ jinde v aplikaci se ukážou, jen když poradce běží
+  // tlačítka „Zeptat se AI“ jinde v aplikaci se ukážou, jen když poradce opravdu odpovídá (má klíč)
   $effect(() => {
-    poradceDostupny.set(stav !== 'skryto');
+    poradceDostupny.set(stav === 'pripraveno');
   });
   onDestroy(() => poradceDostupny.set(false));
 
@@ -70,7 +70,7 @@
 
   async function dolu() {
     await tick();
-    seznamEl?.scrollTo({ top: seznamEl.scrollHeight, behavior: 'smooth' });
+    seznamEl?.scrollTo?.({ top: seznamEl.scrollHeight, behavior: 'smooth' });
   }
 
   async function otevri() {

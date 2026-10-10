@@ -17,8 +17,11 @@
     href: (c: Cil) => string;
     /** AI poradce běží → tlačítko „Zeptat se AI“ */
     ai: boolean;
+    /** jednoznačný název obce (u stejných názvů s ORP) */
+    nazev?: string;
   }
-  const { k, jdi, href, ai }: Props = $props();
+  const { k, jdi, href, ai, nazev }: Props = $props();
+  const jmeno = $derived(nazev ?? k.nazev);
 
   const fmt = fmtKm;
   /** obec služby, jen když leží jinde než ve vybrané obci */
@@ -50,18 +53,29 @@
   <header class="kostka__head">
     <div>
       <p class="kicker">Obec v kostce</p>
-      <h2 id="kostka-h">{k.nazev}</h2>
-      <p class="kostka__perex">Co máte blízko. Vzdálenosti měříme vzdušnou čarou od středu obce.</p>
+      <h2 id="kostka-h">{jmeno}</h2>
+      {#if k.neobydlena}
+        <p class="kostka__perex" data-testid="kostka-neobydlena">Vojenský újezd bez stálých obyvatel. Služby v okolí proto neukazujeme.</p>
+      {:else}
+        <p class="kostka__perex">
+          Co máte blízko. Vzdálenosti měříme vzdušnou čarou od {k.stred.zdroj === 'matrika'
+            ? 'radnice'
+            : k.stred.zdroj === 'zastavky'
+              ? 'středu zástavby'
+              : 'středu území obce'}.
+        </p>
+      {/if}
     </div>
-    {#if ai}
-      <button type="button" class="ai" onclick={() => zeptejSePoradce(otazkaOObci(k.nazev))} data-testid="kostka-ai">
+    {#if ai && !k.neobydlena}
+      <button type="button" class="ai" onclick={() => zeptejSePoradce(otazkaOObci(jmeno))} data-testid="kostka-ai">
         <Ikona d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" size={20} />
-        <span>Zeptat se AI na obec {k.nazev}</span>
+        <span>Zeptat se AI na obec {jmeno}</span>
       </button>
     {/if}
   </header>
 
   <div class="kostka__grid">
+    {#if !k.neobydlena}
     <section class="blok" aria-labelledby="k-skoly">
       <h3 id="k-skoly">Školy</h3>
       <ul class="rows">
@@ -77,7 +91,7 @@
         {/each}
       </ul>
       <a class="more" href={href({ mode: 'skoly', obec: k.code })} onclick={klik({ mode: 'skoly', obec: k.code })} data-testid="kostka-skoly">
-        Kam na střední z obce {k.nazev}
+        Kam na střední z obce {jmeno}
       </a>
     </section>
 
@@ -96,6 +110,7 @@
         {/each}
       </ul>
     </section>
+    {/if}
 
     <section class="blok" aria-labelledby="k-urady">
       <h3 id="k-urady">Úřady</h3>
@@ -121,6 +136,7 @@
       {/if}
     </section>
 
+    {#if !k.neobydlena}
     <section class="blok" aria-labelledby="k-doprava">
       <h3 id="k-doprava">Doprava</h3>
       {#if k.zastavky === null}
@@ -129,8 +145,8 @@
         <p class="velke">
           <span class="velke__n" data-testid="kostka-zastavky">{k.zastavky}</span>
           <span>
-            {plural(k.zastavky, ['autobusová zastávka', 'autobusové zastávky', 'autobusových zastávek'])} do
-            {ZASTAVKY_KM}&nbsp;km od středu obce
+            {plural(k.zastavky, ['autobusová zastávka', 'autobusové zastávky', 'autobusových zastávek'])} v obci a do
+            {ZASTAVKY_KM}&nbsp;km od jejího středu
           </span>
         </p>
       {/if}
@@ -155,7 +171,7 @@
         <p class="nic">Do {VYLET_KM} km nemáme v datech žádné místo.</p>
       {/if}
       <a class="more" href={href({ mode: 'vylety', obec: k.code, kat: null })} onclick={klik({ mode: 'vylety', obec: k.code, kat: null })}>
-        Kam vyrazit z obce {k.nazev}
+        Kam vyrazit z obce {jmeno}
       </a>
     </section>
 
@@ -166,6 +182,7 @@
         Kde by se mi žilo – detail obce
       </a>
     </section>
+    {/if}
   </div>
 </section>
 

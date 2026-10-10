@@ -7,8 +7,7 @@
 import type { AreaCode, KategorieId, Misto } from './types.ts';
 import { vzdalenostKm } from './skoly.ts';
 import { KATEGORIE_BY_ID, bezDiakritiky } from './vylety.ts';
-import { bodyPozadavku, type ZivotKontext } from './zivot.ts';
-import { nejblizsiBod } from './zivot-mapa.ts';
+import { bodyPozadavku, type BodZivota, type ZivotKontext } from './zivot.ts';
 import { matrikaProObec, uradOrp, type Kontakt, type MatrikaVyber, type UradyObce } from './urady.ts';
 
 // --- rychlé hledání obce ----------------------------------------------------------
@@ -72,10 +71,17 @@ export interface UradyVKostce {
 export interface ObecVKostce {
   code: AreaCode;
   nazev: string;
+  /** obec bez stálých obyvatel (vojenský újezd) – služby se neukazují */
+  neobydlena: boolean;
+  /** odkud se měří vzdálenosti (viz `stredObce`) */
+  stred: StredObce;
   ms: Blizko | null;
   zs: Blizko | null;
   ss: Blizko | null;
-  /** počet autobusových zastávek do 1 km od středu obce; null = data o zastávkách chybí */
+  /**
+   * autobusové zastávky v obci nebo do `ZASTAVKY_KM` od jejího středu;
+   * null = data o zastávkách chybí
+   */
   zastavky: number | null;
   lekar: Blizko | null;
   lekarna: Blizko | null;
@@ -88,16 +94,68 @@ export interface ObecVKostce {
 export const ZASTAVKY_KM = 1;
 export const VYLET_KM = 15;
 
-function blizko(ctx: ZivotKontext, id: string, code: AreaCode): Blizko | null {
-  const n = nejblizsiBod(ctx, id, code);
-  if (!n || !Number.isFinite(n.km)) return null;
-  const obec = n.bod.obec;
+export interface StredObce {
+  lat: number;
+  lon: number;
+  /** odkud bod je: sídlo matriky v obci, průměr zastávek obce, nebo těžiště území */
+  zdroj: 'matrika' | 'zastavky' | 'teziste';
+}
+
+/**
+ * Reprezentativní „střed obce“ – místo, kde lidé opravdu bydlí. Těžiště území bývá
+ * u rozlehlých obcí v lese (Aš, Sokolov, Kraslice), proto přednostně:
+ * 1. sídlo matričního úřadu přímo v obci (radnice), 2. průměr zastávek ležících v obci,
+ * 3. těžiště území. null = obec neznáme.
+ */
+export function stredObce(ctx: ZivotKontext, code: AreaCode): StredObce | null {
+  const t = ctx.obce[code];
+  if (!t) return null;
+  const nazev = ctx.snap.urady?.obce.find((o) => o.kod === code)?.nazev ?? ctx.names[code] ?? '';
+  const m = ctx.snap.urady ? matrikaProObec(nazev, t, ctx.snap.urady.matriky) : null;
+  if (m?.vObci && m.matrika.lat !== null && m.matrika.lon !== null) {
+    return { lat: m.matrika.lat, lon: m.matrika.lon, zdroj: 'matrika' };
+  }
+  const z = bodyPozadavku(ctx, 'zastavka').filter((b) => b.obec === code);
+  if (z.length) {
+    return {
+      lat: z.reduce((s, b) => s + b.lat, 0) / z.length,
+      lon: z.reduce((s, b) => s + b.lon, 0) / z.length,
+      zdroj: 'zastavky',
+    };
+  }
+  return { lat: t.lat, lon: t.lon, zdroj: 'teziste' };
+}
+
+/** Nejbližší bod požadavku ke středu obce. */
+function blizko(ctx: ZivotKontext, id: string, code: AreaCode, stred: { lat: number; lon: number }): Blizko | null {
+  let best: { b: BodZivota; km: number } | null = null;
+  for (const b of bodyPozadavku(ctx, id)) {
+    const km = vzdalenostKm(stred.lat, stred.lon, b.lat, b.lon);
+    if (Number.isFinite(km) && (!best || km < best.km)) best = { b, km };
+  }
+  if (!best) return null;
+  const obec = best.b.obec;
   return {
-    nazev: n.bod.nazev,
-    obecNazev: (obec && ctx.names[obec]) || n.bod.obecNazev || '',
-    km: n.km,
+    nazev: best.b.nazev,
+    obecNazev: (obec && ctx.names[obec]) || best.b.obecNazev || '',
+    km: best.km,
     vObci: obec === code,
   };
+}
+
+/**
+ * Jednoznačné názvy obcí: když se název opakuje (Chodov, Březová), doplní se ORP –
+ * „Chodov (ORP Sokolov)“. `orp` = kód obce → název ORP.
+ */
+export function jednoznacneNazvy(
+  names: Record<AreaCode, string>,
+  orp: Record<AreaCode, string>,
+): Record<AreaCode, string> {
+  const pocet = new Map<string, number>();
+  for (const n of Object.values(names)) pocet.set(n, (pocet.get(n) ?? 0) + 1);
+  return Object.fromEntries(
+    Object.entries(names).map(([code, n]) => [code, (pocet.get(n) ?? 0) > 1 && orp[code] ? `${n} (ORP ${orp[code]})` : n]),
+  );
 }
 
 /**
@@ -139,43 +197,55 @@ export function tipyNaVylet(
     }));
 }
 
-/** Úřady pro obec – stejný výběr, jaký ukazuje část „Úřady“. */
-export function uradyObce(ctx: ZivotKontext, code: AreaCode): UradyVKostce | null {
+/** Úřady pro obec – stejný výběr, jaký ukazuje část „Úřady“ (vzdálenost matriky od `stred`). */
+export function uradyObce(ctx: ZivotKontext, code: AreaCode, stred?: { lat: number; lon: number } | null): UradyVKostce | null {
   const data = ctx.snap.urady;
   const obec = data?.obce.find((o) => o.kod === code);
   if (!data || !obec) return null;
+  const t = ctx.obce[code] ?? null;
+  // matrika v obci se pozná podle těžiště (jako v části Úřady), vzdálenost jinam od středu obce
+  const m = matrikaProObec(obec.nazev, t, data.matriky);
   return {
     obec,
     orp: uradOrp(obec, data.obce),
-    matrika: matrikaProObec(obec.nazev, ctx.obce[code] ?? null, data.matriky),
+    matrika: m && !m.vObci && stred ? matrikaProObec(obec.nazev, stred, data.matriky) : m,
   };
 }
 
 const memo = new WeakMap<ZivotKontext, Map<AreaCode, ObecVKostce | null>>();
 
-/** Praktické okolí obce (memo podle kontextu = podle snapshotu); null = obec neznáme. */
+/**
+ * Praktické okolí obce (memo podle kontextu = podle snapshotu); null = obec neznáme.
+ * Všechny vzdálenosti se měří od jednoho bodu – `stredObce`.
+ */
 export function obecVKostce(ctx: ZivotKontext, code: AreaCode): ObecVKostce | null {
   let m = memo.get(ctx);
   if (!m) memo.set(ctx, (m = new Map()));
   if (m.has(code)) return m.get(code) ?? null;
-  const stred = ctx.obce[code];
+  const stred = stredObce(ctx, code);
   let out: ObecVKostce | null = null;
   if (stred) {
+    const neobydlena = ctx.neobydlene.has(code);
     const zastavky = bodyPozadavku(ctx, 'zastavka');
+    const sluzba = (id: string) => (neobydlena ? null : blizko(ctx, id, code, stred));
     out = {
       code,
       nazev: ctx.names[code] ?? code,
-      ms: blizko(ctx, 'materska-skola', code),
-      zs: blizko(ctx, 'zakladni-skola', code),
-      ss: blizko(ctx, 'stredni-skola', code),
-      zastavky: zastavky.length
-        ? zastavky.filter((b) => vzdalenostKm(stred.lat, stred.lon, b.lat, b.lon) <= ZASTAVKY_KM).length
-        : null,
-      lekar: blizko(ctx, 'lekar', code),
-      lekarna: blizko(ctx, 'lekarna', code),
-      nemocnice: blizko(ctx, 'nemocnice', code),
-      urady: uradyObce(ctx, code),
-      vylety: tipyNaVylet(ctx.snap.vylety?.mista ?? [], stred),
+      neobydlena,
+      stred,
+      ms: sluzba('materska-skola'),
+      zs: sluzba('zakladni-skola'),
+      ss: sluzba('stredni-skola'),
+      zastavky:
+        neobydlena || !zastavky.length
+          ? null
+          : zastavky.filter((b) => b.obec === code || vzdalenostKm(stred.lat, stred.lon, b.lat, b.lon) <= ZASTAVKY_KM)
+              .length,
+      lekar: sluzba('lekar'),
+      lekarna: sluzba('lekarna'),
+      nemocnice: sluzba('nemocnice'),
+      urady: uradyObce(ctx, code, stred),
+      vylety: neobydlena ? [] : tipyNaVylet(ctx.snap.vylety?.mista ?? [], stred),
     };
   }
   m.set(code, out);

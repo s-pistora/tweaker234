@@ -2,6 +2,7 @@
   import './styles/tokens.css';
   import './styles/crt.css';
   import { onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
@@ -35,7 +36,7 @@
   import Pruvodce, { type KrokPruvodce } from './components/Pruvodce.svelte';
   import HlavniMenu from './components/menu/HlavniMenu.svelte';
   import Domu from './components/domu/Domu.svelte';
-  import { obecVKostce } from './lib/domu.ts';
+  import { jednoznacneNazvy, obecVKostce } from './lib/domu.ts';
   import type { Cil } from './lib/menu.ts';
   import { poradceDostupny } from './lib/poradce/ovladani.ts';
   import type { MapPoint } from './components/Map.svelte';
@@ -482,6 +483,8 @@
       obecFeatures.map((f) => [f.properties.code, geoIndex.names[geoIndex.obecParent[f.properties.code]] ?? '']),
     ) as Record<AreaCode, string>,
   );
+  /** názvy obcí, u stejných názvů s ORP – „Chodov (ORP Sokolov)“ (úvodní stránka) */
+  const obecNamesJedn = $derived(jednoznacneNazvy(obecNames, ziOrp));
   const ziUkaz = $derived(zi.ukaz ? POZADAVKY_BY_ID[zi.ukaz] : undefined);
   // přiblížená obec: body všech vybraných požadavků (každý jiná barva i tvar), vrstvy jdou skrýt
   /** mapa ukazuje jen vybranou obec bez okolních obcí (tlačítko „Celý kraj“ vrátí celý kraj, detail zůstane) */
@@ -606,11 +609,15 @@
   }
 
   // --- průvodce pro nové uživatele -------------------------------------------
-  const TOUR_KEY = 'kk-pruvodce-v1';
+  // v2: nové menu a úvodní stránka – průvodce se ukáže i těm, kdo viděli ten starý
+  const TOUR_KEY = 'kk-pruvodce-v2';
   let tourOpen = $state(false);
   let tourHash = '';
+  /** kroky se sestaví jednou při otevření, ať se jejich počet během prohlídky nemění */
+  let tourKroky = $state.raw<KrokPruvodce[]>([]);
   function openTour() {
     tourHash = location.hash;
+    tourKroky = sestavKroky();
     tourOpen = true;
   }
   function closeTour() {
@@ -646,7 +653,8 @@
   const TOUR_OBEC = '554961'; // Karlovy Vary
   // Nejvýš 10 kroků: úvod → hledání obce → obec v kostce → menu → Volný čas → kategorie
   // → Kde by se mi žilo → Úřady → AI poradce (jen když běží) → Sdílet a Průvodce.
-  const KROKY = $derived<KrokPruvodce[]>([
+  function sestavKroky(): KrokPruvodce[] {
+    return [
     {
       pred: () => {
         menu?.zavri();
@@ -706,7 +714,7 @@
       nadpis: 'Úřady: kam s tím',
       text: 'Vyberte obec a co potřebujete vyřídit, třeba stavbu nebo svatbu. Ukážeme příslušný úřad s telefonem, e-mailem a datovou schránkou.',
     },
-    ...($poradceDostupny
+    ...(get(poradceDostupny)
       ? [
           {
             cil: 'ai',
@@ -716,11 +724,12 @@
         ]
       : []),
     {
-      cil: 'tools',
+      cil: ['tools', 'menu-toggle'],
       nadpis: 'Sdílet a Průvodce',
-      text: 'Sdílet zkopíruje odkaz přesně na to, co vidíte. Průvodce spustíte kdykoli znovu. Teď vás vrátíme tam, kde jste začali.',
+      text: 'Sdílet zkopíruje odkaz přesně na to, co vidíte. Průvodce spustíte kdykoli znovu. Na mobilu je obojí v Menu. Teď vás vrátíme tam, kde jste začali.',
     },
-  ]);
+  ];
+  }
 
   function setSkoly(patch: Partial<SkolyState>) {
     appState.update((s) => ({ ...s, skoly: { ...(s.skoly ?? DEFAULT_SKOLY), ...patch } }));
@@ -794,6 +803,8 @@
         onmode={setMode}
         onkat={(k) => jdiNa({ mode: 'vylety', kat: k })}
         onzdroje={openSources}
+        onshare={share}
+        ontour={openTour}
       />
       <div class="tools" data-tour="tools">
         <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn" aria-label="Sdílet odkaz" title="Sdílet odkaz">
@@ -827,10 +838,11 @@
     <div class="wrap"><p class="state" role="status">Načítáme data…</p></div>
   {:else if st.mode === 'domu'}
     <Domu
-      names={obecNames}
+      names={obecNamesJedn}
       obec={domuObec}
       kostka={domuKostka}
       onobec={setDomuObec}
+      onzrusit={() => setDomuObec(null)}
       jdi={jdiNa}
       href={hrefNa}
       onzdroje={openSources}
@@ -1417,7 +1429,7 @@
   </footer>
 
   {#if tourOpen && snap}
-    <Pruvodce kroky={KROKY} onclose={closeTour} />
+    <Pruvodce kroky={tourKroky} onclose={closeTour} />
   {/if}
 
   {#if sourcesOpen && snap}
@@ -2123,17 +2135,12 @@
     .kpi {
       padding: 12px 14px;
     }
-    /* úzký mobil: na prvním řádku logo a Menu, Sdílet a Průvodce na druhém */
+    /* úzký mobil: lišta = logo + Menu, Sdílet a Průvodce jsou v panelu menu */
     .tools {
-      order: 4;
-      width: 100%;
-      gap: 6px;
-      padding-bottom: 8px;
+      display: none;
     }
-    .tool {
-      padding: 0 12px;
-      min-height: 40px;
-      font-size: 0.85rem;
+    .topbar__in {
+      padding-bottom: 10px;
     }
     .grid--hub .mapcard {
       order: 1;
