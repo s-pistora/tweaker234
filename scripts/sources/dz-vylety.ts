@@ -18,6 +18,8 @@ interface SadaCfg {
   kat: KategorieId;
   tagy: (a: Attrs) => string[];
   cisla?: (a: Attrs) => Record<string, number>;
+  /** sada popisuje výrobky, ne místa → sloučit řádky do míst (jedno místo = jeden výrobce) */
+  seskup?: (rows: Attrs[], cfg: SadaCfg) => Misto[];
 }
 
 const KV_KRAJ = 'CZ041';
@@ -315,7 +317,68 @@ export const SADY: SadaCfg[] = [
       return out;
     },
   },
+  {
+    itemId: '5767506f1df649098991f462da16d497',
+    slug: 'dobroty',
+    title: 'Dobroty Karlovarského kraje',
+    kat: 'dobroty',
+    tagy: (a) => DOBROTY_DRUH.filter(([sloupec]) => b(a, sloupec)).map(([, tag]) => tag),
+    seskup: (rows, cfg) => seskupDobroty(rows, cfg),
+  },
 ];
+
+/** Příznakové sloupce sady Dobroty → tag filtru „Co vyrábějí“. */
+const DOBROTY_DRUH: [string, string][] = [
+  ['masné_výrobky', 'maso'],
+  ['mléčné_výrobky', 'mleko'],
+  ['pekařské_a_cukrářské_výrobky', 'pecivo'],
+  ['cukrářské_výrobky', 'pecivo'],
+  ['alkoholické_a_nealkoholické_nápoje', 'napoje'],
+  ['ovoce_zelenina_medy_a_čaje_v_čerstvé_nebo_zpracované_formě', 'ovoce'],
+  ['ostatní', 'ostatni'],
+];
+
+/**
+ * Dobroty Karlovarského kraje: řádek = oceněný výrobek. Pro „Kam vyrazit“ je místo = výrobce
+ * (provozovna), v popisu seznam jeho oceněných výrobků (kategorie, rok, umístění).
+ */
+export function seskupDobroty(rows: Attrs[], cfg: SadaCfg): Misto[] {
+  const skupiny = new Map<string, { misto: Misto; vyrobky: { nazev: string; kat: string; rok: number | null; misto: string }[] }>();
+  rows.forEach((a, i) => {
+    const m = toMisto(a, cfg, i);
+    if (!m) return;
+    const vyrobce = str(field(a, ['výrobce'])) ?? m.nazev;
+    const klic = `${vyrobce}|${m.obecNazev}`;
+    let g = skupiny.get(klic);
+    if (!g) {
+      g = { misto: { ...m, nazev: vyrobce, tagy: [], provozovatel: null, popis: null, poznamka: null }, vyrobky: [] };
+      skupiny.set(klic, g);
+    }
+    for (const tg of m.tagy) if (!g.misto.tagy.includes(tg)) g.misto.tagy.push(tg);
+    if (!g.misto.web && m.web) g.misto.web = m.web;
+    const umisteni = str(field(a, ['umístění_v_kategorii'])) ?? '';
+    if (/^1\.?$/.test(umisteni) && !g.misto.tagy.includes('vitez')) g.misto.tagy.push('vitez');
+    g.vyrobky.push({
+      nazev: m.nazev,
+      kat: str(field(a, ['kategorie'])) ?? '',
+      rok: num(field(a, ['rok_soutěže'])),
+      misto: umisteni,
+    });
+  });
+  return [...skupiny.values()].map(({ misto, vyrobky }, i) => {
+    vyrobky.sort((x, y) => (y.rok ?? 0) - (x.rok ?? 0));
+    const roky = vyrobky.map((v) => v.rok).filter((r): r is number => r !== null);
+    return {
+      ...misto,
+      id: `dobroty:${i + 1}`,
+      popis: `Oceněné výrobky: ${vyrobky
+        .map((v) => `${v.nazev} (${[v.kat, v.rok, v.misto ? `${v.misto.replace(/\.$/, '')}. místo` : ''].filter(Boolean).join(', ')})`)
+        .join('; ')}.`,
+      poznamka: `Oceněno v soutěži Dobroty Karlovarského kraje ${vyrobky.length}×${roky.length ? `, naposledy ${Math.max(...roky)}` : ''}.`,
+      cisla: { vyrobky: vyrobky.length, ...(roky.length ? { rok: Math.max(...roky) } : {}) },
+    };
+  });
+}
 
 /** Normalizuje jeden záznam sady na `Misto`; null = mimo kraj nebo bez souřadnic. */
 export function toMisto(a: Attrs, cfg: SadaCfg, index: number): Misto | null {
@@ -395,7 +458,9 @@ export async function stahniSadu(cfg: SadaCfg, now: Date): Promise<{ mista: Mist
   )) as { features?: { attributes: Attrs }[] };
   const feats = q.features ?? [];
   if (!feats.length) throw new Error(`${cfg.slug}: služba nevrátila žádné záznamy`);
-  const mista = feats.map((f, i) => toMisto(f.attributes, cfg, i)).filter((m): m is Misto => m !== null);
+  const mista = cfg.seskup
+    ? cfg.seskup(feats.map((f) => f.attributes), cfg)
+    : feats.map((f, i) => toMisto(f.attributes, cfg, i)).filter((m): m is Misto => m !== null);
   return {
     mista,
     source: {

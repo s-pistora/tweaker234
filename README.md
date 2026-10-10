@@ -95,6 +95,13 @@ má místo víc odběrných míst, platí nejhorší výsledek. Licence webu KHS
 Kraj nezveřejňuje kalendář akcí ani obsazenost sjezdovek. Místo toho ukazujeme místa, kde se akce
 konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm run data:vylety`.
 
+## Regionální dobroty (kategorie v „Kam vyrazit“)
+
+156 oceněných výrobků ze soutěže **Dobroty Karlovarského kraje** (2017–2026) sloučených do 39 výrobců:
+kde je najdete, co vyrábějí (maso, mléčné výrobky, pečivo, nápoje, ovoce a med), kolikrát a kdy uspěli
+a jestli vyhráli svou kategorii. Data: DATAZÁPAD, sada „Dobroty Karlovarského kraje“ (CC0),
+součást `npm run data:vylety`.
+
 ## Peníze kraje – „Co kraj buduje a komu dává“
 
 - **Projekty kraje:** 6 běžících projektů s rozpočtem, dotací, termínem a průběhem v čase

@@ -354,6 +354,34 @@ export const KATEGORIE: KategorieDef[] = [
       },
     ],
   },
+  {
+    id: 'dobroty',
+    label: 'Regionální dobroty',
+    perex: 'Výrobci oceněných místních potravin ze soutěže Dobroty Karlovarského kraje – maso, sýry, pečivo, med, nápoje.',
+    barva: '#00998F',
+    ikona: 'M3 9h18l-2 11H5zM8 9l4-6 4 6M9 13v4M15 13v4M12 13v4',
+    jednotky: ['výrobce', 'výrobci', 'výrobců'],
+    vstupne: false,
+    filtry: [
+      {
+        id: 'druh',
+        label: 'Co vyrábějí',
+        volby: [
+          { tag: 'maso', label: 'maso a uzeniny' },
+          { tag: 'mleko', label: 'mléčné výrobky' },
+          { tag: 'pecivo', label: 'pečivo a cukrovinky' },
+          { tag: 'napoje', label: 'nápoje' },
+          { tag: 'ovoce', label: 'ovoce, zelenina, med' },
+          { tag: 'ostatni', label: 'ostatní' },
+        ],
+      },
+      {
+        id: 'oceneni',
+        label: 'Ocenění',
+        volby: [{ tag: 'vitez', label: 'vítěz kategorie (1. místo)' }],
+      },
+    ],
+  },
 ];
 
 export const KATEGORIE_BY_ID = Object.fromEntries(KATEGORIE.map((k) => [k.id, k])) as Record<KategorieId, KategorieDef>;
@@ -484,6 +512,12 @@ export function vetaOMiste(m: Misto, km: number | null, domovNazev: string): str
     if (p.length) casti.push(`Areál má ${p.join(', ')}.`);
   }
   if (m.kat === 'rozhledny' && m.cisla.vznik) casti.push(`Postavena byla v roce ${m.cisla.vznik}.`);
+  if (m.kat === 'dobroty' && m.cisla.vyrobky) {
+    const n = m.cisla.vyrobky;
+    casti.push(
+      `V soutěži Dobroty Karlovarského kraje ${plural(n, ['uspěl', 'uspěly', 'uspělo'])} ${n} ${plural(n, ['jeho výrobek', 'jeho výrobky', 'jeho výrobků'])}${m.cisla.rok ? `, naposledy v roce ${m.cisla.rok}` : ''}${m.tagy.includes('vitez') ? ' – i s vítězstvím v kategorii' : ''}.`,
+    );
+  }
   if (m.voda) {
     casti.push(
       m.voda.trida === 'na'

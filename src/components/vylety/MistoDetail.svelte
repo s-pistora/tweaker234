@@ -66,6 +66,11 @@
         <span class="v v--sm">{vodaLabel(m.voda.trida)}</span>
         <span class="l">{m.voda.datum ? `odběr ${fmtDatum(m.voda.datum)}` : 'kontrola kvality vody'}</span>
       </div>
+    {:else if m.kat === 'dobroty' && m.cisla.vyrobky}
+      <div class="tile">
+        <span class="v">{m.cisla.vyrobky}×</span>
+        <span class="l">oceněno{m.cisla.rok ? `, naposledy ${m.cisla.rok}` : ''}</span>
+      </div>
     {:else if m.kat === 'rozhledny' && m.cisla.vznik}
       <div class="tile">
         <span class="v">{m.cisla.vznik}</span>

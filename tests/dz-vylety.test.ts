@@ -125,3 +125,38 @@ describe('khs-koupani: výtah hodnocení vody', () => {
     expect(parseKhs('<p>Kontrola kvality vody v roce 2026</p>')).toEqual({ trida: 'na', datum: null, poznamka: null });
   });
 });
+
+describe('Dobroty Karlovarského kraje: výrobky → výrobci', () => {
+  it('sloučí oceněné výrobky jednoho výrobce do jednoho místa se seznamem a štítky', async () => {
+    const { SADY, seskupDobroty } = await import('../scripts/sources/dz-vylety.ts');
+    const cfg = SADY.find((s) => s.slug === 'dobroty')!;
+    const radek = (nazev: string, rok: number, umisteni: string, flag: string) => ({
+      OBJECTID: 1,
+      název: nazev,
+      rok_soutěže: rok,
+      kategorie: 'Masné výrobky',
+      umístění_v_kategorii: umisteni,
+      masné_výrobky: flag === 'maso' ? 'true' : 'false',
+      mléčné_výrobky: flag === 'mleko' ? 'true' : 'false',
+      výrobce: 'Josef Pelant',
+      webová_stránka: 'https://www.maso-pelant.cz/',
+      kód_vyššího_územně_samosprávného_celku: 'CZ041',
+      název_obce: 'Bochov',
+      kód_obce: 555029,
+      x: 12.984177,
+      y: 50.19035,
+    });
+    const mista = seskupDobroty(
+      [radek('Klobása z komína', 2026, '1.', 'maso'), radek('Pršut', 2025, '2.', 'maso'), radek('Sýr', 2024, '3.', 'mleko')],
+      cfg,
+    );
+    expect(mista).toHaveLength(1);
+    const m = mista[0];
+    expect(m.nazev).toBe('Josef Pelant');
+    expect(m.kat).toBe('dobroty');
+    expect(m.tagy.sort()).toEqual(['maso', 'mleko', 'vitez']);
+    expect(m.cisla).toEqual({ vyrobky: 3, rok: 2026 });
+    expect(m.popis).toContain('Klobása z komína (Masné výrobky, 2026, 1. místo)');
+    expect(m.web).toBe('https://www.maso-pelant.cz/');
+  });
+});

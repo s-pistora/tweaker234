@@ -209,6 +209,7 @@ export const KATEGORIE_IDS = [
   'prameny',
   'sport',
   'pivovary',
+  'dobroty',
 ] as const;
 export type KategorieId = (typeof KATEGORIE_IDS)[number];
 
