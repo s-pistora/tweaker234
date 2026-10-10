@@ -22,6 +22,9 @@
   import Nalezy from './components/Nalezy.svelte';
   import { vouchery as nactiVouchery, kc } from './lib/penize.ts';
   import Domu, { type Dlazdice } from './components/Domu.svelte';
+  import ObecProfil, { type Profil } from './components/ObecProfil.svelte';
+  import { matrikaProObec } from './lib/urady.ts';
+  import { latestValue } from './lib/map/values.ts';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import Poradny from './components/skoly/Poradny.svelte';
   import StahnoutData from './components/common/StahnoutData.svelte';
@@ -544,6 +547,116 @@
   const ziCtx = $derived(snap ? vytvorKontext(snap, obecCentroidy, obecNames) : null);
   const ziSkore = $derived(ziCtx ? spocitejSkore(ziCtx, zi.pozadavky) : {});
   const ziPoradi = $derived(poradi(ziSkore, obecNames));
+
+  // --- profil „Moje obec“ ------------------------------------------------------
+  const PROFIL_KM = 15;
+  const profilSkore = $derived(ziCtx ? spocitejSkore(ziCtx, { ...DOPORUCENY_VYBER }) : {});
+  const profilPoradi = $derived(poradi(profilSkore, obecNames));
+  const profil = $derived.by((): Profil | null => {
+    if (!snap || !domuObec) return null;
+    const kod = domuObec;
+    const nazev = obecNames[kod] ?? kod;
+    const stred = obecCentroidy[kod] ?? null;
+    const ind = snap.indicators.obec;
+    const val = (id: string) => latestValue(ind?.values[id]?.[kod]);
+    const cf = (n: number, d = 0) => new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: d, minimumFractionDigits: d }).format(n);
+    const ob = val('obyvatele');
+    const deti = val('podil_0_14');
+    const s65 = val('podil_65');
+    const nez = val('nezamestnanost');
+    const pri = val('prirustek_na_1000');
+    const urObec = snap.urady?.obce.find((o) => o.kod === kod);
+    const cisla = [
+      ob && { label: 'obyvatel', hodnota: cf(ob.value), pozn: String(ob.year) },
+      deti && { label: 'dětí do 14 let', hodnota: `${cf(deti.value, 1)} %`, pozn: String(deti.year) },
+      s65 && { label: 'obyvatel nad 65 let', hodnota: `${cf(s65.value, 1)} %`, pozn: String(s65.year) },
+      nez && { label: 'nezaměstnaných', hodnota: `${cf(nez.value, 1)} %`, pozn: `prosinec ${nez.year}` },
+      pri && { label: 'přírůstek na 1000 obyvatel', hodnota: `${pri.value > 0 ? '+' : ''}${cf(pri.value, 1)} ‰`, pozn: String(pri.year) },
+    ].filter((x): x is { label: string; hodnota: string; pozn: string } => !!x);
+    const sk = profilSkore[kod];
+    const rank = profilPoradi.find((r) => r.code === kod)?.rank ?? 0;
+    const skore =
+      sk && sk.score !== null && !sk.neobydlena
+        ? { hodnota: sk.score, poradi: rank, z: profilPoradi.length, silne: silneStranky(sk, 2).map((p) => (POZADAVKY_BY_ID[p.id]?.label ?? p.id).toLowerCase()) }
+        : null;
+    const kmTxt = (km: number) => `${km < 10 ? km.toFixed(1).replace('.', ',') : km.toFixed(0)} km`;
+    // školy
+    const oboryV = stred ? filtrujObory(obory, { domov: stred, typ: 'vse', skupina: '', maxKm: PROFIL_KM }) : [];
+    const skolyM = new globalThis.Map<string, { nazev: string; obec: string; km: number; n: number }>();
+    for (const r of oboryV) {
+      const g = skolyM.get(r.obor.izo) ?? { nazev: r.obor.skola.replace(/,?\s*příspěvková organizace$/i, ''), obec: r.obor.obec, km: r.km ?? 0, n: 0 };
+      g.n++;
+      skolyM.set(r.obor.izo, g);
+    }
+    const skolyL = [...skolyM.values()].sort((a, b) => a.km - b.km);
+    // výlety
+    const mistaV = stred ? filtrujMista(mista, { kat: null, domov: stred, maxKm: PROFIL_KM, tagy: [], vstup: 'vse', q: '' }) : [];
+    const kats = new globalThis.Map<string, number>();
+    for (const r of mistaV) kats.set(KATEGORIE_BY_ID[r.misto.kat].label, (kats.get(KATEGORIE_BY_ID[r.misto.kat].label) ?? 0) + 1);
+    const topKat = [...kats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k.toLowerCase()} ${n}`);
+    const videne = new Set<string>();
+    const zajimave = mistaV
+      .filter((r) => ['hrady-zamky', 'rozhledny', 'pamatky', 'koupani', 'priroda', 'muzea', 'dobroty'].includes(r.misto.kat))
+      .filter((r) => {
+        const k = r.misto.nazev.toLowerCase();
+        if (videne.has(k)) return false;
+        videne.add(k);
+        return true;
+      })
+      .slice(0, 6);
+    // úřady
+    const matrika = urObec ? matrikaProObec(urObec.nazev, stred, snap.urady?.matriky ?? []) : null;
+    const uradyR = urObec
+      ? [
+          { nazev: urObec.obecniUrad.nazev, meta: [urObec.obecniUrad.tel, urObec.obecniUrad.email].filter(Boolean).join(' · ') },
+          ...urObec.stavebni.map((x) => ({ nazev: x.nazev, meta: 'stavební úřad' })),
+          ...(urObec.zivnostensky ? [{ nazev: urObec.zivnostensky.nazev, meta: 'živnostenský úřad' }] : []),
+          ...(matrika ? [{ nazev: matrika.matrika.nazev, meta: matrika.vObci ? 'matrika v obci' : `nejbližší matrika · ${kmTxt(matrika.km ?? 0)}` }] : []),
+        ]
+      : [];
+    // podnikání
+    const kreativci = snap.podnikani?.kreativci.filter((k) => k.obec === nazev.replace(/\s*\(.*\)$/, '')) ?? [];
+    const vouch = (snap.points['vouchery']?.features ?? []).filter((f) => f.obec === kod && f.attrs.uspesna === true);
+    const vouchKc = vouch.reduce((a, f) => a + (typeof f.attrs.prideleno === 'number' ? f.attrs.prideleno : 0), 0);
+    return {
+      kod,
+      nazev,
+      orp: urObec?.orp ?? '',
+      cisla,
+      skore,
+      sekce: [
+        {
+          id: 'skoly',
+          nadpis: 'Střední školy v okolí',
+          shrnuti: `${oboryV.length} ${pl3(oboryV.length, ['obor', 'obory', 'oborů'])} na ${skolyL.length} ${pl3(skolyL.length, ['škole', 'školách', 'školách'])} do ${PROFIL_KM} km.`,
+          radky: skolyL.slice(0, 5).map((x) => ({ nazev: x.nazev, meta: `${x.obec} · ${x.n} ${pl3(x.n, ['obor', 'obory', 'oborů'])}`, vpravo: kmTxt(x.km) })),
+          tlacitko: { text: 'Všechny obory v Kam na střední', mode: 'skoly' },
+        },
+        {
+          id: 'urady',
+          nadpis: 'Úřady pro obec',
+          shrnuti: urObec ? 'Kam s čím – obecní, stavební a živnostenský úřad a matrika.' : 'Údaje o úřadech pro tuto obec chybí.',
+          radky: uradyR,
+          tlacitko: { text: 'Kontakty a datové schránky', mode: 'urady' },
+        },
+        {
+          id: 'vylety',
+          nadpis: 'Kam vyrazit poblíž',
+          shrnuti: `${mistaV.length} ${pl3(mistaV.length, ['místo', 'místa', 'míst'])} do ${PROFIL_KM} km${topKat.length ? ` – ${topKat.join(', ')}` : ''}.`,
+          radky: zajimave.map((r) => ({ nazev: r.misto.nazev, meta: `${KATEGORIE_BY_ID[r.misto.kat].label} · ${r.misto.obecNazev}`, vpravo: kmTxt(r.km ?? 0) })),
+          tlacitko: { text: 'Všechna místa v Kam vyrazit', mode: 'vylety' },
+        },
+        {
+          id: 'podnikani',
+          nadpis: 'Podnikání a kreativci',
+          shrnuti: `${kreativci.length} ${pl3(kreativci.length, ['kreativec', 'kreativci', 'kreativců'])} z obce. Kraj sem poslal ${vouch.length} ${pl3(vouch.length, ['voucher', 'vouchery', 'voucherů'])} pro firmy za ${kc(vouchKc)}.`,
+          radky: kreativci.slice(0, 4).map((k) => ({ nazev: k.nazev, meta: k.obory.join(', ') })),
+          tlacitko: { text: 'Kreativci a místa pro podnikání', mode: 'podnikani' },
+        },
+      ],
+    };
+  });
+
   const ziRank = $derived(Object.fromEntries(ziPoradi.map((r) => [r.code, r.rank])) as Record<AreaCode, number>);
   const ziValues = $derived(
     Object.fromEntries(obecFeatures.map((f) => [f.properties.code, ziSkore[f.properties.code]?.score ?? null])) as Record<
@@ -1295,6 +1408,8 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'obec'}
+    <ObecProfil {profil} obce={obecNames} onobec={setDomuObec} onmode={setMode} />
   {:else if st.mode === 'domu'}
     <Domu
       dlazdice={domuDlazdice}

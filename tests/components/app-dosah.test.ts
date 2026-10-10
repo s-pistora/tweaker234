@@ -169,3 +169,23 @@ describe('App – úvodní stránka info centra', () => {
     await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy());
   }, 20000);
 });
+
+describe('App – profil Moje obec', () => {
+  it('z úvodu přes výběr obce do profilu: čísla, sekce, přechod do části s předvyplněnou obcí', async () => {
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '560537' } });
+    await fireEvent.click(screen.getByTestId('domu-profil'));
+    await waitFor(() => expect(screen.getByTestId('profil-cisla')).toBeTruthy());
+    expect(location.hash).toContain('m=obec');
+    expect(document.querySelector('h1')!.textContent).toBe('Loket');
+    expect(screen.getByTestId('profil-cisla').textContent).toContain('obyvatel');
+    const sekce = screen.getByTestId('profil-sekce');
+    expect(sekce.querySelectorAll('section')).toHaveLength(4);
+    expect(sekce.textContent).toContain('Městský úřad Loket');
+    expect(document.body.textContent).not.toMatch(/NaN|undefined/);
+    await fireEvent.click(screen.getByText('Kontakty a datové schránky'));
+    await waitFor(() => expect(screen.getByTestId('urady-karty')).toBeTruthy());
+    expect((screen.getByTestId('urady-obec') as HTMLSelectElement).value).toBe('560537');
+  }, 20000);
+});
