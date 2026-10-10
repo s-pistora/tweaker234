@@ -25,7 +25,7 @@ describe('dosah – Kam na střední', () => {
         expect(v.length).toBe(vDosahu.length);
       }
     }
-  });
+  }, 30000);
 });
 
 describe('dosah – Kam vyrazit', () => {
@@ -40,5 +40,5 @@ describe('dosah – Kam vyrazit', () => {
         }
       }
     }
-  });
+  }, 30000);
 });

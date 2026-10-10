@@ -1,17 +1,24 @@
 <script lang="ts">
   /** Stránka „Co jsme našli v datech kraje“ – zpětná vazba pro DATAZÁPAD a porotu. */
-  import { STATICKE_NALEZY, ZAVAZNOST, souhrnNalezu, zAutomatickychKontrol, type Nalez, type Zavaznost } from '../lib/nalezy.ts';
+  import { STATICKE_NALEZY, ZAVAZNOST, nalezyDoMarkdown, souhrnNalezu, zAutomatickychKontrol, type Nalez, type Zavaznost } from '../lib/nalezy.ts';
   import type { SourceEntry } from '../lib/types.ts';
-  import { stahni } from '../lib/csv.ts';
+  import { stahni, stahniSoubor } from '../lib/csv.ts';
 
   interface Props {
     automaticke: { sada: string; chyby: string[] }[];
+    /** nálezy automatických kontrol nad načtenými daty (lib/kontroly.ts) */
+    kontroly?: Nalez[];
     sources: SourceEntry[];
     onzdroje: () => void;
   }
-  const { automaticke, sources, onzdroje }: Props = $props();
+  const { automaticke, kontroly = [], sources, onzdroje }: Props = $props();
 
-  const nalezy = $derived<Nalez[]>([...STATICKE_NALEZY, ...automaticke.flatMap((a) => zAutomatickychKontrol(a.chyby, a.sada))]);
+  const nalezy = $derived<Nalez[]>([
+    ...STATICKE_NALEZY,
+    ...automaticke.flatMap((a) => zAutomatickychKontrol(a.chyby, a.sada)),
+    ...kontroly,
+  ]);
+  const dnes = new Date().toLocaleDateString('cs-CZ');
   const souhrn = $derived(souhrnNalezu(nalezy));
   const sadKraje = $derived(sources.filter((s) => /Karlovarský kraj/.test(s.provider)).length);
   let filtr = $state<Zavaznost | ''>('');
@@ -64,6 +71,12 @@
       class="btn-secondary"
       onclick={() => stahni('nalezy-v-datech-karlovarskeho-kraje', nalezy.map((n) => ({ datova_sada: n.sada, zavaznost: ZAVAZNOST[n.zavaznost].nazev, nalez: n.co, reseni: n.reseni })))}
       data-testid="nalezy-csv">Stáhnout nálezy (CSV)</button
+    >
+    <button
+      type="button"
+      class="btn-secondary"
+      onclick={() => stahniSoubor('report-pro-datazapad', nalezyDoMarkdown(nalezy, dnes), 'text/markdown;charset=utf-8', 'md')}
+      data-testid="nalezy-md">Report pro DATAZÁPAD (Markdown)</button
     >
     <button type="button" class="btn-secondary" onclick={onzdroje}>Seznam všech použitých datových sad</button>
   </div>

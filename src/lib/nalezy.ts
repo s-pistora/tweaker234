@@ -112,3 +112,20 @@ export function zAutomatickychKontrol(chyby: string[], vychoziSada: string): Nal
     };
   });
 }
+
+/** Report pro správce katalogu (DATAZÁPAD) v Markdownu – nálezy seskupené podle datové sady. */
+export function nalezyDoMarkdown(n: Nalez[], datum: string): string {
+  const podleSady = new Map<string, Nalez[]>();
+  for (const x of n) podleSady.set(x.sada, [...(podleSady.get(x.sada) ?? []), x]);
+  const s = souhrnNalezu(n);
+  const out = [
+    '# Nálezy v otevřených datech Karlovarského kraje',
+    '',
+    `Stav ke dni ${datum}. Celkem ${s.celkem} nálezů: ${s.podle.chyba}× ${ZAVAZNOST.chyba.nazev.toLowerCase()}, ${s.podle.nesoulad}× ${ZAVAZNOST.nesoulad.nazev.toLowerCase()}, ${s.podle.chybi}× ${ZAVAZNOST.chybi.nazev.toLowerCase()}.`,
+  ];
+  for (const [sada, xs] of podleSady) {
+    out.push('', `## ${sada}`, '');
+    for (const x of xs) out.push(`- **${ZAVAZNOST[x.zavaznost].nazev}:** ${x.co}`, `  - *Jak jsme to vyřešili:* ${x.reseni}`);
+  }
+  return out.join('\n') + '\n';
+}

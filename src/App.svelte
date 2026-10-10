@@ -34,6 +34,9 @@
   import ProKraj from './components/prokraj/ProKraj.svelte';
   import { detiPodleOrp, indexyOrp } from './lib/odhad.ts';
   import { pokryti } from './lib/bilamista.ts';
+  import { automatickeKontroly } from './lib/kontroly.ts';
+  import { makeObecLocator } from './lib/map/locate.ts';
+  import { STATICKE_NALEZY } from './lib/nalezy.ts';
   import { oboryPlanu, pridej, odeber } from './lib/planovac.ts';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
   import VyletyHub from './components/vylety/VyletyHub.svelte';
@@ -387,6 +390,25 @@
   const vyDosah = $derived(mistaVDosahu(vyBezDosahu, obecCentroidy, vy.maxKm));
   const vyPocty = $derived(pocty(mista));
 
+  // --- „Co jsme našli v datech“: automatické kontroly nad načtenými daty ---------
+  const kontroly = $derived(
+    snap
+      ? automatickeKontroly({
+          obory: snap.skoly?.obory ?? [],
+          vrstvy: Object.values(snap.points),
+          locate: snap.geo['kv-obce'] ? makeObecLocator(snap.geo['kv-obce']) : null,
+          names: obecNames,
+        })
+      : [],
+  );
+  const pocetNalezu = $derived(
+    STATICKE_NALEZY.length +
+      kontroly.length +
+      (snap?.urady?.chybyDat.length ?? 0) +
+      (snap?.penize?.chybyDat.length ?? 0) +
+      (snap?.podnikani?.chybyDat.length ?? 0),
+  );
+
   // --- úvodní stránka info centra ---------------------------------------------
   const domuObec = $derived(st.skoly?.domov ?? st.vylety?.domov ?? st.urady?.obec ?? null);
   function setDomuObec(code: AreaCode | null) {
@@ -498,7 +520,7 @@
         mode: 'nalezy',
         nazev: 'Co jsme našli v datech',
         popis: 'Chyby, nejednotné formáty a mezery v datech kraje – a jak jsme si s nimi poradili.',
-        cislo: String(11 + (snap.urady?.chybyDat.length ?? 0) + (snap.penize?.chybyDat.length ?? 0) + (snap.podnikani?.chybyDat.length ?? 0)),
+        cislo: String(pocetNalezu),
         pod: 'nálezů pro správce katalogu',
         ikona: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5M11 8v4M11 15h.01',
         barva: '#B8860B',
@@ -514,7 +536,7 @@
       (snap?.urady?.matriky.length ?? 0) +
       (snap?.penize?.projekty.length ?? 0) +
       (snap?.podnikani ? snap.podnikani.kreativci.length + snap.podnikani.infra.length + snap.podnikani.zony.length : 0),
-    nalezy: 11 + (snap?.urady?.chybyDat.length ?? 0) + (snap?.penize?.chybyDat.length ?? 0) + (snap?.podnikani?.chybyDat.length ?? 0),
+    nalezy: pocetNalezu,
   });
   const vyPoctyVDosahu = $derived(vyDomov ? pocty(filtrujMista(mista, { ...vyFiltr, kat: null, tagy: [], vstup: 'vse', q: '' }).map((r) => r.misto)) : null);
   const vyMisto = $derived(vy.misto ? (mista.find((m) => m.id === vy.misto) ?? null) : null);
@@ -1421,6 +1443,7 @@
         { sada: 'Projekty kraje', chyby: snap.penize?.chybyDat ?? [] },
         { sada: 'Podnikání', chyby: snap.podnikani?.chybyDat ?? [] },
       ]}
+      {kontroly}
       sources={snap.manifest.sources}
       onzdroje={openSources}
     />
