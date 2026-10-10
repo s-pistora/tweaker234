@@ -109,6 +109,10 @@ describe('App – Kde by se mi dobře žilo?', () => {
     const detail = await screen.findByTestId('zivot-detail', {}, { timeout: 8000 });
     const mapa = screen.getByTestId('zivot-mapa');
 
+    // mapa ukazuje jen vybranou obec (bez okolních obcí)
+    expect(mapa.querySelectorAll('path[data-code]')).toHaveLength(1);
+    expect(mapa.querySelector('path[data-code="554651"]')).toBeTruthy();
+
     // legenda: jen požadavky s body, přepínač s aria-pressed a počtem v obci
     const vrstvy = screen.getByTestId('zivot-vrstvy');
     expect(vrstvy.querySelectorAll('button[aria-pressed]')).toHaveLength(2);
@@ -128,6 +132,9 @@ describe('App – Kde by se mi dobře žilo?', () => {
     // „V obci A není. Nejbližší je v obci B (x km): …“ a B je tlačítko
     const chybi = screen.getByTestId('zivot-chybi');
     expect(chybi.textContent).toMatch(/Nemocnice.*v obci Milhostov není\. Nejbližší je\s+v obci\s+\S+.*\(\d+(,\d)? km\)/s);
+    // za dvojtečkou je název místa (ne prázdno) a věta nekončí dvojitou tečkou
+    expect(chybi.textContent).toMatch(/km\):\s*\p{L}/u);
+    expect(chybi.textContent).not.toMatch(/\.\./);
     expect(detail.textContent).not.toMatch(/NaN|undefined|null/);
     const obecB = chybi.querySelector('button')!;
     const nazevB = obecB.textContent!;
@@ -135,9 +142,10 @@ describe('App – Kde by se mi dobře žilo?', () => {
     await waitFor(() => expect(screen.getByTestId('zivot-detail').querySelector('h2')!.textContent).toBe(nazevB));
     expect(location.hash).not.toContain('zo=554651');
 
-    // „Celý kraj“ oddálí mapu, detail zůstane
+    // „Celý kraj“ vrátí všech 134 obcí, detail zůstane
     await fireEvent.click(screen.getByTestId('zivot-cely-kraj'));
     expect(screen.getByTestId('zivot-priblizit')).toBeTruthy();
+    expect(mapa.querySelectorAll('path[data-code]')).toHaveLength(134);
     expect(screen.getByTestId('zivot-detail')).toBeTruthy();
   }, 30000);
 

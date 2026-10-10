@@ -61,7 +61,7 @@
   }: Props = $props();
 
   /** konec věty bez zdvojené tečky („s.r.o.“ + „.“) */
-  const bezTecky = (t: string) => t.replace(/.+$/, '');
+  const bezTecky = (t: string) => t.replace(/\.+$/, '');
   const chybi = $derived(skore?.neobydlena ? [] : chybejiciVObci(ctx, pozadavky, code));
 
   const casti = $derived(

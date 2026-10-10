@@ -399,7 +399,7 @@
   );
   const ziUkaz = $derived(zi.ukaz ? POZADAVKY_BY_ID[zi.ukaz] : undefined);
   // přiblížená obec: body všech vybraných požadavků (každý jiná barva i tvar), vrstvy jdou skrýt
-  /** mapa je přiblížená na vybranou obec (tlačítko „Celý kraj“ ji oddálí, detail zůstane) */
+  /** mapa ukazuje jen vybranou obec bez okolních obcí (tlačítko „Celý kraj“ vrátí celý kraj, detail zůstane) */
   let ziPriblizeno = $state(true);
   let ziSkryte = $state<Set<string>>(new Set());
   /** vybraný bod na mapě: `<vrstva>|<id bodu>` */
@@ -420,6 +420,9 @@
     const obec = zi.obec;
     return vrstvyPozadavku(ids).map((v) => ({ ...v, vObci: bodyVObci(ctx, v.id, obec).length }));
   });
+  const ziObecSama = $derived(
+    zi.obec && ziPriblizeno ? (obecFeatures.find((x) => x.properties.code === zi.obec) ?? null) : null,
+  );
   const ziObecPoints = $derived.by((): MapPoint[] => {
     const f = zi.obec ? obecFeatures.find((x) => x.properties.code === zi.obec) : undefined;
     if (!ziCtx || !zi.obec || !f) return [];
@@ -1059,7 +1062,8 @@
           </div>
         {/if}
         <Map
-          features={obecFeatures}
+          features={ziObecSama ? [ziObecSama] : obecFeatures}
+          fitPad={ziObecSama ? 70 : 8}
           values={ziValues}
           def={ZIVOT_DEF}
           year={null}
@@ -1067,7 +1071,6 @@
           preview={ziPreview}
           points={ziPoints}
           onselect={openZivotObec}
-          zoomTo={zi.obec && ziPriblizeno ? zi.obec : null}
           onpointselect={zi.obec ? (id) => (ziBod = id) : undefined}
           selectedPoint={ziBod}
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"

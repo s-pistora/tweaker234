@@ -60,8 +60,8 @@
     points?: MapPoint[];
     zoomTarget?: AreaCode | null;
     zoomFrom?: AreaCode | null;
-    /** trvalé přiblížení: území = přiblížit a zůstat, null = celé území (obojí animovaně) */
-    zoomTo?: AreaCode | null;
+    /** okraj kolem území v SVG jednotkách (výchozí 8) – větší = vidět i okolí, např. body u jedné obce */
+    fitPad?: number;
     onzoomend?: () => void;
     onhover?: (code: AreaCode | null) => void;
     onselect?: (code: AreaCode) => void;
@@ -86,7 +86,7 @@
     points = [],
     zoomTarget = null,
     zoomFrom = null,
-    zoomTo = null,
+    fitPad = 8,
     onzoomend,
     onhover,
     onselect,
@@ -101,7 +101,7 @@
   const H = 420;
   const FULL: ViewBox = [0, 0, W, H];
 
-  const projector = $derived(makeProjector(features, W, H));
+  const projector = $derived(makeProjector(features, W, H, fitPad));
   const allValues = $derived(features.map((f) => values[f.properties.code] ?? null));
   const areas = $derived(
     features.map((f) => {
@@ -246,6 +246,11 @@
   function onSvgPointerLeave() {
     hoverPoint = null;
   }
+  /** klik na bod mimo území (např. okolí jediné zobrazené obce) – klik na území řeší handleClick */
+  function onSvgClick(e: MouseEvent) {
+    if ((e.target as Element | null)?.closest?.('[data-code]')) return;
+    if (hoverPoint && onpointselect) onpointselect(hoverPoint.id);
+  }
 
   // --- zoom -------------------------------------------------------------
   let vb = $state<ViewBox>([...FULL]);
@@ -317,18 +322,6 @@
     return animate(box, [...FULL]);
   });
 
-  // trvalé přiblížení (`zoomTo`): po prvním vykreslení jen reaguje na změnu cíle
-  let zoomToPrev: AreaCode | null = null;
-  $effect(() => {
-    const target = zoomTo;
-    void features;
-    if (target === zoomToPrev) return;
-    zoomToPrev = target;
-    const box = target ? untrack(() => boxOf(target)) : null;
-    const from = untrack(() => [...vb] as ViewBox);
-    return animate(from, box ?? [...FULL]);
-  });
-
   const animating = $derived(sweep !== null);
   /** značky bodů mají stálou velikost na obrazovce i v přiblížení */
   const ptScale = $derived(vb[2] / W);
@@ -344,6 +337,7 @@
     onpointerleave={() => (tipPos = null)}
     role="presentation"
   >
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
   <svg
     viewBox={vb.join(' ')}
     preserveAspectRatio="xMidYMid meet"
@@ -354,6 +348,7 @@
     onpointermove={onSvgPointerMove}
     onpointerdown={onSvgPointerMove}
     onpointerleave={onSvgPointerLeave}
+    onclick={onSvgClick}
   >
     <defs>{@html patternDefs()}</defs>
     <g class="areas">

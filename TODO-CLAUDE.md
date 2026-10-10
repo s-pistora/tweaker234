@@ -19,7 +19,7 @@ Uživatel píše česky a chce, aby ses průběžně ptal na podrobnosti.
 
 ## TODO 1 – Kde by se mi žilo: přiblížení obce a nejbližší služby – HOTOVO (10. 10.)
 
-- Klik na obec přiblíží mapu (`Map.svelte` prop `zoomTo`), tlačítko „Celý kraj“ / „Přiblížit …“, zavření detailu oddálí.
+- Klik na obec zobrazí jen tu obec bez okolních obcí (`Map.svelte` `fitPad`), tlačítko „Celý kraj“ / „Přiblížit …“, zavření detailu vrátí celý kraj.
 - Body všech vybraných požadavků (barva + plný tvar podle pořadí, `src/lib/zivot-mapa.ts`), legenda
   `ZivotVrstvy.svelte` s `aria-pressed` a „v obci N“; kreslí se jen výřez obce + nejbližší bod.
 - Detail: „Co v obci není“ (nejbližší v obci B jako tlačítko, název + adresa) a „Vybrané místo“ po kliku na značku
