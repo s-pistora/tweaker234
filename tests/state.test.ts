@@ -91,6 +91,7 @@ function makeSnap(): Snapshot {
     geo: {},
     skoly: null,
     vylety: null,
+    urady: null,
     updatedAt: manifest.updatedAt,
   };
 }
@@ -413,5 +414,19 @@ describe('režim „Kde by se mi dobře žilo?“ v hashi', () => {
   it('starý parametr w= se dál parsuje beze změny', () => {
     const { state } = parseHash('#/orp/4103?m=score&w=skoly:3', snapZivot());
     expect(state.weights).toEqual({ skoly: 3 });
+  });
+});
+
+describe('režim „Úřady“ v hashi', () => {
+  it('m=urady + uo/us round-trip, neplatné hodnoty spadnou na výchozí', async () => {
+    const { DEFAULT_URADY } = await import('../src/lib/state.ts');
+    const snap = makeSnap();
+    const { state } = parseHash('#/kraj?m=urady', snap);
+    expect(state.urady).toEqual(DEFAULT_URADY);
+    const bad = parseHash('#/kraj?m=urady&uo=999999&us=nesmysl', snap);
+    expect(bad.invalid).toBe(true);
+    expect(bad.state.urady).toEqual(DEFAULT_URADY);
+    state.urady = { obec: null, situace: 'matrika' };
+    expect(parseHash(toHash(state), snap).state.urady).toEqual(state.urady);
   });
 });

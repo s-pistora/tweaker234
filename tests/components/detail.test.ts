@@ -15,6 +15,7 @@ const snap: Snapshot = {
   geo: {},
   skoly: null,
     vylety: null,
+    urady: null,
   updatedAt: manifest.updatedAt,
 };
 

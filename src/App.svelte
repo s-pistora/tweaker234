@@ -16,6 +16,7 @@
   import ZivotVrstvy from './components/zivot/ZivotVrstvy.svelte';
   import { bodyVObci, vrstvyPozadavku } from './lib/zivot-mapa.ts';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
+  import Urady from './components/urady/Urady.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
@@ -35,10 +36,12 @@
     DEFAULT_SKOLY,
     DEFAULT_VYLETY,
     DEFAULT_ZIVOT,
+    DEFAULT_URADY,
     type Mode,
     type SkolyState,
     type VyletyState,
     type ZivotState,
+    type UradyState,
   } from './lib/state.ts';
   import {
     DOPORUCENY_VYBER,
@@ -197,6 +200,11 @@
           ? (s.vylety ?? { ...DEFAULT_VYLETY, tagy: [], domov: s.skoly?.domov ?? null })
           : s.vylety,
       zivot: m === 'score' ? (s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }) : s.zivot,
+      // obec z jiného režimu se převezme i pro úřady
+      urady:
+        m === 'urady'
+          ? (s.urady ?? { ...DEFAULT_URADY, obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? null })
+          : s.urady,
     }));
     toTop();
   }
@@ -292,7 +300,14 @@
     { m: 'skoly', label: 'Kam na střední' },
     { m: 'vylety', label: 'Kam vyrazit' },
     { m: 'score', label: 'Kde by se mi žilo' },
+    { m: 'urady', label: 'Úřady' },
   ];
+
+  // --- režim „Úřady“ ---------------------------------------------------------
+  const ur = $derived<UradyState>(st.urady ?? DEFAULT_URADY);
+  function setUrady(patch: Partial<UradyState>) {
+    appState.update((s) => ({ ...s, urady: { ...(s.urady ?? DEFAULT_URADY), ...patch } }));
+  }
   // „Statistika kraje“ (m=explore) není v hlavním menu – odkaz je vedle Zdrojů dat a v patičce.
 
   // --- režim „Kam vyrazit“ -------------------------------------------------
@@ -1014,6 +1029,12 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'urady'}
+    {#if snap.urady}
+      <Urady data={snap.urady} stav={ur} stredy={obecCentroidy} onchange={setUrady} />
+    {:else}
+      <div class="wrap"><p class="state state--err" role="alert">Data o úřadech se nepodařilo načíst.</p></div>
+    {/if}
   {:else if st.mode === 'score'}
     <section class="hero hero--slim">
       <div class="wrap">

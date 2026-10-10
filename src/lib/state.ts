@@ -10,10 +10,11 @@
 import { writable } from 'svelte/store';
 import { LEVELS, KATEGORIE_IDS, type Level, type AreaCode, type TypStudia, type KategorieId } from './types.ts';
 import type { Snapshot } from './data/loader.ts';
+import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
-export type Mode = 'explore' | 'score' | 'skoly' | 'vylety';
-export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety'];
+export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady';
+export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady'];
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -63,6 +64,16 @@ export const DEFAULT_VYLETY: VyletyState = {
   razeni: 'vzdalenost',
 };
 
+/** Režim „Úřady“ – „Kam s tím na úřad?“ */
+export interface UradyState {
+  /** kód obce, pro kterou se hledají úřady */
+  obec: AreaCode | null;
+  /** id životní situace (`SITUACE` v lib/urady.ts); '' = žádná */
+  situace: string;
+}
+
+export const DEFAULT_URADY: UradyState = { obec: null, situace: '' };
+
 /** Režim „Kde by se mi dobře žilo?“ – vlastní stav, nezávislý na drill-downu Statistiky. */
 export interface ZivotState {
   /** zvolené požadavky (id z `POZADAVKY`) s důležitostí 1 = důležité, 2 = velmi důležité */
@@ -96,6 +107,8 @@ export interface AppState {
   vylety?: VyletyState;
   /** jen když se režim „Kde by se mi dobře žilo?“ použil */
   zivot?: ZivotState;
+  /** jen když se režim „Úřady“ použil */
+  urady?: UradyState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -262,7 +275,30 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const zi = parseZivot(params, snap);
   if (zi.used || mode === 'score') state.zivot = zi.state;
   if (zi.invalid) invalid = true;
+  const ur = parseUrady(params, snap);
+  if (ur.used || mode === 'urady') state.urady = ur.state;
+  if (ur.invalid) invalid = true;
   return { state, invalid };
+}
+
+/** Parametry režimu „Úřady“: uo=<kód obce>, us=<situace>. */
+function parseUrady(params: URLSearchParams, snap: Snapshot): { state: UradyState; used: boolean; invalid: boolean } {
+  const st: UradyState = { ...DEFAULT_URADY };
+  let used = false;
+  let invalid = false;
+  const uo = params.get('uo');
+  if (uo !== null) {
+    used = true;
+    if (snap.urady?.obce.some((o) => o.kod === uo) || areasAvailable(snap, 'obec').has(uo)) st.obec = uo;
+    else invalid = true;
+  }
+  const us = params.get('us');
+  if (us !== null) {
+    used = true;
+    if (us === '' || SITUACE.some((x) => x.id === us)) st.situace = us;
+    else invalid = true;
+  }
+  return { state: st, used, invalid };
 }
 
 /** Parametry režimu „Kam na střední“; každá nevalidní hodnota spadne na výchozí. */
@@ -444,6 +480,11 @@ export function toHash(state: AppState): string {
     parts.push(`zp=${Object.entries(z.pozadavky).map(([id, w]) => `${id}:${w}`).join(',')}`);
     if (z.obec) parts.push(`zo=${z.obec}`);
     if (z.ukaz) parts.push(`zu=${z.ukaz}`);
+  }
+  if (state.urady) {
+    const u = state.urady;
+    if (u.obec) parts.push(`uo=${u.obec}`);
+    if (u.situace) parts.push(`us=${u.situace}`);
   }
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;

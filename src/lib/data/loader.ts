@@ -6,6 +6,7 @@
 // dostane `status:'fail'`. Zdroj oznaceny v manifestu jako `stale` se promita
 // do statusu odpovidajiciho kroku jako `'stale'`.
 
+import { isUradyFile, type UradyFile } from '../urady.ts';
 import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile, MistaFile } from '../types.ts';
 import { isManifest, isIndicatorFile, isPointLayer, isOboryFile, isMistaFile } from '../types.ts';
 import type { Topology } from 'topojson-specification';
@@ -21,6 +22,8 @@ export interface Snapshot {
   skoly: OboryFile | null;
   /** místa pro volný čas (režim „Kam vyrazit“); null = v manifestu nejsou nebo selhalo načtení */
   vylety: MistaFile | null;
+  /** příslušné úřady obcí (režim „Úřady“); null = v manifestu nejsou nebo selhalo načtení */
+  urady: UradyFile | null;
   /** = manifest.updatedAt, pro pohodlny pristup */
   updatedAt: string;
 }
@@ -82,6 +85,7 @@ export async function loadSnapshot(
     geo: {},
     skoly: null,
     vylety: null,
+    urady: null,
     updatedAt: manifest.updatedAt,
   };
 
@@ -141,6 +145,18 @@ export async function loadSnapshot(
       const json = await fetchJson(fetchImpl, base, manifest.files.vylety);
       if (!isMistaFile(json)) throw new Error('neplatny MistaFile');
       snapshot.vylety = json;
+      onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
+    } catch {
+      onStep?.({ label, status: 'fail' });
+    }
+  }
+
+  if (manifest.files.urady) {
+    const label = 'ÚŘADY';
+    try {
+      const json = await fetchJson(fetchImpl, base, manifest.files.urady);
+      if (!isUradyFile(json)) throw new Error('neplatny UradyFile');
+      snapshot.urady = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
     } catch {
       onStep?.({ label, status: 'fail' });

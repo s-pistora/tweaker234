@@ -359,6 +359,46 @@
    "downloadedAt": "2026-10-09T18:06:19.644Z",
    "validFor": "koupací sezóna 2026",
    "status": "ok"
+  },
+  {
+   "id": "dz-urady-stavebni",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Stavební úřady v Karlovarském kraji dle katastrálních území",
+   "url": "https://www.datazapad.cz/api/download/v1/items/57a4ac11b4014df7803496c91408ec4e/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-10T10:32:53.576Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-urady-zivnostenske",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Obecní živnostenské úřady Karlovarského kraje dle územní příslušnosti obcí",
+   "url": "https://www.datazapad.cz/api/download/v1/items/d27fb764c5a642e2bf2f8c134cbdeca2/csv?layers=3",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-10T10:32:53.576Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-urady-matriky",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Matriční úřady Karlovarského kraje",
+   "url": "https://www.datazapad.cz/api/download/v1/items/0fbcd94c27344fef86d2dafde1230761/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-10T10:32:53.576Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-urady-obce",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Seznam obcí Karlovarského kraje",
+   "url": "https://www.datazapad.cz/api/download/v1/items/17a673b7147d45ba8744904cae6afdbb/csv?layers=0",
+   "license": "CC0 1.0",
+   "downloadedAt": "2026-10-10T10:32:53.576Z",
+   "validFor": "2026",
+   "status": "ok"
   }
  ],
  "files": {
@@ -381,6 +421,7 @@
    "kv-obce": "geo/kv-obce.topo.json"
   },
   "skoly": "skoly/obory.json",
-  "vylety": "vylety/mista.json"
+  "vylety": "vylety/mista.json",
+  "urady": "urady/urady.json"
  }
 }

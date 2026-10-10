@@ -95,6 +95,23 @@ má místo víc odběrných míst, platí nejhorší výsledek. Licence webu KHS
 Kraj nezveřejňuje kalendář akcí ani obsazenost sjezdovek. Místo toho ukazujeme místa, kde se akce
 konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm run data:vylety`.
 
+## Úřady – „Kam s tím na úřad?“
+
+Vyberete obec a aplikace ukáže **příslušné úřady s kontakty**: obecní úřad, úřad obce s rozšířenou
+působností (občanky, pasy), matriku s úředními hodinami, stavební úřad (podle katastrálního území)
+a živnostenský úřad – s telefonem, e-mailem, datovou schránkou (tlačítko Kopírovat) a odkazem na Mapy.cz.
+Rozcestník životních situací („Stavím“, „Začínám podnikat“, „Svatba, narození, úmrtí“, „Občanka nebo pas“,
+„Trvalý pobyt a poplatky“) zvýrazní správný úřad. Obec se převezme z ostatních režimů.
+
+Data (DATAZÁPAD, CC0): stavební úřady podle katastrálních území, obecní živnostenské úřady podle obcí,
+matriční úřady, seznam obcí Karlovarského kraje. Aktualizace: `npm run data:urady`.
+
+**Chyby nalezené v datech kraje** (aplikace s nimi počítá a ukazuje upozornění):
+- živnostenské úřady: Otovice mají neexistující kód obce `574317` (správně `537969`),
+- živnostenské úřady: kód `560383` je uveden 2× – u Chodova (u Sokolova) i Chodova (u Bečova),
+- stavební úřady: chybí katastrální území obce Chodov (u Bečova),
+- matriky: data neobsahují matriční obvody (kterou matriku obec používá), názvy jen „Městský Úřad“ bez obce.
+
 ## Použití AI
 
 - **Claude Code (Anthropic)** – průzkum datového katalogu, návrh a plán funkce, většina kódu režimu

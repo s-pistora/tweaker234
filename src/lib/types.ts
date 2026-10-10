@@ -284,6 +284,8 @@ export interface Manifest {
     skoly?: string;
     /** místa pro volný čas (režim „Kam vyrazit“), volitelné */
     vylety?: string;
+    /** příslušné úřady obcí (režim „Úřady“), volitelné */
+    urady?: string;
   };
 }
 
@@ -298,6 +300,7 @@ export function isManifest(x: unknown): x is Manifest {
     isObj(x.files.points) &&
     isObj(x.files.geo) &&
     (x.files.skoly === undefined || typeof x.files.skoly === 'string') &&
-    (x.files.vylety === undefined || typeof x.files.vylety === 'string')
+    (x.files.vylety === undefined || typeof x.files.vylety === 'string') &&
+    (x.files.urady === undefined || typeof x.files.urady === 'string')
   );
 }
