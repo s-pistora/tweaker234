@@ -33,6 +33,7 @@ afterEach(() => {
 
 describe('App – rychlý start „Kde bydlíš?“', () => {
   it('bez obce je tlačítko neaktivní; po výběru obce nastaví bydliště a ukáže počet škol v dosahu', async () => {
+    location.hash = '#/kraj?m=skoly';
     render(App);
     const start = await screen.findByTestId('skoly-start', {}, { timeout: 5000 });
     const go = screen.getByTestId('start-go') as HTMLButtonElement;

@@ -7,6 +7,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -42,7 +43,7 @@ afterEach(() => {
 
 describe('App – Kam na střední', () => {
   it('obec Cheb + maturita → obory v dosahu, detail školy, Esc detail zavře', async () => {
-    // prázdná adresa → výchozí stránka „Kam na střední“, bez boot sekvence
+    location.hash = '#/kraj?m=skoly';
     render(App);
     expect(screen.queryByTestId('boot')).toBeNull();
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
@@ -85,7 +86,7 @@ describe('App – Kam na střední', () => {
     // záložka Přehled pro kraj a přechod do jiného režimu vrátí CRT vzhled
     await fireEvent.click(screen.getByTestId('tab-kraj'));
     expect(screen.getByTestId('kraj-prehled').textContent).toMatch(/nastoupili/);
-    await fireEvent.click(screen.getByTestId('mode-explore'));
+    await zMenu('data', 'mode-explore');
     await waitFor(() => expect(location.hash).toContain('m=explore'));
   }, 20000);
 

@@ -7,6 +7,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -40,10 +41,10 @@ afterEach(() => {
 
 describe('App – Kam vyrazit', () => {
   it('rozcestník → sjezdovky → filtr + bydliště → detail → Esc zpět na rozcestník', async () => {
+    // prázdná adresa → úvodní stránka; Kam vyrazit z menu Volný čas
     render(App);
-    await waitFor(() => expect(screen.getByTestId('mode-vylety')).toBeTruthy());
-    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
-    await fireEvent.click(screen.getByTestId('mode-vylety'));
+    await waitFor(() => expect(screen.getByTestId('domu-hledat')).toBeTruthy(), { timeout: 5000 });
+    await zMenu('volny-cas', 'mode-vylety');
     expect(location.hash).toContain('m=vylety');
 
     // rozcestník: dlaždice všech kategorií s počty
@@ -102,20 +103,38 @@ describe('App – Kam vyrazit', () => {
     expect(location.hash).toMatch(/^#\/orp/);
   }, 20000);
 
-  it('průvodce: tlačítko ho spustí, prochází kroky a Esc ho zavře a vrátí původní stránku', async () => {
+  it('průvodce: nejvýš 10 kroků přes úvod, menu a části; každý cíl existuje; Esc vrátí původní stránku', async () => {
     location.hash = '#/kraj?m=skoly';
     render(App);
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
     await fireEvent.click(screen.getByTestId('tour-btn'));
     const tour = await screen.findByTestId('pruvodce');
-    expect(tour.textContent).toMatch(/Krok 1 z/);
-    await fireEvent.click(screen.getByTestId('pruvodce-dalsi'));
-    await waitFor(() => expect(tour.textContent).toMatch(/Krok 2 z/));
-    await fireEvent.click(screen.getByTestId('pruvodce-dalsi'));
-    // krok 3 přepne na „Kam vyrazit“
-    await waitFor(() => expect(location.hash).toContain('m=vylety'));
-    await fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    const celkem = Number(/Krok 1 z (\d+)/.exec(tour.textContent ?? '')?.[1]);
+    // AI poradce v testech neběží → jeho krok se vynechá
+    expect(celkem).toBe(9);
+    const CILE = ['', 'hledani', 'kostka', 'nav', 'dd-volny-cas', 'filtr', 'zivot-panel', 'urady', 'tools'];
+    const karta = () => screen.getByRole('dialog');
+    for (let i = 0; i < celkem; i++) {
+      await waitFor(() => expect(tour.textContent).toMatch(new RegExp(`Krok ${i + 1} z`)));
+      await waitFor(() => expect(karta().getAttribute('data-cil')).toBe(CILE[i]), { timeout: 3000 });
+      if (CILE[i]) expect(document.querySelector(`[data-tour="${CILE[i]}"]`)).toBeTruthy();
+      if (i === 0) expect(location.hash).toContain('m=domu');
+      if (i === 2) {
+        expect(location.hash).toContain('ho=554961');
+        expect(screen.getByTestId('obec-kostka').textContent).toMatch(/Karlovy Vary/);
+      }
+      // krok s panelem Volný čas ho otevře, další ho zavře
+      if (i === 4) expect(screen.getByTestId('menu-volny-cas').getAttribute('aria-expanded')).toBe('true');
+      if (i === 5) {
+        expect(screen.getByTestId('menu-volny-cas').getAttribute('aria-expanded')).toBe('false');
+        expect(location.hash).toContain('vk=koupani');
+      }
+      if (i === 7) expect(location.hash).toContain('m=urady');
+      if (i < celkem - 1) await fireEvent.click(screen.getByTestId('pruvodce-dalsi'));
+    }
+    await fireEvent.keyDown(karta(), { key: 'Escape' });
     await waitFor(() => expect(screen.queryByTestId('pruvodce')).toBeNull());
     await waitFor(() => expect(location.hash).toContain('m=skoly'));
-  }, 20000);
+    expect(location.hash).not.toContain('ho=');
+  }, 30000);
 });

@@ -7,6 +7,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -44,7 +45,7 @@ describe('App – Úřady', () => {
     render(App);
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
 
-    await fireEvent.click(screen.getByTestId('mode-urady'));
+    await zMenu('bydleni', 'mode-urady');
     expect(location.hash).toContain('m=urady');
     expect(location.hash).toContain('uo=537969');
     expect((screen.getByTestId('urady-obec') as HTMLSelectElement).value).toBe('537969');

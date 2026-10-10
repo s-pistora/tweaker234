@@ -7,6 +7,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -43,7 +44,7 @@ describe('App – Peníze kraje', () => {
     location.hash = '#/kraj?m=skoly';
     render(App);
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
-    await fireEvent.click(screen.getByTestId('mode-penize'));
+    await zMenu('prace', 'mode-penize');
     expect(location.hash).toContain('m=penize');
 
     expect(screen.getByTestId('projekty-aktualni').textContent).toContain('Karlovarské inovační centrum');

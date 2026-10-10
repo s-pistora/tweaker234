@@ -3,6 +3,7 @@
 // Format URL: #/{uroven}/{kod}?u=<ukazatel>&r=<rok>&m=<rezim>&w=<id:vaha,...>
 //             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>]  (rezim skoly)
 //             [&zp=<id:1|2,...>&zo=<obec>&zu=<id pozadavku>]  (rezim score = „Kde by se mi dobře žilo?“)
+//             [&ho=<obec>]  (rezim domu = úvodní stránka, karta „Obec v kostce“)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
 // (parseHash/toHash nikdy nevyhodi vyjimku) - navic se vrati `invalid:true`.
@@ -13,8 +14,16 @@ import type { Snapshot } from './data/loader.ts';
 import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
-export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani' | 'nalezy';
-export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani', 'nalezy'];
+export type Mode = 'domu' | 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani' | 'nalezy';
+export const MODES: readonly Mode[] = ['domu', 'explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani', 'nalezy'];
+
+/** Úvodní stránka („Co potřebujete vyřešit?“): obec vybraná v rychlém hledání. */
+export interface DomuState {
+  /** kód obce pro kartu „Obec v kostce“ (sdílený „domov“ pro ostatní části) */
+  obec: AreaCode | null;
+}
+
+export const DEFAULT_DOMU: DomuState = { obec: null };
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -137,6 +146,8 @@ export interface AppState {
   penize?: PenizeState;
   /** jen když se režim „Podnikání“ použil */
   podnikani?: PodnikaniState;
+  /** jen když se na úvodní stránce vybrala obec (nebo je otevřená úvodní stránka) */
+  domu?: DomuState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -312,6 +323,15 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const po = parsePodnikani(params, snap);
   if (po.used || mode === 'podnikani') state.podnikani = po.state;
   if (po.invalid) invalid = true;
+  // úvodní stránka: ho=<obec> (karta „Obec v kostce“)
+  const ho = params.get('ho');
+  if (ho !== null || mode === 'domu') {
+    state.domu = { ...DEFAULT_DOMU };
+    if (ho !== null) {
+      if (areasAvailable(snap, 'obec').has(ho)) state.domu.obec = ho;
+      else invalid = true;
+    }
+  }
   return { state, invalid };
 }
 
@@ -583,6 +603,7 @@ export function toHash(state: AppState): string {
     if (u.obec) parts.push(`uo=${u.obec}`);
     if (u.situace) parts.push(`us=${u.situace}`);
   }
+  if (state.domu?.obec) parts.push(`ho=${state.domu.obec}`);
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;
 }
