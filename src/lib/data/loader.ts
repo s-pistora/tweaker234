@@ -84,6 +84,32 @@ export async function loadSnapshot(
   const manifest = manifestJson;
   onStep?.({ label: 'MANIFEST', status: 'ok' });
 
+  // Všechny soubory začneme stahovat najednou (paralelně); zpracování a kroky boot sekvence
+  // ale zůstávají ve stejném pořadí jako dřív.
+  const stahovani = new Map<string, Promise<unknown>>();
+  const stahni = (relPath: string): Promise<unknown> => {
+    let p = stahovani.get(relPath);
+    if (!p) {
+      p = fetchJson(fetchImpl, base, relPath);
+      p.catch(() => {}); // chybu ošetří až místo, které soubor zpracovává
+      stahovani.set(relPath, p);
+    }
+    return p;
+  };
+  const f = manifest.files;
+  for (const relPath of [
+    ...Object.values(f.indicators),
+    ...Object.values(f.points),
+    ...Object.values(f.geo),
+    f.skoly,
+    f.vylety,
+    f.urady,
+    f.penize,
+    f.podnikani,
+  ]) {
+    if (relPath) stahni(relPath);
+  }
+
   const snapshot: Snapshot = {
     manifest,
     indicators: {},
@@ -100,7 +126,7 @@ export async function loadSnapshot(
   for (const [level, relPath] of Object.entries(manifest.files.indicators) as [Level, string][]) {
     const label = `UKAZATELE ${level.toUpperCase()}`;
     try {
-      const json = await fetchJson(fetchImpl, base, relPath);
+      const json = await stahni(relPath);
       if (!isIndicatorFile(json)) throw new Error('neplatny IndicatorFile');
       snapshot.indicators[level] = json;
       const sourceIds = Object.values(json.indicators).map((def) => def.sourceId);
@@ -113,7 +139,7 @@ export async function loadSnapshot(
   for (const [id, relPath] of Object.entries(manifest.files.points)) {
     const label = `BODY ${id.toUpperCase()}`;
     try {
-      const json = await fetchJson(fetchImpl, base, relPath);
+      const json = await stahni(relPath);
       if (!isPointLayer(json)) throw new Error('neplatny PointLayer');
       snapshot.points[id] = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, [json.sourceId]) });
@@ -125,7 +151,7 @@ export async function loadSnapshot(
   for (const [id, relPath] of Object.entries(manifest.files.geo) as [GeoId, string][]) {
     const label = `HRANICE ${id.toUpperCase()}`;
     try {
-      const json = await fetchJson(fetchImpl, base, relPath);
+      const json = await stahni(relPath);
       if (!isTopology(json)) throw new Error('neplatna Topology');
       snapshot.geo[id] = json;
       // geo soubory nemaji vlastni sourceId v kontraktu - status je jen ok/fail.
@@ -138,7 +164,7 @@ export async function loadSnapshot(
   if (manifest.files.skoly) {
     const label = 'STŘEDNÍ ŠKOLY';
     try {
-      const json = await fetchJson(fetchImpl, base, manifest.files.skoly);
+      const json = await stahni(manifest.files.skoly);
       if (!isOboryFile(json)) throw new Error('neplatny OboryFile');
       snapshot.skoly = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
@@ -150,7 +176,7 @@ export async function loadSnapshot(
   if (manifest.files.vylety) {
     const label = 'MÍSTA PRO VOLNÝ ČAS';
     try {
-      const json = await fetchJson(fetchImpl, base, manifest.files.vylety);
+      const json = await stahni(manifest.files.vylety);
       if (!isMistaFile(json)) throw new Error('neplatny MistaFile');
       snapshot.vylety = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
@@ -162,7 +188,7 @@ export async function loadSnapshot(
   if (manifest.files.urady) {
     const label = 'ÚŘADY';
     try {
-      const json = await fetchJson(fetchImpl, base, manifest.files.urady);
+      const json = await stahni(manifest.files.urady);
       if (!isUradyFile(json)) throw new Error('neplatny UradyFile');
       snapshot.urady = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
@@ -174,7 +200,7 @@ export async function loadSnapshot(
   if (manifest.files.penize) {
     const label = 'PENÍZE KRAJE';
     try {
-      const json = await fetchJson(fetchImpl, base, manifest.files.penize);
+      const json = await stahni(manifest.files.penize);
       if (!isPenizeFile(json)) throw new Error('neplatny PenizeFile');
       snapshot.penize = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
@@ -186,7 +212,7 @@ export async function loadSnapshot(
   if (manifest.files.podnikani) {
     const label = 'PODNIKÁNÍ';
     try {
-      const json = await fetchJson(fetchImpl, base, manifest.files.podnikani);
+      const json = await stahni(manifest.files.podnikani);
       if (!isPodnikaniFile(json)) throw new Error('neplatny PodnikaniFile');
       snapshot.podnikani = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
