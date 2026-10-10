@@ -181,7 +181,7 @@
     white-space: nowrap;
   }
   /* počítač: jen lupa, po kliknutí se pole rozbalí přes lištu (nic se nezalomí) */
-  @media (min-width: 1001px) {
+  @media (min-width: 901px) {
     .hledani {
       width: 44px;
       height: 44px;
@@ -215,7 +215,7 @@
       z-index: 41;
     }
   }
-  @media (max-width: 1000px) {
+  @media (max-width: 900px) {
     .hledani {
       width: 100%;
     }

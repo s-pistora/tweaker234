@@ -39,11 +39,10 @@ afterEach(() => {
 
 describe('App – Karta obce', () => {
   it('obec vybraná na úvodní stránce se převezme do karty, výběr jiné obce, tisk', async () => {
-    location.hash = '#/kraj?m=domu';
+    location.hash = '#/kraj?m=domu&ho=554481';
     render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
-    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '554481' } });
-    await fireEvent.click(screen.getByTestId('mode-karta'));
+    await waitFor(() => expect(screen.getByTestId('obec-kostka')).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.click(screen.getByTestId('kostka-karta'));
     await waitFor(() => expect(screen.getByTestId('karta')).toBeTruthy());
     expect(location.hash).toContain('m=karta');
     expect(location.hash).toContain('k=554481');

@@ -3,6 +3,7 @@
   import './styles/crt.css';
   import './styles/print.css';
   import { onDestroy } from 'svelte';
+  import { get } from 'svelte/store';
   import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
   import Sources from './components/Sources.svelte';
@@ -22,7 +23,6 @@
   import Podnikani from './components/podnikani/Podnikani.svelte';
   import Nalezy from './components/Nalezy.svelte';
   import { vouchery as nactiVouchery, kc } from './lib/penize.ts';
-  import Domu, { type Dlazdice } from './components/Domu.svelte';
   import ObecProfil, { type Profil } from './components/ObecProfil.svelte';
   import { matrikaProObec } from './lib/urady.ts';
   import { latestValue } from './lib/map/values.ts';
@@ -48,6 +48,11 @@
   import MistoDetail from './components/vylety/MistoDetail.svelte';
   import Ikona from './components/vylety/Ikona.svelte';
   import Pruvodce, { type KrokPruvodce } from './components/Pruvodce.svelte';
+  import HlavniMenu from './components/menu/HlavniMenu.svelte';
+  import Domu from './components/domu/Domu.svelte';
+  import { jednoznacneNazvy, obecVKostce } from './lib/domu.ts';
+  import type { Cil } from './lib/menu.ts';
+  import { poradceDostupny } from './lib/poradce/ovladani.ts';
   import type { MapPoint } from './components/Map.svelte';
   import { loadSnapshot, type Snapshot, type OnStep } from './lib/data/loader.ts';
   import {
@@ -61,6 +66,9 @@
     DEFAULT_PENIZE,
     DEFAULT_PODNIKANI,
     DEFAULT_PROKRAJ,
+    DEFAULT_DOMU,
+    toHash,
+    type AppState,
     type Mode,
     type SkolyState,
     type VyletyState,
@@ -115,12 +123,12 @@
   import SrovnaniOboru from './components/skoly/SrovnaniOboru.svelte';
   import DenTip from './components/vylety/DenTip.svelte';
   import { naplanujDen } from './lib/den.ts';
-  import { vytvorIndex, type Cil, type Polozka } from './lib/hledani.ts';
+  import { vytvorIndex, type Cil as HledaniCil, type Polozka } from './lib/hledani.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data';
 
-  // Výchozí stránka je úvod info centra: prázdná adresa → rozcestník.
+  // Úvodní stránka „Co potřebujete vyřešit?“: prázdná adresa → rovnou na ni.
   if (!location.hash || location.hash === '#' || location.hash === '#/') {
     history.replaceState(null, '', '#/kraj?m=domu');
   }
@@ -219,33 +227,94 @@
   // nepoužívá. Při odchodu ze Statistiky si její pohled schováme a při návratu ho
   // obnovíme, ať ho jiné režimy (nebo efekty nad hashem) nepřepíšou.
   let exploreView: View | null = null;
-  function setMode(m: Mode) {
+  /**
+   * Stav po přechodu na cíl (čistá funkce – použije se pro přechod i pro href odkazů).
+   * Obec z úvodní stránky (ho=) je sdílený „domov“: převezme se, když část ještě nemá
+   * vlastní; obec předaná v cíli (karta „Obec v kostce“) přepíše i tu vlastní.
+   */
+  function prepni(s: AppState, c: Cil): AppState {
+    const m = c.mode;
+    const o = c.obec ?? null;
+    const domov = s.domu?.obec ?? null;
+    return {
+      ...s,
+      mode: m,
+      skoly:
+        m === 'skoly'
+          ? { ...(s.skoly ?? { ...DEFAULT_SKOLY, domov }), ...(o ? { domov: o, skola: null } : {}) }
+          : s.skoly,
+      // bydliště zadané v jiném režimu se převezme, ať ho uživatel nevybírá dvakrát
+      vylety:
+        m === 'vylety'
+          ? {
+              ...(s.vylety ?? { ...DEFAULT_VYLETY, tagy: [], domov: s.skoly?.domov ?? domov }),
+              ...(o ? { domov: o } : {}),
+              ...(c.kat !== undefined ? { kat: c.kat, tagy: [], vstup: 'vse' as const, q: '', misto: null } : {}),
+              ...(c.misto !== undefined ? { misto: c.misto } : {}),
+            }
+          : s.vylety,
+      zivot:
+        m === 'score'
+          ? { ...(s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }), ...(o ? { obec: o } : {}) }
+          : s.zivot,
+      penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
+      podnikani: m === 'podnikani' ? (s.podnikani ?? { ...DEFAULT_PODNIKANI }) : s.podnikani,
+      // obec z jiného režimu se převezme i pro úřady
+      urady:
+        m === 'urady'
+          ? {
+              ...(s.urady ?? {
+                ...DEFAULT_URADY,
+                obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? domov,
+              }),
+              ...(o ? { obec: o } : {}),
+            }
+          : s.urady,
+      domu: m === 'domu' ? (s.domu ?? { ...DEFAULT_DOMU }) : s.domu,
+      karta:
+        m === 'karta'
+          ? {
+              ...(s.karta ?? { kod: s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.zivot?.obec ?? domov }),
+              ...(o ? { kod: o } : {}),
+            }
+          : s.karta,
+      prokraj: m === 'prokraj' ? (s.prokraj ?? { ...DEFAULT_PROKRAJ }) : s.prokraj,
+    };
+  }
+  /** Profil „Moje obec“ (m=obec) čte obec ze školy/výletů/úřadů – předáme ji všem třem. */
+  function prepniSProfilem(s: AppState, c: Cil): AppState {
+    const n = prepni(s, c);
+    if (c.mode !== 'obec') return n;
+    const k = c.obec ?? s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.domu?.obec ?? null;
+    if (!k) return n;
+    return {
+      ...n,
+      skoly: { ...(n.skoly ?? DEFAULT_SKOLY), domov: k, skola: null },
+      vylety: { ...(n.vylety ?? { ...DEFAULT_VYLETY, tagy: [] }), domov: k },
+      urady: { ...(n.urady ?? DEFAULT_URADY), obec: k },
+    };
+  }
+  function jdiNa(c: Cil) {
+    const m = c.mode;
     if (m !== st.mode) {
       if (st.mode === 'explore') exploreView = view;
       // „Kde by se mi žilo“ má vlastní stav (zivot) – výběr ze Statistiky ho neovlivní
       if (m === 'explore' && exploreView) navigate(exploreView);
     }
-    appState.update((s) => ({
-      ...s,
-      mode: m,
-      skoly: m === 'skoly' ? (s.skoly ?? { ...DEFAULT_SKOLY }) : s.skoly,
-      // bydliště zadané v jiném režimu se převezme, ať ho uživatel nevybírá dvakrát
-      vylety:
-        m === 'vylety'
-          ? (s.vylety ?? { ...DEFAULT_VYLETY, tagy: [], domov: s.skoly?.domov ?? null })
-          : s.vylety,
-      zivot: m === 'score' ? (s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }) : s.zivot,
-      // obec z jiného režimu se převezme i pro úřady
-      penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
-      podnikani: m === 'podnikani' ? (s.podnikani ?? { ...DEFAULT_PODNIKANI }) : s.podnikani,
-      karta: m === 'karta' ? (s.karta ?? { kod: s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.zivot?.obec ?? null }) : s.karta,
-      prokraj: m === 'prokraj' ? (s.prokraj ?? { ...DEFAULT_PROKRAJ }) : s.prokraj,
-      urady:
-        m === 'urady'
-          ? (s.urady ?? { ...DEFAULT_URADY, obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? null })
-          : s.urady,
-    }));
+    appState.update((s) => prepniSProfilem(s, c));
     toTop();
+  }
+  function setMode(m: Mode) {
+    jdiNa({ mode: m });
+  }
+  /** odkaz (href) na cíl – pro otevření v novém panelu; klik se obslouží přes jdiNa */
+  function hrefNa(c: Cil): string {
+    return toHash(prepniSProfilem(st, c));
+  }
+  // --- úvodní stránka ---------------------------------------------------------
+  const domuObec = $derived(st.domu?.obec ?? null);
+  function setDomuObec(code: AreaCode | null) {
+    appState.update((s) => ({ ...s, domu: { ...(s.domu ?? DEFAULT_DOMU), obec: code } }));
   }
   function toTop() {
     try {
@@ -357,20 +426,6 @@
   const fmtCs = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
   const domovNazev = $derived(sk.domov ? (obecNames[sk.domov] ?? '') : '');
 
-  const MODE_NAV: { m: Mode; label: string }[] = [
-    { m: 'skoly', label: 'Kam na střední' },
-    { m: 'vylety', label: 'Kam vyrazit' },
-    { m: 'score', label: 'Kde by se mi žilo' },
-    { m: 'urady', label: 'Úřady' },
-    { m: 'penize', label: 'Peníze kraje' },
-    { m: 'podnikani', label: 'Podnikání' },
-  ];
-  /** vedlejší menu (vedle Statistiky kraje a Zdrojů dat) */
-  const MODE_NAV_DALSI: { m: Mode; label: string }[] = [
-    { m: 'karta', label: 'Karta obce' },
-    { m: 'prokraj', label: 'Pro kraj' },
-  ];
-
   // --- režim „Podnikání“ ------------------------------------------------------
   const pod = $derived<PodnikaniState>(st.podnikani ?? DEFAULT_PODNIKANI);
   function setPodnikani(patch: Partial<PodnikaniState>) {
@@ -394,7 +449,6 @@
   function setUrady(patch: Partial<UradyState>) {
     appState.update((s) => ({ ...s, urady: { ...(s.urady ?? DEFAULT_URADY), ...patch } }));
   }
-  // „Statistika kraje“ (m=explore) není v hlavním menu – odkaz je vedle Zdrojů dat a v patičce.
 
   // --- režim „Kam vyrazit“ -------------------------------------------------
   const vy = $derived<VyletyState>(st.vylety ?? DEFAULT_VYLETY);
@@ -437,135 +491,19 @@
       (snap?.podnikani?.chybyDat.length ?? 0),
   );
 
-  // --- úvodní stránka info centra ---------------------------------------------
-  const domuObec = $derived(st.skoly?.domov ?? st.vylety?.domov ?? st.urady?.obec ?? null);
-  function setDomuObec(code: AreaCode | null) {
-    appState.update((s) => ({
-      ...s,
-      skoly: { ...(s.skoly ?? DEFAULT_SKOLY), domov: code, skola: null },
-      vylety: { ...(s.vylety ?? DEFAULT_VYLETY), tagy: s.vylety?.tagy ?? [], domov: code, misto: null },
-      urady: { ...(s.urady ?? DEFAULT_URADY), obec: code },
-    }));
-  }
+  // --- profil „Moje obec“ (m=obec): obec sdílená školami, výlety a úřady ---------
   const pl3 = (n: number, f: [string, string, string]) => (n === 1 ? f[0] : n >= 2 && n <= 4 ? f[1] : f[2]);
-  const fmtN = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
-  const domuDlazdice = $derived.by((): Dlazdice[] => {
-    if (!snap) return [];
-    const stred = domuObec ? (obecCentroidy[domuObec] ?? null) : null;
-    const nazev = domuObec ? (obecNames[domuObec] ?? '') : '';
-    const kmS = st.skoly?.maxKm ?? DEFAULT_SKOLY.maxKm;
-    const kmV = st.vylety?.maxKm ?? DEFAULT_VYLETY.maxKm;
-    const oboryV = stred ? filtrujObory(obory, { domov: stred, typ: 'vse', skupina: '', maxKm: kmS }) : null;
-    const skolV = oboryV ? new Set(oboryV.map((r) => r.obor.izo)).size : 0;
-    const mistaV = stred ? filtrujMista(mista, { kat: null, domov: stred, maxKm: kmV, tagy: [], vstup: 'vse', q: '' }).length : null;
-    const urObec = domuObec ? snap.urady?.obce.find((o) => o.kod === domuObec) : undefined;
-    const aktualni = snap.penize?.projekty.filter((p) => p.stav === 'probiha') ?? [];
-    const vydaje = aktualni.reduce((a, p) => a + (p.vydaje ?? 0), 0);
-    const pocetKat = new Set(mista.map((m) => m.kat)).size;
-    return [
-      {
-        mode: 'skoly',
-        nazev: 'Kam na střední',
-        popis: 'Obory středních škol, počet míst a jak byly loni obsazené. Poradny pro výběr školy.',
-        cislo: fmtN(oboryV ? oboryV.length : oboru2026),
-        pod: oboryV ? `${pl3(oboryV.length, ['obor', 'obory', 'oborů'])} na ${skolV} ${pl3(skolV, ['škole', 'školách', 'školách'])} do ${kmS} km` : `oborů na ${new Set(obory.map((o) => o.izo)).size} školách`,
-        ikona: 'M3 9l9-5 9 5-9 5zM7 11v5c3 2 7 2 10 0v-5M21 9v6',
-        barva: '#00469B',
-      },
-      {
-        mode: 'vylety',
-        nazev: 'Kam vyrazit',
-        popis: 'Hrady, rozhledny, koupání, prameny, památky, regionální dobroty a další tipy na výlet.',
-        cislo: fmtN(mistaV ?? mista.length),
-        pod: mistaV !== null ? `${pl3(mistaV, ['místo', 'místa', 'míst'])} do ${kmV} km od obce ${nazev}` : `míst v ${pocetKat} kategoriích`,
-        ikona: 'M3 20l6-12 4 7 3-4 5 9zM16 6a2 2 0 1 0 0-.01',
-        barva: '#00998F',
-      },
-      {
-        mode: 'score',
-        nazev: 'Kde by se mi žilo',
-        popis: 'Srovnání obcí podle toho, na čem vám záleží – lékař, škola, zastávka, příroda, věk obyvatel.',
-        cislo: fmtN(Object.keys(obecNames).length),
-        pod: `obcí podle ${POZADAVKY.length} požadavků`,
-        ikona: 'M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6',
-        barva: '#462E73',
-      },
-      {
-        mode: 'urady',
-        nazev: 'Úřady',
-        popis: 'Kam s čím: obecní, stavební a živnostenský úřad, matrika, občanské průkazy. Kontakty a datové schránky.',
-        cislo: urObec ? String(2 + urObec.stavebni.length + (urObec.zivnostensky ? 1 : 0) + (urObec.nazev === urObec.orp ? 0 : 1)) : fmtN(snap.urady?.obce.length ?? 0),
-        pod: urObec ? `úřadů pro obec ${urObec.nazev}` : 'obcí s příslušnými úřady',
-        ikona: 'M3 21h18M5 21V10M9 21V10M15 21V10M19 21V10M2 10h20L12 3z',
-        barva: '#3771B8',
-      },
-      {
-        mode: 'penize',
-        nazev: 'Peníze kraje',
-        popis: 'Co kraj buduje, kolik stojí a kolik pokryjí dotace. Vouchery pro firmy a strategie kraje.',
-        cislo: kc(vydaje),
-        pod: `v ${aktualni.length} běžících projektech`,
-        ikona: 'M3 7h18v12H3zM3 11h18M7 15h3',
-        barva: '#FFAA00',
-      },
-      {
-        mode: 'podnikani',
-        nazev: 'Podnikání',
-        popis: 'Grafici, fotografové a řemeslníci z kraje, inkubátory a coworkingy, průmyslové zóny.',
-        cislo: fmtN(snap.podnikani?.kreativci.length ?? 0),
-        pod: `kreativců a ${snap.podnikani?.infra.length ?? 0} míst pro podnikání`,
-        ikona: 'M4 7h16v13H4zM9 7V4h6v3M4 12h16',
-        barva: '#680526',
-      },
-      {
-        mode: 'karta',
-        nazev: 'Karta obce',
-        popis: 'Pro starosty: lidé, služby, školy, peníze a úřady obce na jedné stránce k tisku nebo do PDF.',
-        cislo: domuObec ? (obecNames[domuObec] ?? '') : fmtN(Object.keys(obecNames).length),
-        pod: domuObec ? 'karta připravená k tisku' : 'karet obcí k tisku',
-        ikona: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7',
-        barva: '#00796F',
-      },
-      {
-        mode: 'prokraj',
-        nazev: 'Pro kraj',
-        popis: 'Kde chybí lékař, školka nebo lékárna a kam ji umístit. Výhled oborů: kde hrozí prázdné lavice.',
-        cislo: ziCtx ? fmtN(pokryti(ziCtx, 'lekar', DEFAULT_PROKRAJ.km).mimo) : '–',
-        pod: `obyvatel má praktického lékaře dál než ${DEFAULT_PROKRAJ.km} km`,
-        ikona: 'M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11a2 2 0 1 0 0-.01',
-        barva: '#3771B8',
-      },
-      {
-        mode: 'explore',
-        nazev: 'Statistika kraje',
-        popis: 'Obyvatelé, věk, nezaměstnanost, školy a lékaři v ORP a obcích – s vývojem v čase.',
-        cislo: '7',
-        pod: 'ORP a 134 obcí v číslech',
-        ikona: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
-        barva: '#5A6370',
-      },
-      {
-        mode: 'nalezy',
-        nazev: 'Co jsme našli v datech',
-        popis: 'Chyby, nejednotné formáty a mezery v datech kraje – a jak jsme si s nimi poradili.',
-        cislo: String(pocetNalezu),
-        pod: 'nálezů pro správce katalogu',
-        ikona: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5M11 8v4M11 15h.01',
-        barva: '#B8860B',
-      },
-    ];
-  });
-  const domuSouhrn = $derived({
-    sady: snap?.manifest.sources.length ?? 0,
-    zaznamy:
-      (snap?.skoly?.obory.length ?? 0) +
-      mista.length +
-      (snap?.urady?.obce.length ?? 0) +
-      (snap?.urady?.matriky.length ?? 0) +
-      (snap?.penize?.projekty.length ?? 0) +
-      (snap?.podnikani ? snap.podnikani.kreativci.length + snap.podnikani.infra.length + snap.podnikani.zony.length : 0),
-    nalezy: pocetNalezu,
-  });
+  const profilObec = $derived(st.skoly?.domov ?? st.vylety?.domov ?? st.urady?.obec ?? null);
+  function setProfilObec(code: AreaCode | null) {
+    if (code) jdiNa({ mode: 'obec', obec: code });
+    else
+      appState.update((s) => ({
+        ...s,
+        skoly: { ...(s.skoly ?? DEFAULT_SKOLY), domov: null, skola: null },
+        vylety: { ...(s.vylety ?? DEFAULT_VYLETY), tagy: s.vylety?.tagy ?? [], domov: null, misto: null },
+        urady: { ...(s.urady ?? DEFAULT_URADY), obec: null },
+      }));
+  }
   const vyPoctyVDosahu = $derived(vyDomov ? pocty(filtrujMista(mista, { ...vyFiltr, kat: null, tagy: [], vstup: 'vse', q: '' }).map((r) => r.misto)) : null);
   const vyMisto = $derived(vy.misto ? (mista.find((m) => m.id === vy.misto) ?? null) : null);
   const vyMistoKm = $derived(
@@ -631,6 +569,8 @@
   };
   const zi = $derived<ZivotState>(st.zivot ?? DEFAULT_ZIVOT);
   const ziCtx = $derived(snap ? vytvorKontext(snap, obecCentroidy, obecNames) : null);
+  /** úvodní stránka: „Obec v kostce“ (body a memo sdílí s kontextem „Kde by se mi žilo“) */
+  const domuKostka = $derived(ziCtx && domuObec ? obecVKostce(ziCtx, domuObec) : null);
   const ziSkore = $derived(ziCtx ? spocitejSkore(ziCtx, zi.pozadavky) : {});
   const ziPoradi = $derived(poradi(ziSkore, obecNames));
 
@@ -653,11 +593,10 @@
     }
     return vytvorIndex(p);
   });
-  function otevriHledane(c: Cil) {
+  function otevriHledane(c: HledaniCil) {
     menuOpen = false;
     if (c.kind === 'obec') {
-      setDomuObec(c.kod);
-      setMode('obec');
+      jdiNa({ mode: 'obec', obec: c.kod });
     } else if (c.kind === 'skola') {
       setMode('skoly');
       setSkoly({ skola: c.izo });
@@ -679,8 +618,8 @@
   const profilSkore = $derived(ziCtx ? spocitejSkore(ziCtx, { ...DOPORUCENY_VYBER }) : {});
   const profilPoradi = $derived(poradi(profilSkore, obecNames));
   const profil = $derived.by((): Profil | null => {
-    if (!snap || !domuObec) return null;
-    const kod = domuObec;
+    if (!snap || !profilObec) return null;
+    const kod = profilObec;
     const nazev = obecNames[kod] ?? kod;
     const stred = obecCentroidy[kod] ?? null;
     const ind = snap.indicators.obec;
@@ -799,6 +738,8 @@
       obecFeatures.map((f) => [f.properties.code, geoIndex.names[geoIndex.obecParent[f.properties.code]] ?? '']),
     ) as Record<AreaCode, string>,
   );
+  /** názvy obcí, u stejných názvů s ORP – „Chodov (ORP Sokolov)“ (úvodní stránka) */
+  const obecNamesJedn = $derived(jednoznacneNazvy(obecNames, ziOrp));
   const ziUkaz = $derived(zi.ukaz ? POZADAVKY_BY_ID[zi.ukaz] : undefined);
   // přiblížená obec: body všech vybraných požadavků (každý jiná barva i tvar), vrstvy jdou skrýt
   /** mapa ukazuje jen vybranou obec bez okolních obcí (tlačítko „Celý kraj“ vrátí celý kraj, detail zůstane) */
@@ -941,15 +882,20 @@
   }
 
   // --- průvodce pro nové uživatele -------------------------------------------
-  const TOUR_KEY = 'kk-pruvodce-v1';
+  // v2: nové menu a úvodní stránka – průvodce se ukáže i těm, kdo viděli ten starý
+  const TOUR_KEY = 'kk-pruvodce-v2';
   let tourOpen = $state(false);
   let tourHash = '';
+  /** kroky se sestaví jednou při otevření, ať se jejich počet během prohlídky nemění */
+  let tourKroky = $state.raw<KrokPruvodce[]>([]);
   function openTour() {
     tourHash = location.hash;
+    tourKroky = sestavKroky();
     tourOpen = true;
   }
   function closeTour() {
     tourOpen = false;
+    menu?.zavri();
     try {
       localStorage.setItem(TOUR_KEY, '1');
     } catch {
@@ -974,63 +920,89 @@
     }
     if (!seen && !navigator.userAgent.includes('jsdom')) openTour();
   });
-  const KROKY: KrokPruvodce[] = [
+  /** hlavní menu (průvodce otevírá panel skupiny, Esc ho zavírá) */
+  let menu = $state<ReturnType<typeof HlavniMenu> | null>(null);
+  /** ukázková obec průvodce */
+  const TOUR_OBEC = '554961'; // Karlovy Vary
+  // Nejvýš 10 kroků: úvod → hledání obce → obec v kostce → menu → Volný čas → kategorie
+  // → Kde by se mi žilo → Úřady → AI poradce (jen když běží) → Sdílet a Průvodce.
+  function sestavKroky(): KrokPruvodce[] {
+    return [
     {
-      nadpis: 'Vítejte! Tohle je Karlovarský kraj v datech',
-      text: 'Za minutu vám ukážeme, co tu najdete: střední školy, místa na výlet a čísla o obcích. Vše pochází z otevřených dat kraje a státních úřadů.',
-    },
-    {
-      cil: 'nav',
-      nadpis: 'Tři části v jednom menu',
-      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Kde by se mi žilo: srovnání obcí podle toho, na čem vám záleží. Čísla o ORP a obcích najdete ve Statistice kraje vedle Zdrojů dat a v patičce.',
-    },
-    {
-      cil: 'hub',
       pred: () => {
-        setMode('vylety');
-        setVylety({ kat: null, misto: null });
+        menu?.zavri();
+        jdiNa({ mode: 'domu' });
       },
-      nadpis: 'Kam vyrazit: vyberte kategorii',
-      text: 'Každá dlaždice je samostatná stránka s mapou, seznamem a filtry. Číslo ukazuje, kolik míst v kategorii je.',
+      nadpis: 'Vítejte! Tohle je Karlovarský kraj v datech',
+      text: 'Za minutu vám ukážeme, jak se tu vyznat. Školy, úřady, lékaři, výlety i peníze kraje. Vše z otevřených dat kraje a státu.',
+    },
+    {
+      cil: 'hledani',
+      pred: () => {
+        jdiNa({ mode: 'domu' });
+        setDomuObec(null);
+      },
+      nadpis: 'Začněte svou obcí',
+      text: 'Napište název obce, diakritika není potřeba. Šipkami vyberete, Enter potvrdí.',
+    },
+    {
+      cil: 'kostka',
+      pred: () => {
+        jdiNa({ mode: 'domu' });
+        setDomuObec(TOUR_OBEC);
+      },
+      nadpis: 'Obec v kostce',
+      text: 'Nejbližší školy, lékař, lékárna, nemocnice, zastávky, úřady a tipy na výlet. Odkazy otevřou podrobnosti rovnou pro tuto obec.',
+    },
+    {
+      cil: ['nav', 'menu-toggle'],
+      pred: () => menu?.zavri(),
+      nadpis: 'Hlavní menu: pět oblastí',
+      text: 'Vzdělání, Bydlení, Volný čas, Práce a firmy a Data. Klikněte na oblast a vyberte, co potřebujete. Na mobilu je vše pod tlačítkem Menu.',
+    },
+    {
+      cil: ['dd-volny-cas', 'nav'],
+      pred: () => menu?.otevri('volny-cas'),
+      nadpis: 'Volný čas: rovnou do kategorie',
+      text: 'Kam vyrazit má 14 kategorií: koupání, hrady, rozhledny, sjezdovky a další. Každá má vlastní stránku s mapou a filtry.',
     },
     {
       cil: 'filtr',
-      pred: () => openKat('koupani'),
-      nadpis: 'Filtry přímo pro kategorii',
-      text: 'Vyberte obec, odkud vyrážíte, a jak daleko chcete jet. Každá kategorie má vlastní filtry. U koupání například poslední výsledek kontroly kvality vody od hygieniků.',
-    },
-    {
-      cil: 'mapa',
-      nadpis: 'Interaktivní mapa',
-      text: 'Kliknutím na obec nastavíte, odkud vyrážíte, kliknutím na značku otevřete detail místa. Na mobilu stačí klepnout.',
-    },
-    {
-      cil: 'list',
-      nadpis: 'Seznam a detail místa',
-      text: 'Karty řadíme od nejbližší. V detailu najdete web, kontakt, cestu na Mapy.cz a další místa do 5 km.',
+      pred: () => {
+        menu?.zavri();
+        jdiNa({ mode: 'vylety', obec: TOUR_OBEC, kat: 'koupani' });
+      },
+      nadpis: 'Kategorie: filtry, seznam a mapa',
+      text: 'Nastavte, odkud vyrážíte a jak daleko chcete jet. U koupání vidíte i poslední kontrolu vody. Místa řadíme od nejbližšího, mapa ukazuje, kde jsou.',
     },
     {
       cil: 'zivot-panel',
-      pred: () => setMode('score'),
-      nadpis: 'Kde by se mi dobře žilo?',
-      text: 'Zaškrtněte, na čem vám záleží: zastávka, lékař, škola, bazén, klidná obec… U důležitých věcí zvolte „Velmi důležité“. Tlačítko „Ukázat na mapě“ zobrazí, kde ta místa jsou.',
+      pred: () => jdiNa({ mode: 'score' }),
+      nadpis: 'Kde by se mi žilo?',
+      text: 'Zaškrtněte, na čem vám záleží: zastávka, lékař, škola, klidná obec… Mapa obarví všech 134 obcí podle vás. Klik na obec vysvětlí proč.',
     },
     {
-      cil: 'zivot-mapa',
-      nadpis: 'Obce seřazené podle vás',
-      text: 'Čím tmavší obec, tím lépe splňuje vaše požadavky. Klikněte na obec a uvidíte, proč vyšla dobře nebo špatně.',
+      cil: 'urady',
+      pred: () => jdiNa({ mode: 'urady', obec: TOUR_OBEC }),
+      nadpis: 'Úřady: kam s tím',
+      text: 'Vyberte obec a co potřebujete vyřídit, třeba stavbu nebo svatbu. Ukážeme příslušný úřad s telefonem, e-mailem a datovou schránkou.',
     },
+    ...(get(poradceDostupny)
+      ? [
+          {
+            cil: 'ai',
+            nadpis: 'Zeptejte se AI poradce',
+            text: 'Vpravo dole se zeptáte vlastními slovy, třeba „Kde se dá koupat u Chebu?“. Poradce odpovídá jen z dat této aplikace.',
+          },
+        ]
+      : []),
     {
-      cil: 'share',
-      nadpis: 'Pošlete to dál',
-      text: 'Vše, co nastavíte, se ukládá do adresy stránky. Tlačítko Sdílet zkopíruje odkaz, který otevře přesně stejný pohled.',
-    },
-    {
-      cil: 'help',
-      nadpis: 'Průvodce kdykoli znovu',
-      text: 'Pokud si nebudete jisti, spusťte průvodce tímto tlačítkem. Teď vás vrátíme tam, kde jste začali.',
+      cil: ['tools', 'menu-toggle'],
+      nadpis: 'Sdílet a Průvodce',
+      text: 'Sdílet zkopíruje odkaz přesně na to, co vidíte. Průvodce spustíte kdykoli znovu. Na mobilu je obojí v Menu. Teď vás vrátíme tam, kde jste začali.',
     },
   ];
+  }
 
   function setSkoly(patch: Partial<SkolyState>) {
     appState.update((s) => ({ ...s, skoly: { ...(s.skoly ?? DEFAULT_SKOLY), ...patch } }));
@@ -1051,11 +1023,10 @@
   }
 
   function onKey(e: KeyboardEvent) {
-    if (e.key !== 'Escape' || !snap || tourOpen) return;
-    if (menuOpen) {
-      menuOpen = false;
-      return;
-    }
+    if (e.key !== 'Escape' || tourOpen) return;
+    // nejdřív zavřít otevřené menu (fokus zpět na tlačítko skupiny)
+    if (menu?.zavri(true)) return;
+    if (!snap) return;
     if (sourcesOpen) {
       closeSources();
       return;
@@ -1088,12 +1059,32 @@
   >
   <header class="topbar">
     <div class="wrap topbar__in">
-      <a class="brandmark" href="#/kraj?m=domu" onclick={(e) => { e.preventDefault(); setMode('domu'); menuOpen = false; }} data-testid="brand-home">
+      <a
+        class="brandmark"
+        href="#/kraj?m=domu"
+        aria-label="Otevřená data Karlovarského kraje – úvodní stránka"
+        onclick={(e) => {
+          e.preventDefault();
+          menu?.zavri();
+          setMode('domu');
+        }}
+        data-testid="brand-home"
+      >
         <span class="brandmark__bar" aria-hidden="true"></span>
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
+      <HlavniMenu
+        bind:this={menu}
+        mode={st.mode}
+        kat={st.vylety?.kat ?? null}
+        onmode={setMode}
+        onkat={(k) => jdiNa({ mode: 'vylety', kat: k })}
+        onzdroje={openSources}
+        onshare={share}
+        ontour={openTour}
+      />
       <div class="hledat"><Hledani index={hledaniIndex} onvyber={otevriHledane} /></div>
-      <div class="tools">
+      <div class="tools" data-tour="tools">
         <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn" aria-label="Sdílet odkaz" title="Sdílet odkaz">
           <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
           <span class="tool__t">Sdílet</span>
@@ -1103,97 +1094,6 @@
           <span class="tool__t">Průvodce</span>
         </button>
       </div>
-      <button
-        type="button"
-        class="menubtn"
-        aria-expanded={menuOpen}
-        aria-controls="mainnav"
-        onclick={() => (menuOpen = !menuOpen)}
-        data-testid="menu-btn"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"
-          ><path
-            d={menuOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'}
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          /></svg
-        >
-        <span>{menuOpen ? 'Zavřít' : 'Menu'}</span>
-      </button>
-      <nav class="mainnav" class:open={menuOpen} id="mainnav" aria-label="Hlavní navigace" data-tour="nav">
-        <button
-          type="button"
-          class="mainnav__mob"
-          class:on={st.mode === 'domu'}
-          onclick={() => {
-            setMode('domu');
-            menuOpen = false;
-          }}>Úvodní stránka</button
-        >
-        {#each MODE_NAV as n (n.m)}
-          <button
-            type="button"
-            class:on={st.mode === n.m}
-            aria-current={st.mode === n.m ? 'page' : undefined}
-            onclick={() => {
-              setMode(n.m);
-              menuOpen = false;
-            }}
-            data-testid="mode-{n.m}">{n.label}</button
-          >
-        {/each}
-        <button
-          type="button"
-          class="mainnav__src"
-          class:on={st.mode === 'explore'}
-          aria-current={st.mode === 'explore' ? 'page' : undefined}
-          onclick={() => {
-            setMode('explore');
-            menuOpen = false;
-          }}
-          data-testid="mode-explore">Statistika kraje</button
-        >
-        {#each MODE_NAV_DALSI as n (n.m)}
-          <button
-            type="button"
-            class="mainnav__src"
-            class:on={st.mode === n.m}
-            aria-current={st.mode === n.m ? 'page' : undefined}
-            onclick={() => {
-              setMode(n.m);
-              menuOpen = false;
-            }}
-            data-testid="mode-{n.m}">{n.label}</button
-          >
-        {/each}
-        <button
-          type="button"
-          class="mainnav__src"
-          onclick={() => {
-            menuOpen = false;
-            openSources();
-          }}
-          data-testid="sources-btn">Zdroje dat</button
-        >
-        <button
-          type="button"
-          class="mainnav__src mainnav__mob"
-          onclick={() => {
-            menuOpen = false;
-            share();
-          }}>Sdílet odkaz na tuto stránku</button
-        >
-        <button
-          type="button"
-          class="mainnav__src mainnav__mob"
-          onclick={() => {
-            menuOpen = false;
-            openTour();
-          }}>Průvodce aplikací</button
-        >
-      </nav>
     </div>
   </header>
   <div id="obsah" tabindex="-1" class="obsah-kotva"></div>
@@ -1215,6 +1115,18 @@
     <div class="wrap"><p class="state state--err" role="alert">Data se nepodařilo načíst ({loadError}). Zkuste stránku obnovit.</p></div>
   {:else if !snap}
     <div class="wrap"><p class="state" role="status">Načítáme data…</p></div>
+  {:else if st.mode === 'domu'}
+    <Domu
+      names={obecNamesJedn}
+      obec={domuObec}
+      kostka={domuKostka}
+      onobec={setDomuObec}
+      onzrusit={() => setDomuObec(null)}
+      jdi={jdiNa}
+      href={hrefNa}
+      onzdroje={openSources}
+      novinky={snap.zmeny?.behy[0] ?? null}
+    />
   {:else if st.mode === 'skoly'}
     <section class="hero" class:noprint={skolyTab === 'plan'}>
       <div class="wrap hero__grid">
@@ -1619,17 +1531,7 @@
       {/if}
     </main>
   {:else if st.mode === 'obec'}
-    <ObecProfil {profil} obce={obecNames} onobec={setDomuObec} onmode={setMode} />
-  {:else if st.mode === 'domu'}
-    <Domu
-      dlazdice={domuDlazdice}
-      obce={obecNames}
-      obec={domuObec}
-      souhrn={domuSouhrn}
-      onobec={setDomuObec}
-      onmode={setMode}
-      novinky={snap.zmeny?.behy[0] ?? null}
-    />
+    <ObecProfil {profil} obce={obecNames} onobec={setProfilObec} onmode={(m) => jdiNa({ mode: m, obec: profilObec })} />
   {:else if st.mode === 'prokraj'}
     {#if ziCtx}
       <ProKraj
@@ -1712,7 +1614,7 @@
           {/if}
         </h2>
         <p class="mapcard__hint">
-          Tmavší obec = lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
+          Čím tmavší obec, tím lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
           Klikněte na obec a uvidíte proč.
         </p>
         <div class="zivot__mapa">
@@ -1875,7 +1777,7 @@
   </footer>
 
   {#if tourOpen && snap}
-    <Pruvodce kroky={KROKY} onclose={closeTour} />
+    <Pruvodce kroky={tourKroky} onclose={closeTour} />
   {/if}
 
   {#if sourcesOpen && snap}
@@ -1937,42 +1839,13 @@
   .brandmark__txt strong {
     font-size: 1.05rem;
   }
-  .mainnav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .mainnav button {
-    font: inherit;
-    font-size: 0.93rem;
-    font-weight: 500;
-    min-height: 44px;
-    padding: 0 8px;
-    white-space: nowrap;
-    border: 0;
-    border-bottom: 3px solid transparent;
-    background: none;
-    color: var(--brand-dark);
-    cursor: pointer;
-  }
-  .mainnav button:hover {
-    color: var(--brand);
-  }
-  .mainnav button.on {
-    color: var(--brand);
-    border-bottom-color: var(--brand);
-  }
-  .mainnav .mainnav__src {
-    color: var(--text-muted);
-  }
-  .mainnav button:focus-visible,
   .tool:focus-visible,
   .back:focus-visible,
   .katnav button:focus-visible {
     outline: none;
     box-shadow: var(--focus-ring);
   }
-  /* nástroje v liště: Sdílet, Průvodce */
+  /* nástroje v liště: Sdílet, Průvodce (vždy ikona i text) */
   .tools {
     display: flex;
     gap: 6px;
@@ -2600,84 +2473,22 @@
       padding-top: 8px;
       padding-bottom: 4px;
     }
-    .mainnav {
-      order: 4;
-      width: 100%;
-    }
   }
-  .menubtn,
-  .mainnav .mainnav__mob {
-    display: none;
-  }
-  /* do 1000 px: menu schované za tlačítkem, po rozbalení svislý seznam */
-  @media (max-width: 1000px) {
-    .topbar__in {
-      flex-wrap: wrap;
-      min-height: 64px;
+  /* mobil a tablet: vpravo Sdílet, Průvodce a Menu (panel menu se otevře pod lištou) */
+  @media (max-width: 900px) {
+    .brandmark {
+      margin-right: auto;
     }
-    .menubtn {
-      order: 4;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font: inherit;
-      font-weight: 500;
-      min-height: 44px;
-      padding: 0 14px;
-      border: 1px solid var(--brand);
-      border-radius: 999px;
-      background: #fff;
-      color: var(--brand);
-      cursor: pointer;
-    }
-    .menubtn[aria-expanded='true'] {
-      background: var(--brand);
-      color: #fff;
-    }
-    /* Sdílet a Průvodce jsou na mobilu v menu (s textem) */
     .tools {
-      display: none;
+      order: 2;
     }
-    .menubtn {
-      margin-left: auto;
-    }
+  }
+  /* do 900 px (menu za tlačítkem): hledání na vlastním řádku pod lištou */
+  @media (max-width: 900px) {
     .hledat {
-      order: 5;
+      order: 4;
       width: 100%;
       margin: 0 0 6px;
-    }
-    .mainnav .mainnav__mob {
-      display: block;
-      color: var(--brand);
-    }
-    .mainnav {
-      display: none;
-      order: 6;
-      width: 100%;
-      flex-direction: column;
-      gap: 0;
-      padding: 6px 0 10px;
-      border-top: 1px solid var(--line);
-    }
-    .mainnav.open {
-      display: flex;
-    }
-    .mainnav button,
-    .mainnav .mainnav__src {
-      text-align: left;
-      min-height: 48px;
-      padding: 0 12px;
-      font-size: 1.05rem;
-      border-bottom: 1px solid var(--line);
-      border-left: 4px solid transparent;
-    }
-    .mainnav button.on {
-      border-bottom-color: var(--line);
-      border-left-color: var(--brand);
-      background: var(--brand-ice);
-    }
-    .mainnav .mainnav__src {
-      font-size: 0.95rem;
     }
   }
   @media (max-width: 1000px) {
@@ -2741,18 +2552,12 @@
     .kpi {
       padding: 12px 14px;
     }
+    /* úzký mobil: lišta = logo + Menu, Sdílet a Průvodce jsou v panelu menu */
     .tools {
-      order: 2;
-      gap: 4px;
-    }
-    .tool {
-      padding: 0 10px;
-      min-height: 40px;
-      font-size: 0.85rem;
-    }
-    /* na úzké obrazovce jen text (ikona bez textu by u důležité akce nebyla srozumitelná) */
-    .tool :global(svg) {
       display: none;
+    }
+    .topbar__in {
+      padding-bottom: 10px;
     }
     .grid--hub .mapcard {
       order: 1;

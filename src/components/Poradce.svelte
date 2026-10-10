@@ -4,9 +4,10 @@
    * Zobrazí se jen tam, kde běží lokální proxy `/api/poradce` (vite dev / preview);
    * na statickém webu (GitHub Pages) se neukáže vůbec.
    */
-  import { onMount, tick } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import Ikona from './vylety/Ikona.svelte';
   import { ENDPOINT, PoradceChyba, zeptejSe, type Zprava } from '../lib/poradce/chat.ts';
+  import { poradceDostupny, poradceDotaz } from '../lib/poradce/ovladani.ts';
   import type { KontextDat } from '../lib/poradce/nastroje.ts';
 
   interface Props {
@@ -49,9 +50,27 @@
     }
   });
 
+  // tlačítka „Zeptat se AI“ jinde v aplikaci se ukážou, jen když poradce opravdu odpovídá (má klíč)
+  $effect(() => {
+    poradceDostupny.set(stav === 'pripraveno');
+  });
+  onDestroy(() => poradceDostupny.set(false));
+
+  // otázka položená odjinud (úvodní stránka): otevřít chat a odeslat, nebo aspoň vložit do pole
+  $effect(() => {
+    const d = $poradceDotaz;
+    if (!d || stav === 'skryto') return;
+    poradceDotaz.set(null);
+    void (async () => {
+      await otevri();
+      if (stav === 'pripraveno' && !ceka) void posli(d.text);
+      else vstup = d.text;
+    })();
+  });
+
   async function dolu() {
     await tick();
-    seznamEl?.scrollTo({ top: seznamEl.scrollHeight, behavior: 'smooth' });
+    seznamEl?.scrollTo?.({ top: seznamEl.scrollHeight, behavior: 'smooth' });
   }
 
   async function otevri() {
@@ -231,6 +250,7 @@
     aria-expanded={otevreno}
     aria-label={otevreno ? 'Zavřít AI poradce' : 'Otevřít AI poradce'}
     data-testid="poradce-btn"
+    data-tour="ai"
   >
     {#if otevreno}
       <Ikona d="M6 6l12 12M18 6L6 18" size={22} />

@@ -99,6 +99,15 @@ export function vzdalenostKm(lat1: number, lon1: number, lat2: number, lon2: num
 
 // --- naplněnost ---------------------------------------------------------------
 
+/**
+ * Ústavní škola (dětský domov se školou, škola při zdravotnickém zařízení, výchovný
+ * či diagnostický ústav) – běžné dítě z obce do ní nechodí, proto se nenabízí jako
+ * „nejbližší mateřská / základní škola“.
+ */
+export function ustavniSkola(nazev: string): boolean {
+  return /d[ěe]tsk[ýy] domov se [šs]kolou|p[řr]i zdravotnick\S* za[řr][íi]zen|výchovn[ýy] ústav|diagnostick[ée] ústav/i.test(nazev);
+}
+
 export type TridaNaplnenosti = 'volno' | 'ok' | 'pretlak' | 'na';
 
 /** Podíl přijatých 2025 vůči záměru 2025/26 (0–∞); null když chybí data nebo je záměr 0. */

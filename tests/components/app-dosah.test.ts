@@ -131,51 +131,12 @@ describe('App – mapa Kam vyrazit se přiblíží na dosah', () => {
   }, 20000);
 });
 
-describe('App – mobilní menu', () => {
-  it('tlačítko Menu otevře a zavře seznam, výběr položky menu zavře a přepne režim, Esc zavře', async () => {
-    location.hash = '#/kraj?m=skoly';
-    render(App);
-    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
-    const btn = screen.getByTestId('menu-btn');
-    const nav = document.getElementById('mainnav')!;
-    expect(btn.getAttribute('aria-expanded')).toBe('false');
-    await fireEvent.click(btn);
-    expect(btn.getAttribute('aria-expanded')).toBe('true');
-    expect(nav.classList.contains('open')).toBe(true);
-    await fireEvent.click(screen.getByTestId('mode-urady'));
-    expect(nav.classList.contains('open')).toBe(false);
-    expect(location.hash).toContain('m=urady');
-    await fireEvent.click(btn);
-    await fireEvent.keyDown(window, { key: 'Escape' });
-    expect(nav.classList.contains('open')).toBe(false);
-  }, 20000);
-});
-
-describe('App – úvodní stránka info centra', () => {
-  it('prázdná adresa → rozcestník; výběr obce předvyplní ostatní části a dlaždice ukážou okolí', async () => {
-    render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
-    expect(location.hash).toContain('m=domu');
-    expect(screen.getByTestId('domu-dlazdice').querySelectorAll('button')).toHaveLength(10);
-    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '554481' } });
-    expect(location.hash).toContain('d=554481');
-    expect(location.hash).toContain('vd=554481');
-    expect(location.hash).toContain('uo=554481');
-    expect(screen.getByTestId('domu-vylety').textContent).toContain('od obce Cheb');
-    expect(screen.getByTestId('domu-urady').textContent).toContain('pro obec Cheb');
-    await fireEvent.click(screen.getByTestId('domu-urady'));
-    await waitFor(() => expect(screen.getByTestId('urady-karty')).toBeTruthy());
-    await fireEvent.click(screen.getByTestId('brand-home'));
-    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy());
-  }, 20000);
-});
-
 describe('App – profil Moje obec', () => {
-  it('z úvodu přes výběr obce do profilu: čísla, sekce, přechod do části s předvyplněnou obcí', async () => {
+  it('z Obce v kostce na úvodu do profilu: čísla, sekce, přechod do části s předvyplněnou obcí', async () => {
+    location.hash = '#/kraj?m=domu&ho=560537';
     render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
-    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '560537' } });
-    await fireEvent.click(screen.getByTestId('domu-profil'));
+    await waitFor(() => expect(screen.getByTestId('obec-kostka')).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.click(screen.getByTestId('kostka-profil'));
     await waitFor(() => expect(screen.getByTestId('profil-cisla')).toBeTruthy());
     expect(location.hash).toContain('m=obec');
     expect(document.querySelector('h1')!.textContent).toBe('Loket');
@@ -193,7 +154,7 @@ describe('App – profil Moje obec', () => {
 describe('App – hledání napříč aplikací', () => {
   it('najde obec, místo i školu bez diakritiky a otevře správnou část', async () => {
     render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByTestId('domu-hledat')).toBeTruthy(), { timeout: 5000 });
     const pole = screen.getByTestId('hledani') as HTMLInputElement;
     await fireEvent.focus(pole);
     await fireEvent.input(pole, { target: { value: 'hrad loket' } });

@@ -1,7 +1,10 @@
 <script lang="ts" module>
   export interface KrokPruvodce {
-    /** selektor `[data-tour="…"]`; bez cíle = karta uprostřed obrazovky */
-    cil?: string;
+    /**
+     * selektor `[data-tour="…"]`; víc cílů = první viditelný (např. menu na počítači,
+     * tlačítko Menu na mobilu); bez cíle nebo bez viditelného cíle = karta uprostřed obrazovky
+     */
+    cil?: string | string[];
     nadpis: string;
     text: string;
     /** připraví stránku (přepne režim, otevře kategorii…) před zobrazením kroku */
@@ -15,7 +18,7 @@
    * Ovládání: Další / Zpět / Přeskočit, klávesy → ← a Esc. Fokus drží v kartě.
    * Bez animací při prefers-reduced-motion.
    */
-  import { tick } from 'svelte';
+  import { tick, untrack } from 'svelte';
 
   interface Props {
     kroky: KrokPruvodce[];
@@ -32,8 +35,17 @@
   const posledni = $derived(i === kroky.length - 1);
 
   function cilEl(): HTMLElement | null {
-    return krok?.cil ? document.querySelector<HTMLElement>(`[data-tour="${krok.cil}"]`) : null;
+    const cile = krok?.cil === undefined ? [] : Array.isArray(krok.cil) ? krok.cil : [krok.cil];
+    const els = cile
+      .map((c) => document.querySelector<HTMLElement>(`[data-tour="${c}"]`))
+      .filter((el): el is HTMLElement => !!el);
+    // skrytý prvek (display: none, např. menu na mobilu) přeskočit → další cíl
+    const el = els.find((x) => (typeof x.checkVisibility === 'function' ? x.checkVisibility() : true)) ?? null;
+    nalezeno = el?.dataset.tour ?? '';
+    return el;
   }
+  /** data-tour nalezeného cíle aktuálního kroku ('' = karta uprostřed) */
+  let nalezeno = $state('');
 
   function umisti() {
     const el = cilEl();
@@ -69,7 +81,7 @@
     const el = cilEl();
     if (el) {
       const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      el.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+      el.scrollIntoView?.({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
       await new Promise((res) => setTimeout(res, reduce ? 0 : 350));
     }
     umisti();
@@ -77,7 +89,8 @@
   }
 
   $effect(() => {
-    void ukaz(0);
+    // krok 0 přepíná stránku (pred) – nesledovat, jinak by se efekt spouštěl dokola
+    untrack(() => void ukaz(0));
     const on = () => umisti();
     window.addEventListener('resize', on);
     window.addEventListener('scroll', on, true);
@@ -137,6 +150,7 @@
     aria-describedby="tour-t"
     tabindex="-1"
     onkeydown={onKey}
+    data-cil={nalezeno}
   >
     <p class="step">Krok {i + 1} z {kroky.length}</p>
     <h2 id="tour-h">{krok.nadpis}</h2>

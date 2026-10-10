@@ -126,7 +126,7 @@
 </section>
 
 <main class="wrap main">
-  <section aria-labelledby="sit-h">
+  <section aria-labelledby="sit-h" data-tour="urady">
     <h2 id="sit-h">Co potřebujete vyřídit?</h2>
     <div class="sit" role="group" aria-label="Životní situace">
       {#each SITUACE as s (s.id)}

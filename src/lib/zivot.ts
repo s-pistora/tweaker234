@@ -12,7 +12,7 @@ import type { AreaCode, KategorieId, Misto, PointFeature } from './types.ts';
 import type { Snapshot } from './data/loader.ts';
 import type { LatLon } from './map/centroids.ts';
 import { percentileRank } from './score.ts';
-import { vzdalenostKm } from './skoly.ts';
+import { ustavniSkola, vzdalenostKm } from './skoly.ts';
 import { fmtKm, plural } from './vylety.ts';
 
 export type SkupinaId = 'Doprava a služby' | 'Volný čas' | 'Lidé a práce';
@@ -55,8 +55,9 @@ export interface Pozadavek {
 
 // --- výběry bodů --------------------------------------------------------------
 
-/** Typ školy z vrstvy skoly („MŠ,ZŠ,SŠ“) obsahuje daný druh. */
-const skola = (druh: string) => (f: PointFeature) => String(f.attrs.typ ?? '').split(',').includes(druh);
+/** Typ školy z vrstvy skoly („MŠ,ZŠ,SŠ“) obsahuje daný druh; bez ústavních škol (běžné dítě tam nechodí). */
+const skola = (druh: string) => (f: PointFeature) =>
+  String(f.attrs.typ ?? '').split(',').includes(druh) && !ustavniSkola(f.name);
 const nrpzs = (...typy: string[]) => (f: PointFeature) => typy.includes(String(f.attrs.typ ?? ''));
 const kraj = (typ: string, druh?: string) => (f: PointFeature) =>
   f.attrs.typ === typ && (druh === undefined || String(f.attrs.druh ?? '').startsWith(druh));

@@ -9,6 +9,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -37,7 +38,7 @@ afterEach(() => {
 
 describe('App – Esc s otevřeným detailem obce v režimu skóre', () => {
   it('zavře detail, ale NEPROVEDE o úroveň výš v mapě kraje', async () => {
-    location.hash = '#/kraj?m=explore'; // výchozí stránka je „Kam na střední“ (bez boot sekvence)
+    location.hash = '#/kraj?m=explore'; // výchozí stránka je úvodní „Co potřebujete vyřešit?“
     const { container } = render(App);
 
     // mapa ČR se nenabízí – starý odkaz na kraje otevře rovnou ORP Karlovarského kraje
@@ -49,7 +50,7 @@ describe('App – Esc s otevřeným detailem obce v režimu skóre', () => {
     await waitFor(() => expect(container.querySelector('[data-testid="level-up"]')).toBeTruthy());
 
     // přepnout do režimu skóre a otevřít detail obce kliknutím do jeho mapy
-    await fireEvent.click(screen.getByTestId('mode-score'));
+    await zMenu('bydleni', 'mode-score');
     const obec = screen.getByTestId('zivot-mapa').querySelector('path[data-code]')!;
     await fireEvent.click(obec);
     expect(screen.getByTestId('zivot-detail')).toBeTruthy();
@@ -64,7 +65,7 @@ describe('App – Esc s otevřeným detailem obce v režimu skóre', () => {
     // návrat do průzkumu potvrdí, že mapa pořád je na úrovni obcí (kdyby Esc
     // omylem zavolal drill.up(), byli bychom zpět na úrovni ORP a tlačítko
     // [↑ ÚROVEŇ VÝŠ] by chybělo)
-    await fireEvent.click(screen.getByTestId('mode-explore'));
+    await zMenu('data', 'mode-explore');
     expect(container.querySelector('[data-testid="level-up"]')).toBeTruthy();
   });
 });

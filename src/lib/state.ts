@@ -4,6 +4,7 @@
 //             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>&p=<plan>]  (rezim skoly)
 //             [&k=<obec>]  (rezim karta = „Karta obce“), [&xt=<tab>&xs=<sluzba>&xkm=<km>]  (rezim prokraj)
 //             [&zp=<id:1|2,...>&zo=<obec>&zu=<id pozadavku>]  (rezim score = „Kde by se mi dobře žilo?“)
+//             [&ho=<obec>]  (rezim domu = úvodní stránka, karta „Obec v kostce“)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
 // (parseHash/toHash nikdy nevyhodi vyjimku) - navic se vrati `invalid:true`.
@@ -42,6 +43,14 @@ export const MODES: readonly Mode[] = [
   'karta',
   'prokraj',
 ];
+
+/** Úvodní stránka („Co potřebujete vyřešit?“): obec vybraná v rychlém hledání. */
+export interface DomuState {
+  /** kód obce pro kartu „Obec v kostce“ (sdílený „domov“ pro ostatní části) */
+  obec: AreaCode | null;
+}
+
+export const DEFAULT_DOMU: DomuState = { obec: null };
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -192,6 +201,8 @@ export interface AppState {
   karta?: KartaState;
   /** jen když se režim „Pro kraj“ použil */
   prokraj?: ProKrajState;
+  /** jen když se na úvodní stránce vybrala obec (nebo je otevřená úvodní stránka) */
+  domu?: DomuState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -373,6 +384,15 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const pk = parseProKraj(params);
   if (pk.used || mode === 'prokraj') state.prokraj = pk.state;
   if (pk.invalid) invalid = true;
+  // úvodní stránka: ho=<obec> (karta „Obec v kostce“)
+  const ho = params.get('ho');
+  if (ho !== null || mode === 'domu') {
+    state.domu = { ...DEFAULT_DOMU };
+    if (ho !== null) {
+      if (areasAvailable(snap, 'obec').has(ho)) state.domu.obec = ho;
+      else invalid = true;
+    }
+  }
   return { state, invalid };
 }
 
@@ -698,6 +718,7 @@ export function toHash(state: AppState): string {
     if (x.sluzba !== DEFAULT_PROKRAJ.sluzba) parts.push(`xs=${x.sluzba}`);
     if (x.km !== DEFAULT_PROKRAJ.km) parts.push(`xkm=${x.km}`);
   }
+  if (state.domu?.obec) parts.push(`ho=${state.domu.obec}`);
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;
 }

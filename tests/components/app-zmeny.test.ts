@@ -6,6 +6,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -60,7 +61,7 @@ describe('App – hlídač změn a nálezy', () => {
     expect(box.textContent).toContain('Kuchař');
     expect(box.textContent).toContain('10. 10. 2026');
 
-    await fireEvent.click(screen.getByTestId('domu-nalezy'));
+    await zMenu('data', 'mode-nalezy');
     await waitFor(() => expect(screen.getByTestId('nalezy-list')).toBeTruthy());
     expect(screen.getByTestId('nalezy-zmeny').textContent).toContain('Přibyla 1 žádost o voucher.');
     // automatické kontroly nad daty (např. polohy zastávek v jiné obci)
@@ -71,7 +72,7 @@ describe('App – hlídač změn a nálezy', () => {
   it('bez zmeny.json se blok na úvodní stránce neukáže', async () => {
     location.hash = '#/kraj?m=domu';
     render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByTestId('dlazdice-data')).toBeTruthy(), { timeout: 5000 });
     expect(screen.queryByTestId('domu-novinky')).toBeNull();
   });
 });

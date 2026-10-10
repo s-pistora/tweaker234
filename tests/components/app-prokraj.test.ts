@@ -6,6 +6,7 @@ import { render, cleanup, fireEvent, waitFor, screen } from '@testing-library/sv
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import App from '../../src/App.svelte';
+import { zMenu } from './menu-helper.ts';
 
 const PUBLIC_DIR = path.resolve(process.cwd(), 'public');
 
@@ -58,12 +59,11 @@ describe('App – Pro kraj', () => {
     expect(document.body.textContent).not.toMatch(/NaN|undefined/);
   }, 20000);
 
-  it('dlaždice na úvodní stránce vede do „Pro kraj“', async () => {
+  it('menu Data vede do „Pro kraj“', async () => {
     location.hash = '#/kraj?m=domu';
     render(App);
-    await waitFor(() => expect(screen.getByTestId('domu-prokraj')).toBeTruthy(), { timeout: 5000 });
-    expect(screen.getByTestId('domu-prokraj').textContent).toMatch(/\d/);
-    await fireEvent.click(screen.getByTestId('domu-prokraj'));
+    await waitFor(() => expect(screen.getByTestId('dlazdice-data')).toBeTruthy(), { timeout: 5000 });
+    await zMenu('data', 'mode-prokraj');
     await waitFor(() => expect(location.hash).toContain('m=prokraj'));
   }, 20000);
 });
