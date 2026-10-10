@@ -95,6 +95,8 @@
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
+  import Hledani from './components/Hledani.svelte';
+  import { vytvorIndex, type Cil, type Polozka } from './lib/hledani.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data';
@@ -548,6 +550,46 @@
   const ziSkore = $derived(ziCtx ? spocitejSkore(ziCtx, zi.pozadavky) : {});
   const ziPoradi = $derived(poradi(ziSkore, obecNames));
 
+  // Hledání napříč aplikací (pole v horní liště)
+  const hledaniIndex = $derived.by(() => {
+    const p: Polozka[] = [];
+    for (const [kod, nazev] of Object.entries(obecNames)) p.push({ typ: 'Obec', nazev, meta: 'Profil obce', cil: { kind: 'obec', kod } });
+    for (const o of obory) {
+      p.push({ typ: 'Střední škola', nazev: o.skola.replace(/,?\s*příspěvková organizace$/i, ''), meta: o.obec, cil: { kind: 'skola', izo: o.izo } });
+    }
+    for (const o of obory) {
+      p.push({ typ: 'Obor', nazev: o.nazevOboru, meta: `${o.skola.replace(/,?\s*příspěvková organizace$/i, '')}, ${o.obec}`, cil: { kind: 'skola', izo: o.izo } });
+    }
+    for (const m of mista) p.push({ typ: KATEGORIE_BY_ID[m.kat]?.label ?? 'Místo', nazev: m.nazev, meta: m.obecNazev, cil: { kind: 'misto', id: m.id } });
+    for (const u of snap?.urady?.obce ?? []) {
+      p.push({ typ: 'Úřad', nazev: u.obecniUrad.nazev, meta: `Kontakty pro obec ${u.nazev}`, cil: { kind: 'urad', kod: u.kod } });
+    }
+    for (const k of snap?.podnikani?.kreativci ?? []) {
+      p.push({ typ: 'Kreativec', nazev: k.nazev, meta: [k.obory.join(', '), k.obec].filter(Boolean).join(' · '), cil: { kind: 'kreativec', nazev: k.nazev } });
+    }
+    return vytvorIndex(p);
+  });
+  function otevriHledane(c: Cil) {
+    menuOpen = false;
+    if (c.kind === 'obec') {
+      setDomuObec(c.kod);
+      setMode('obec');
+    } else if (c.kind === 'skola') {
+      setMode('skoly');
+      setSkoly({ skola: c.izo });
+    } else if (c.kind === 'misto') {
+      setMode('vylety');
+      openMisto(c.id);
+    } else if (c.kind === 'urad') {
+      setMode('urady');
+      setUrady({ obec: c.kod });
+    } else {
+      setMode('podnikani');
+      setPodnikani({ tab: 'kreativci', obor: '', q: c.nazev });
+    }
+    toTop();
+  }
+
   // --- profil „Moje obec“ ------------------------------------------------------
   const PROFIL_KM = 15;
   const profilSkore = $derived(ziCtx ? spocitejSkore(ziCtx, { ...DOPORUCENY_VYBER }) : {});
@@ -944,6 +986,7 @@
         <span class="brandmark__bar" aria-hidden="true"></span>
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
+      <div class="hledat"><Hledani index={hledaniIndex} onvyber={otevriHledane} /></div>
       <div class="tools">
         <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn" aria-label="Sdílet odkaz" title="Sdílet odkaz">
           <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
@@ -1751,8 +1794,12 @@
     gap: 6px;
     order: 3;
   }
-  /* na středních šířkách jen ikony, ať se lišta vejde na jeden řádek */
-  @media (max-width: 1599px) {
+  .hledat {
+    order: 3;
+    margin-left: auto;
+  }
+  /* tlačítka nástrojů jen jako ikony (popisek pro čtečky), ať se lišta i s hledáním vejde na řádek */
+  @media (min-width: 0px) {
     .tool__t {
       position: absolute;
       width: 1px;
@@ -2367,13 +2414,18 @@
     .menubtn {
       margin-left: auto;
     }
+    .hledat {
+      order: 5;
+      width: 100%;
+      margin: 0 0 6px;
+    }
     .mainnav .mainnav__mob {
       display: block;
       color: var(--brand);
     }
     .mainnav {
       display: none;
-      order: 5;
+      order: 6;
       width: 100%;
       flex-direction: column;
       gap: 0;

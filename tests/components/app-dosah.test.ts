@@ -189,3 +189,34 @@ describe('App – profil Moje obec', () => {
     expect((screen.getByTestId('urady-obec') as HTMLSelectElement).value).toBe('560537');
   }, 20000);
 });
+
+describe('App – hledání napříč aplikací', () => {
+  it('najde obec, místo i školu bez diakritiky a otevře správnou část', async () => {
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
+    const pole = screen.getByTestId('hledani') as HTMLInputElement;
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'hrad loket' } });
+    const vys = await screen.findByTestId('hledani-vysledky');
+    const hrad = [...vys.querySelectorAll('li')].find((li) => li.textContent!.includes('Hrad Loket'))!;
+    expect(hrad).toBeTruthy();
+    await fireEvent.mouseDown(hrad);
+    await waitFor(() => expect(location.hash).toContain('m=vylety'));
+    expect(location.hash).toMatch(/vp=/);
+
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'gymnazium ostrov' } });
+    const vys2 = await screen.findByTestId('hledani-vysledky');
+    expect(vys2.querySelector('li')!.textContent).toContain('Střední škola');
+    await fireEvent.keyDown(pole, { key: 'Enter' });
+    await waitFor(() => expect(location.hash).toContain('m=skoly'));
+    expect(location.hash).toMatch(/[?&]s=\d+/);
+
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'sokolov' } });
+    await screen.findByTestId('hledani-vysledky');
+    await fireEvent.keyDown(pole, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTestId('profil-cisla')).toBeTruthy());
+    expect(document.querySelector('h1')!.textContent).toBe('Sokolov');
+  }, 20000);
+});
