@@ -3,15 +3,18 @@
   import { STATICKE_NALEZY, ZAVAZNOST, nalezyDoMarkdown, souhrnNalezu, zAutomatickychKontrol, type Nalez, type Zavaznost } from '../lib/nalezy.ts';
   import type { SourceEntry } from '../lib/types.ts';
   import { stahni, stahniSoubor } from '../lib/csv.ts';
+  import type { ZmenyFile } from '../lib/zmeny.ts';
 
   interface Props {
     automaticke: { sada: string; chyby: string[] }[];
     /** nálezy automatických kontrol nad načtenými daty (lib/kontroly.ts) */
     kontroly?: Nalez[];
+    /** historie hlídače změn dat */
+    zmeny?: ZmenyFile | null;
     sources: SourceEntry[];
     onzdroje: () => void;
   }
-  const { automaticke, kontroly = [], sources, onzdroje }: Props = $props();
+  const { automaticke, kontroly = [], zmeny = null, sources, onzdroje }: Props = $props();
 
   const nalezy = $derived<Nalez[]>([
     ...STATICKE_NALEZY,
@@ -80,6 +83,24 @@
     >
     <button type="button" class="btn-secondary" onclick={onzdroje}>Seznam všech použitých datových sad</button>
   </div>
+
+  <section class="zmeny" aria-labelledby="zmeny-h" data-testid="nalezy-zmeny">
+    <h2 id="zmeny-h">Co se v datech změnilo</h2>
+    <p class="lead">
+      Hlídač každé ráno stáhne data kraje znovu, porovná je s předchozí verzí a změny sem zapíše. Aplikace se pak
+      aktualizuje sama.
+    </p>
+    {#if zmeny?.behy.length}
+      {#each zmeny.behy as b (b.datum)}
+        <h3>{new Date(b.datum).toLocaleDateString('cs-CZ')}</h3>
+        <ul>
+          {#each b.zmeny as z, i (i)}<li><strong>{z.oblast}:</strong> {z.veta}</li>{/each}
+        </ul>
+      {/each}
+    {:else}
+      <p>Zatím žádné změny od zveřejnění aplikace.</p>
+    {/if}
+  </section>
 </main>
 
 <style>
@@ -240,6 +261,18 @@
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 20px;
+  }
+  .zmeny {
+    margin-top: 32px;
+  }
+  .zmeny h2 {
+    font-size: 1.3rem;
+    margin: 0 0 6px;
+  }
+  .zmeny ul {
+    margin: 0 0 8px;
+    padding-left: 20px;
+    font-size: 0.95rem;
   }
   @media (max-width: 700px) {
     .kpis {

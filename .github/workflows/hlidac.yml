@@ -1,0 +1,73 @@
+# Hlídač změn dat: každé ráno stáhne data kraje znovu, porovná je s verzí v repozitáři
+# (npm run data:zmeny) a při skutečné změně obsahu je commitne na main a nasadí web.
+# Pojistky: zdroj, který selže, nechá svá data z minulé verze; bez změn obsahu (jen nová
+# časová razítka) se nic necommitne; nová data musí projít testy, jinak běh selže a nic se
+# nenasadí. Plán (schedule) běží jen z výchozí větve – hlídač funguje po sloučení do main.
+name: Hlídač změn dat
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: hlidac
+  cancel-in-progress: false
+
+jobs:
+  aktualizace:
+    runs-on: ubuntu-latest
+    outputs:
+      zmeny: ${{ steps.zmeny.outputs.zmeny }}
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Stažení dat ze všech zdrojů
+        run: |
+          for s in data:update data:skoly data:vylety data:urady data:penize data:podnikani; do
+            npm run "$s" || echo "::warning::$s selhal – jeho data zůstávají z minulé verze"
+          done
+      - name: Porovnání s minulou verzí
+        id: zmeny
+        run: npm run data:zmeny
+      - name: Bez změn obsahu – zahodit nová časová razítka
+        if: steps.zmeny.outputs.zmeny == '0'
+        run: |
+          git checkout -- public/data SOURCES.md
+          git clean -fd public/data
+      - name: Testy nad novými daty
+        if: steps.zmeny.outputs.zmeny != '0'
+        run: npm test
+      - name: Commit a push na main
+        id: commit
+        if: steps.zmeny.outputs.zmeny != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/data SOURCES.md
+          git commit -m "data: automatická aktualizace (hlídač, ${{ steps.zmeny.outputs.zmeny }} změn)"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  nasazeni:
+    needs: aktualizace
+    if: needs.aktualizace.outputs.sha != ''
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.aktualizace.outputs.sha }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

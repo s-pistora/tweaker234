@@ -5,6 +5,7 @@
    */
   import type { AreaCode } from '../lib/types.ts';
   import type { Mode } from '../lib/state.ts';
+  import type { BehHlidace } from '../lib/zmeny.ts';
 
   export interface Dlazdice {
     mode: Mode;
@@ -25,8 +26,11 @@
     souhrn: { sady: number; zaznamy: number; nalezy: number };
     onobec: (code: AreaCode | null) => void;
     onmode: (m: Mode) => void;
+    /** poslední běh hlídače změn dat, null = zatím nic */
+    novinky?: BehHlidace | null;
   }
-  const { dlazdice, obce, obec, souhrn, onobec, onmode }: Props = $props();
+  const { dlazdice, obce, obec, souhrn, onobec, onmode, novinky = null }: Props = $props();
+  const NOVINEK = 5;
 
   const serazene = $derived(Object.entries(obce).sort((a, b) => a[1].localeCompare(b[1], 'cs')));
   const fmt = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
@@ -82,6 +86,20 @@
       </li>
     {/each}
   </ul>
+
+  {#if novinky?.zmeny.length}
+    <section class="news" aria-labelledby="news-h" data-testid="domu-novinky">
+      <h2 id="news-h">Co je nového v datech <small>{new Date(novinky.datum).toLocaleDateString('cs-CZ')}</small></h2>
+      <ul>
+        {#each novinky.zmeny.slice(0, NOVINEK) as z, i (i)}
+          <li><span class="oblast">{z.oblast}</span> {z.veta}</li>
+        {/each}
+      </ul>
+      {#if novinky.zmeny.length > NOVINEK}
+        <button type="button" class="link" onclick={() => onmode('nalezy')}>Všechny změny ({novinky.zmeny.length})</button>
+      {/if}
+    </section>
+  {/if}
 
   <section class="band" aria-label="Na čem aplikace stojí">
     <div><strong>{fmt(souhrn.sady)}</strong><span>datových sad z katalogu DATAZÁPAD a státních úřadů</span></div>
@@ -231,6 +249,40 @@
   .popis {
     font-size: 0.9rem;
     color: var(--text);
+  }
+  .news {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--brand);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-top: 24px;
+  }
+  .news h2 {
+    margin: 0 0 8px;
+    font-size: 1.15rem;
+  }
+  .news small {
+    font-weight: 400;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-left: 6px;
+  }
+  .news ul {
+    margin: 0 0 6px;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .oblast {
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--brand-ice);
+    color: var(--brand);
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-right: 4px;
   }
   .band {
     margin-top: 28px;

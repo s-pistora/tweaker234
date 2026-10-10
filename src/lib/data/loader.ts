@@ -9,6 +9,7 @@
 import { isUradyFile, type UradyFile } from '../urady.ts';
 import { isPenizeFile, type PenizeFile } from '../penize.ts';
 import { isPodnikaniFile, type PodnikaniFile } from '../podnikani.ts';
+import { isZmenyFile, type ZmenyFile } from '../zmeny.ts';
 import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile, MistaFile } from '../types.ts';
 import { isManifest, isIndicatorFile, isPointLayer, isOboryFile, isMistaFile } from '../types.ts';
 import type { Topology } from 'topojson-specification';
@@ -30,6 +31,8 @@ export interface Snapshot {
   penize: PenizeFile | null;
   /** kreativci, inovační infrastruktura, zóny (režim „Podnikání“) */
   podnikani: PodnikaniFile | null;
+  /** historie hlídače změn (zmeny.json mimo manifest); null = soubor ještě není */
+  zmeny: ZmenyFile | null;
   /** = manifest.updatedAt, pro pohodlny pristup */
   updatedAt: string;
 }
@@ -94,6 +97,7 @@ export async function loadSnapshot(
     urady: null,
     penize: null,
     podnikani: null,
+    zmeny: null,
     updatedAt: manifest.updatedAt,
   };
 
@@ -193,6 +197,14 @@ export async function loadSnapshot(
     } catch {
       onStep?.({ label, status: 'fail' });
     }
+  }
+
+  // zmeny.json zapisuje hlídač (scripts/zmeny.ts) – volitelný, bez kroku v načítání
+  try {
+    const json = await fetchJson(fetchImpl, base, 'zmeny.json');
+    if (isZmenyFile(json)) snapshot.zmeny = json;
+  } catch {
+    /* soubor zatím není */
   }
 
   return snapshot;

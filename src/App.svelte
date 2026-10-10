@@ -1421,6 +1421,7 @@
       souhrn={domuSouhrn}
       onobec={setDomuObec}
       onmode={setMode}
+      novinky={snap.zmeny?.behy[0] ?? null}
     />
   {:else if st.mode === 'prokraj'}
     {#if ziCtx}
@@ -1444,6 +1445,7 @@
         { sada: 'Podnikání', chyby: snap.podnikani?.chybyDat ?? [] },
       ]}
       {kontroly}
+      zmeny={snap.zmeny}
       sources={snap.manifest.sources}
       onzdroje={openSources}
     />

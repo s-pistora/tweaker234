@@ -1,4 +1,5 @@
 # Nasazení na GitHub Pages při každém pushi na main.
+# Volá ho i hlídač změn dat (hlidac.yml) – push přes GITHUB_TOKEN totiž nasazení sám nespustí.
 # Vyžaduje: repo Public a Settings → Pages → Source = „GitHub Actions“.
 name: Deploy na GitHub Pages
 
@@ -6,6 +7,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: commit, který se má nasadit (výchozí = commit, který workflow spustil)
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -21,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24

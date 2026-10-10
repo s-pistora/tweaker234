@@ -119,6 +119,30 @@ součást `npm run data:vylety`.
 - **Stáhnout data (CSV):** u výsledků Kam na střední, Kam vyrazit, Úřadů, Peněz kraje a Podnikání –
   stáhne právě vyfiltrovaný seznam (UTF-8, středník – otevře se rovnou v Excelu) s odkazem na zdrojovou sadu.
 
+## Data k činům, ne jen k obrázkům
+
+- **Plánovač přihlášek** (Kam na střední → záložka „Můj plán přihlášek“): až 3 obory v pořadí priority,
+  u každého slovní odhad šance z loňské obsazenosti, upozornění, když plán nemá žádný obor s volnými místy,
+  a návrh zálohy ze stejné skupiny oborů v dosahu. Termíny přijímaček 2027 (sdělení MŠMT č. j.
+  MSMT-525/2026-13 – nejsou z otevřených dat kraje), nejbližší pedagogicko-psychologická poradna,
+  export termínů do kalendáře (`.ics`) a tisk / PDF pro rodiče. Plán je v adrese (`p=`), jde poslat.
+- **Karta obce** (`m=obec&k=<kód>`): pro starosty – obyvatelé a jejich vývoj, služby v dosahu se srovnáním
+  s ostatními obcemi kraje, střední školy, vouchery a podnikání, příslušné úřady. Jedna stránka A4 k tisku
+  nebo do PDF, i jako CSV.
+- **Pro kraj → Bílá místa** (`m=prokraj`): kolik lidí to má k lékaři, školce, lékárně… dál než zvolená
+  vzdálenost a ve kterých obcích by nová služba přiblížila nejvíc obyvatel (hladový výběr nad středy obcí,
+  vzdušnou čarou).
+- **Pro kraj → Výhled oborů**: hrubý odhad zájmu o obory v 2026/27 – loňští přijatí × trend počtu dětí
+  0–14 let v ORP školy (ČSÚ 2020–2025) proti plánu míst. Označeno jako odhad, ne předpověď.
+- **Automatické kontroly kvality dat** (stránka „Co jsme našli v datech“): polohy škol a bodů v jiné obci,
+  než uvádí kód obce, duplicitní obory, přijatí nad 2× záměr, přijatí bez záměru, školy bez webu –
+  s konkrétními záznamy; report pro DATAZÁPAD v Markdownu.
+- **Hlídač změn dat** (`.github/workflows/hlidac.yml`): každé ráno stáhne všechna data znovu,
+  `npm run data:zmeny` je porovná s verzí v gitu a změny popíše lidskou řečí do `public/data/zmeny.json`
+  (úvodní stránka „Co je nového v datech“, historie na stránce nálezů). Při skutečné změně obsahu
+  se data po úspěšných testech commitnou na `main` a web se nasadí; bez změn (jen nová časová
+  razítka) se nic necommitne.
+
 ## Podnikání – „Kdo v kraji tvoří a kde začít podnikat“
 
 - **Kreativci:** 197 lidí a firem z Galerie kreativců (grafici, fotografové, řemeslníci, webdesign…)
@@ -257,6 +281,9 @@ datem stažení a rokem platnosti je v [SOURCES.md](SOURCES.md) a v aplikaci pod
 3. **Validace**: počty území (14 krajů, 7 ORP, 134 obcí) a křížová kontrola počtu obyvatel
    a nezaměstnanosti proti druhému zdroji ČSÚ (KROK), tolerance 0,5 %. Při chybě se nic nezapíše.
 4. Když některý zdroj nejde stáhnout, zůstane jeho poslední platná verze a v aplikaci je označen `STALE`.
+5. `npm run data:zmeny` porovná nová data s verzí v gitu a zapíše změny do `public/data/zmeny.json`.
+   Automaticky to každé ráno dělá hlídač (`.github/workflows/hlidac.yml`), který při změně obsahu
+   data commitne na `main` a nasadí web.
 
 Snapshot v `public/data/` je zároveň **offline záloha** – aplikace běží i bez připojení k API.
 Při startu se načítá manifest a všechny soubory snapshotu.
