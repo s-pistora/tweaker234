@@ -130,3 +130,23 @@ describe('App – mapa Kam vyrazit se přiblíží na dosah', () => {
     expect([...vyplne]).toEqual(['#dfe8f3']);
   }, 20000);
 });
+
+describe('App – mobilní menu', () => {
+  it('tlačítko Menu otevře a zavře seznam, výběr položky menu zavře a přepne režim, Esc zavře', async () => {
+    location.hash = '#/kraj?m=skoly';
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
+    const btn = screen.getByTestId('menu-btn');
+    const nav = document.getElementById('mainnav')!;
+    expect(btn.getAttribute('aria-expanded')).toBe('false');
+    await fireEvent.click(btn);
+    expect(btn.getAttribute('aria-expanded')).toBe('true');
+    expect(nav.classList.contains('open')).toBe(true);
+    await fireEvent.click(screen.getByTestId('mode-urady'));
+    expect(nav.classList.contains('open')).toBe(false);
+    expect(location.hash).toContain('m=urady');
+    await fireEvent.click(btn);
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(nav.classList.contains('open')).toBe(false);
+  }, 20000);
+});

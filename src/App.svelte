@@ -334,6 +334,9 @@
     appState.update((s) => ({ ...s, penize: { ...(s.penize ?? DEFAULT_PENIZE), ...patch } }));
   }
 
+  /** mobilní menu (do 1000 px šířky) */
+  let menuOpen = $state(false);
+
   // --- režim „Úřady“ ---------------------------------------------------------
   const ur = $derived<UradyState>(st.urady ?? DEFAULT_URADY);
   function setUrady(patch: Partial<UradyState>) {
@@ -678,6 +681,10 @@
 
   function onKey(e: KeyboardEvent) {
     if (e.key !== 'Escape' || !snap || tourOpen) return;
+    if (menuOpen) {
+      menuOpen = false;
+      return;
+    }
     if (sourcesOpen) {
       closeSources();
       return;
@@ -720,13 +727,35 @@
           <span class="tool__t">Průvodce</span>
         </button>
       </div>
-      <nav class="mainnav" aria-label="Hlavní navigace" data-tour="nav">
+      <button
+        type="button"
+        class="menubtn"
+        aria-expanded={menuOpen}
+        aria-controls="mainnav"
+        onclick={() => (menuOpen = !menuOpen)}
+        data-testid="menu-btn"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"
+          ><path
+            d={menuOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 7h16M4 12h16M4 17h16'}
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          /></svg
+        >
+        <span>{menuOpen ? 'Zavřít' : 'Menu'}</span>
+      </button>
+      <nav class="mainnav" class:open={menuOpen} id="mainnav" aria-label="Hlavní navigace" data-tour="nav">
         {#each MODE_NAV as n (n.m)}
           <button
             type="button"
             class:on={st.mode === n.m}
             aria-current={st.mode === n.m ? 'page' : undefined}
-            onclick={() => setMode(n.m)}
+            onclick={() => {
+              setMode(n.m);
+              menuOpen = false;
+            }}
             data-testid="mode-{n.m}">{n.label}</button
           >
         {/each}
@@ -735,10 +764,37 @@
           class="mainnav__src"
           class:on={st.mode === 'explore'}
           aria-current={st.mode === 'explore' ? 'page' : undefined}
-          onclick={() => setMode('explore')}
+          onclick={() => {
+            setMode('explore');
+            menuOpen = false;
+          }}
           data-testid="mode-explore">Statistika kraje</button
         >
-        <button type="button" class="mainnav__src" onclick={openSources} data-testid="sources-btn">Zdroje dat</button>
+        <button
+          type="button"
+          class="mainnav__src"
+          onclick={() => {
+            menuOpen = false;
+            openSources();
+          }}
+          data-testid="sources-btn">Zdroje dat</button
+        >
+        <button
+          type="button"
+          class="mainnav__src mainnav__mob"
+          onclick={() => {
+            menuOpen = false;
+            share();
+          }}>Sdílet odkaz na tuto stránku</button
+        >
+        <button
+          type="button"
+          class="mainnav__src mainnav__mob"
+          onclick={() => {
+            menuOpen = false;
+            openTour();
+          }}>Průvodce aplikací</button
+        >
       </nav>
     </div>
   </header>
@@ -1449,7 +1505,7 @@
     order: 3;
   }
   /* na středních šířkách jen ikony, ať se lišta vejde na jeden řádek */
-  @media (min-width: 1001px) and (max-width: 1599px) {
+  @media (max-width: 1599px) {
     .tool__t {
       position: absolute;
       width: 1px;
@@ -2018,7 +2074,7 @@
     clip: rect(0 0 0 0);
     white-space: nowrap;
   }
-  @media (max-width: 1100px) {
+  @media (min-width: 1001px) and (max-width: 1100px) {
     .topbar__in {
       padding-top: 8px;
       padding-bottom: 4px;
@@ -2026,6 +2082,76 @@
     .mainnav {
       order: 4;
       width: 100%;
+    }
+  }
+  .menubtn,
+  .mainnav .mainnav__mob {
+    display: none;
+  }
+  /* do 1000 px: menu schované za tlačítkem, po rozbalení svislý seznam */
+  @media (max-width: 1000px) {
+    .topbar__in {
+      flex-wrap: wrap;
+      min-height: 64px;
+    }
+    .menubtn {
+      order: 4;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font: inherit;
+      font-weight: 500;
+      min-height: 44px;
+      padding: 0 14px;
+      border: 1px solid var(--brand);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--brand);
+      cursor: pointer;
+    }
+    .menubtn[aria-expanded='true'] {
+      background: var(--brand);
+      color: #fff;
+    }
+    /* Sdílet a Průvodce jsou na mobilu v menu (s textem) */
+    .tools {
+      display: none;
+    }
+    .menubtn {
+      margin-left: auto;
+    }
+    .mainnav .mainnav__mob {
+      display: block;
+      color: var(--brand);
+    }
+    .mainnav {
+      display: none;
+      order: 5;
+      width: 100%;
+      flex-direction: column;
+      gap: 0;
+      padding: 6px 0 10px;
+      border-top: 1px solid var(--line);
+    }
+    .mainnav.open {
+      display: flex;
+    }
+    .mainnav button,
+    .mainnav .mainnav__src {
+      text-align: left;
+      min-height: 48px;
+      padding: 0 12px;
+      font-size: 1.05rem;
+      border-bottom: 1px solid var(--line);
+      border-left: 4px solid transparent;
+    }
+    .mainnav button.on {
+      border-bottom-color: var(--line);
+      border-left-color: var(--brand);
+      background: var(--brand-ice);
+    }
+    .mainnav .mainnav__src {
+      font-size: 0.95rem;
     }
   }
   @media (max-width: 1000px) {
@@ -2076,26 +2202,6 @@
     .topbar__in {
       min-height: 0;
       padding-top: 10px;
-    }
-    /* mobil: tři hlavní části vedle sebe (nic se neořízne), Statistika a Zdroje menším řádkem pod nimi */
-    .mainnav {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 0 4px;
-      width: 100%;
-    }
-    .mainnav button {
-      grid-column: span 2;
-      padding: 4px 4px;
-      font-size: 0.92rem;
-      line-height: 1.2;
-      text-align: center;
-    }
-    .mainnav .mainnav__src {
-      grid-column: span 3;
-      min-height: 36px;
-      font-size: 0.82rem;
-      border-top: 1px solid var(--line);
     }
     .kpi__value {
       font-size: 1.75rem;
