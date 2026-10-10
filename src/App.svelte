@@ -288,7 +288,10 @@
     });
   });
   const skolVDosahu = $derived(mapaSkoly.length);
+  /** šedé tečky škol mimo filtr – jen bez zadaného bydliště; s bydlištěm se na mapě ukazuje
+   *  výhradně to, co je do zvolené vzdálenosti */
   const mapaOstatni = $derived.by(() => {
+    if (domov) return [];
     const v = new Set(mapaSkoly.map((s) => s.izo));
     const seen = new Set<string>();
     return obory

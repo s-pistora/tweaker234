@@ -365,7 +365,7 @@
       <span><i class="d d--volno"></i>hodně volno</span>
       <span><i class="d d--ok"></i>skoro plno</span>
       <span><i class="d d--pretlak"></i>přeplněno</span>
-      <span><i class="d d--mimo"></i>mimo dosah / filtr</span>
+      {#if tecky.length}<span><i class="d d--mimo"></i>mimo filtr</span>{/if}
       <span class="leg__note">velikost = počet míst</span>
     </div>
   </div>
