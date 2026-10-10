@@ -1004,6 +1004,9 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="shell">
+  <a class="skiplink" href="#obsah" onclick={(e) => { e.preventDefault(); const t = document.getElementById('obsah'); t?.focus(); t?.scrollIntoView(); }}
+    >Přeskočit na obsah</a
+  >
   <header class="topbar">
     <div class="wrap topbar__in">
       <a class="brandmark" href="#/kraj?m=domu" onclick={(e) => { e.preventDefault(); setMode('domu'); menuOpen = false; }} data-testid="brand-home">
@@ -1101,6 +1104,7 @@
       </nav>
     </div>
   </header>
+  <div id="obsah" tabindex="-1" class="obsah-kotva"></div>
 
   {#if toast}
     <div class="toast" role="status" aria-live="polite">{toast}</div>
@@ -1843,6 +1847,23 @@
     display: flex;
     gap: 6px;
     order: 3;
+  }
+  .skiplink {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 100;
+    padding: 10px 16px;
+    background: var(--brand);
+    color: #fff;
+    border-radius: 0 0 8px 8px;
+    font-weight: 700;
+  }
+  .skiplink:focus {
+    top: 0;
+  }
+  .obsah-kotva:focus {
+    outline: none;
   }
   .cmpbar {
     position: fixed;
