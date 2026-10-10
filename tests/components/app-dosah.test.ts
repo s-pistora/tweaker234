@@ -220,3 +220,23 @@ describe('App – hledání napříč aplikací', () => {
     expect(document.querySelector('h1')!.textContent).toBe('Sokolov');
   }, 20000);
 });
+
+describe('App – srovnání oborů', () => {
+  it('dva obory přidané tlačítkem + se ukážou vedle sebe v tabulce', async () => {
+    location.hash = '#/kraj?m=skoly&d=554481&km=20';
+    render(App);
+    await waitFor(() => expect(screen.getAllByTestId('porovnat').length).toBeGreaterThan(2), { timeout: 5000 });
+    const btns = screen.getAllByTestId('porovnat');
+    await fireEvent.click(btns[0]);
+    expect(screen.getByTestId('srovnani-lista').textContent).toContain('vybráno 1 z 3');
+    expect((screen.getByTestId('srovnani-otevrit') as HTMLButtonElement).disabled).toBe(true);
+    await fireEvent.click(btns[1]);
+    await fireEvent.click(screen.getByTestId('srovnani-otevrit'));
+    const dlg = await screen.findByTestId('srovnani');
+    expect(dlg.querySelectorAll('thead th')).toHaveLength(2);
+    expect(dlg.textContent).toContain('Loni obsazeno');
+    expect(dlg.textContent).not.toMatch(/NaN|undefined/);
+    await fireEvent.click(dlg.querySelectorAll<HTMLButtonElement>('.rm')[0]);
+    await waitFor(() => expect(screen.getByTestId('srovnani').querySelectorAll('thead th')).toHaveLength(1));
+  }, 20000);
+});

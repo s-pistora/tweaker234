@@ -10,6 +10,7 @@
     procenta,
     tridaNaplnenosti,
     trend,
+    klicOboru,
     type OborVysledek,
     type Razeni,
   } from '../../lib/skoly.ts';
@@ -25,6 +26,9 @@
     onrazeni: (r: Razeni) => void;
     onselect: (izo: string) => void;
     onhover?: (izo: string | null) => void;
+    /** klíče oborů vybraných ke srovnání */
+    porovnani?: string[];
+    onporovnat?: (klic: string) => void;
   }
   const {
     vysledky,
@@ -37,6 +41,8 @@
     onrazeni,
     onselect,
     onhover,
+    porovnani = [],
+    onporovnat,
   }: Props = $props();
 
   interface Skupina {
@@ -174,7 +180,7 @@
                 {@const o = r.obor}
                 {@const tr = tridaNaplnenosti(r.naplnenost)}
                 {@const vyvoj = trend(o)}
-                <li>
+                <li class="obor-li">
                   <button type="button" class="obor" onclick={() => onselect(g.izo)}>
                     <span class="obor__n">{o.nazevOboru}</span>
                     <span class="obor__t">{TYP[o.typ]} · {o.delka}</span>
@@ -191,6 +197,19 @@
                       {r.naplnenost === null ? 'nový' : procenta(r.naplnenost)}
                     </span>
                   </button>
+                  {#if onporovnat}
+                    {@const k = klicOboru(o)}
+                    <button
+                      type="button"
+                      class="cmp"
+                      class:on={porovnani.includes(k)}
+                      aria-pressed={porovnani.includes(k)}
+                      aria-label="Porovnat obor {o.nazevOboru}"
+                      title={porovnani.includes(k) ? 'Odebrat ze srovnání' : 'Přidat ke srovnání'}
+                      onclick={() => onporovnat(k)}
+                      data-testid="porovnat">{porovnani.includes(k) ? '✓' : '+'}</button
+                    >
+                  {/if}
                 </li>
               {/each}
             </ul>
@@ -210,7 +229,7 @@
     {/if}
     <p class="foot">
       Procento = jak byl obor loni obsazený (přijatí k 30. 9. 2025 / plánovaná místa). „Nový“ = loni
-      neotevíral nebo údaj chybí.
+      neotevíral nebo údaj chybí.{#if onporovnat} Tlačítkem + přidáte obor ke srovnání (nejvýš tři).{/if}
     </p>
   {/if}
 </section>
@@ -380,6 +399,35 @@
     list-style: none;
     margin: 0;
     padding: 0 10px 8px;
+  }
+  .obor-li {
+    display: flex;
+    align-items: stretch;
+    border-top: 1px solid #edf1f6;
+  }
+  .obor-li .obor {
+    border-top: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  .cmp {
+    flex: none;
+    align-self: center;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    margin-left: 4px;
+    border: 1px solid var(--brand);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--brand);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cmp.on {
+    background: var(--brand);
+    color: #fff;
   }
   .obor {
     display: grid;

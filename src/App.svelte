@@ -88,6 +88,9 @@
     procenta,
     tridaNaplnenosti,
     vzdalenostKm,
+    klicOboru,
+    prepniPorovnani,
+    MAX_POROVNANI,
     type TridaNaplnenosti,
   } from './lib/skoly.ts';
   import type { Glyph, Tone } from './lib/map/pointStyle.ts';
@@ -96,6 +99,7 @@
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
   import Hledani from './components/Hledani.svelte';
+  import SrovnaniOboru from './components/skoly/SrovnaniOboru.svelte';
   import { vytvorIndex, type Cil, type Polozka } from './lib/hledani.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
@@ -304,6 +308,21 @@
       .filter((o) => !v.has(o.izo) && !seen.has(o.izo) && seen.add(o.izo))
       .map((o) => ({ izo: o.izo, lat: o.lat, lon: o.lon }));
   });
+  // Srovnání oborů vedle sebe (nejvýš 3)
+  let porovnani = $state<string[]>([]);
+  let srovnaniOpen = $state(false);
+  function porovnat(k: string) {
+    const r = prepniPorovnani(porovnani, k);
+    if (r.plno) showToast(`Porovnat lze nejvýš ${MAX_POROVNANI} obory. Nejprve některý odeberte.`);
+    porovnani = r.vyber;
+    if (!porovnani.length) srovnaniOpen = false;
+  }
+  const porovnavane = $derived(
+    porovnani
+      .map((k) => obory.find((o) => klicOboru(o) === k))
+      .filter((o): o is NonNullable<typeof o> => !!o)
+      .map((o) => ({ obor: o, km: domov ? vzdalenostKm(domov.lat, domov.lon, o.lat, o.lon) : null })),
+  );
   const vybraneObory = $derived(sk.skola ? obory.filter((o) => o.izo === sk.skola) : []);
   const vybranaKm = $derived(
     domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
@@ -959,7 +978,8 @@
       return;
     }
     if (st.mode === 'skoly') {
-      if (sk.skola) setSkoly({ skola: null });
+      if (srovnaniOpen) srovnaniOpen = false;
+      else if (sk.skola) setSkoly({ skola: null });
       return;
     }
     if (st.mode === 'vylety') {
@@ -1190,6 +1210,8 @@
               onrazeni={(r) => setSkoly({ razeni: r })}
               onselect={(izo) => setSkoly({ skola: izo })}
               onhover={(izo) => (zvyraznena = izo)}
+              {porovnani}
+              onporovnat={porovnat}
             />
             <StahnoutData
               nazev={`kam-na-stredni${domovNazev ? `-${domovNazev}` : ''}`}
@@ -1242,11 +1264,32 @@
 
         {#if vybraneObory.length}
           {#key sk.skola}
-            <SkolaDetail obory={vybraneObory} km={vybranaKm} sources={skolySources} onclose={() => setSkoly({ skola: null })} />
+            <SkolaDetail
+              obory={vybraneObory}
+              km={vybranaKm}
+              sources={skolySources}
+              onclose={() => setSkoly({ skola: null })}
+              {porovnani}
+              onporovnat={porovnat}
+            />
           {/key}
         {/if}
       {/if}
     </main>
+    {#if porovnani.length}
+      <div class="cmpbar" role="region" aria-label="Srovnání oborů" data-testid="srovnani-lista">
+        <span
+          ><strong>Srovnání oborů</strong> · vybráno {porovnani.length} z {MAX_POROVNANI}{porovnani.length < 2 ? ' – přidejte ještě jeden' : ''}</span
+        >
+        <button type="button" class="btn-primary" disabled={porovnani.length < 2} onclick={() => (srovnaniOpen = true)} data-testid="srovnani-otevrit"
+          >Porovnat</button
+        >
+        <button type="button" class="btn-secondary" onclick={() => ((porovnani = []), (srovnaniOpen = false))}>Vymazat</button>
+      </div>
+    {/if}
+    {#if srovnaniOpen && porovnavane.length}
+      <SrovnaniOboru obory={porovnavane} onremove={porovnat} onclose={() => (srovnaniOpen = false)} />
+    {/if}
   {:else if st.mode === 'vylety'}
     <section class="hero" class:hero--slim={!!vyDef}>
       <div class="wrap">
@@ -1793,6 +1836,32 @@
     display: flex;
     gap: 6px;
     order: 3;
+  }
+  .cmpbar {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    padding: 10px 12px 10px 18px;
+    background: var(--brand-dark);
+    color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(12, 24, 56, 0.3);
+  }
+  .cmpbar .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  .cmpbar .btn-primary:disabled {
+    opacity: 0.5;
   }
   .hledat {
     order: 3;

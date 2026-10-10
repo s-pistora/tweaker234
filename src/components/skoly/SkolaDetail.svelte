@@ -11,6 +11,7 @@
     vetaDoprava,
     vetaNaplnenost,
     vetaTrend,
+    klicOboru,
   } from '../../lib/skoly.ts';
   import Naplnenost from './Naplnenost.svelte';
 
@@ -20,8 +21,10 @@
     km: number | null;
     sources: SourceEntry[];
     onclose: () => void;
+    porovnani?: string[];
+    onporovnat?: (klic: string) => void;
   }
-  const { obory, km, sources, onclose }: Props = $props();
+  const { obory, km, sources, onclose, porovnani = [], onporovnat }: Props = $props();
 
   const s = $derived(obory[0]);
   const otevirane = $derived(obory.filter((o) => (o.zamer[2026] ?? 0) > 0));
@@ -84,6 +87,12 @@
           <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           <p>{vetaNaplnenost(o)}</p>
           {#if veta}<p class="meta">{veta}</p>{/if}
+          {#if onporovnat}
+            {@const k = klicOboru(o)}
+            <button type="button" class="btn-secondary cmp" aria-pressed={porovnani.includes(k)} onclick={() => onporovnat(k)}
+              >{porovnani.includes(k) ? '✓ Ve srovnání – odebrat' : '+ Porovnat s jiným oborem'}</button
+            >
+          {/if}
         </li>
       {/each}
     </ul>
@@ -98,6 +107,11 @@
 {/if}
 
 <style>
+  .cmp {
+    margin-top: 6px;
+    min-height: 36px;
+    font-size: 0.9rem;
+  }
   .backdrop {
     position: fixed;
     inset: 0;
