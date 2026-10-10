@@ -13,8 +13,8 @@ import type { Snapshot } from './data/loader.ts';
 import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
-export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani';
-export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani'];
+export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani' | 'nalezy';
+export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani', 'nalezy'];
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {

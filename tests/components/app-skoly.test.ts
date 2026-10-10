@@ -67,6 +67,9 @@ describe('App – Kam na střední', () => {
     expect(nadpis()).toMatch(/od Cheb/);
     // kružnice dosahu kolem domova
     expect(screen.getByTestId('skoly-mapa').querySelector('.kruh')).toBeTruthy();
+    // poradny a stažení dat
+    expect(screen.getByTestId('poradny').textContent).toContain('Pedagogicko-psychologická poradna');
+    expect(screen.getByTestId('stahnout-data').textContent).toMatch(/Stáhnout data \(CSV, \d+/);
     expect(Number(nadpis().match(/\d+/)![0])).toBeLessThan(vse);
     expect(rows[0].textContent).toMatch(/Cheb/);
 

@@ -18,6 +18,7 @@
     type Voucher,
     type VoucherTyp,
   } from '../../lib/penize.ts';
+  import StahnoutData from '../common/StahnoutData.svelte';
 
   interface Props {
     data: PenizeFile;
@@ -167,6 +168,23 @@
       {/each}
     </div>
 
+    <StahnoutData
+      nazev="projekty-karlovarskeho-kraje"
+      pocet={data.projekty.length}
+      radky={() =>
+        data.projekty.map((p) => ({
+          projekt: p.nazev,
+          stav: p.stav === 'probiha' ? 'běží' : 'dokončen',
+          program: p.program,
+          rozpocet_kc: p.vydaje,
+          dotace_kc: p.dotace,
+          zahajeni: p.od,
+          ukonceni: p.do,
+          role_kraje: p.role,
+          registracni_cislo: p.regCislo,
+          web: p.web,
+        }))}
+    />
     <h2 class="h2-gap">Dokončené projekty <span class="cnt">{ukoncene.length}</span></h2>
     <ol class="timeline" data-testid="projekty-ukoncene">
       {#each ukoncene as p (p.id)}
@@ -267,6 +285,21 @@
           Zobrazit další ({podporene.length - limit})
         </button>
       {/if}
+      <StahnoutData
+        nazev={`vouchery${stav.typ ? `-${stav.typ}` : ''}${stav.orp ? `-${names[stav.orp] ?? stav.orp}` : ''}`}
+        pocet={vFiltr.length}
+        radky={() =>
+          vFiltr.map((v) => ({
+            projekt: v.nazev,
+            typ: VOUCHER_TYP[v.typ].nazev,
+            rok: v.rok,
+            obec: names[v.obec] ?? '',
+            orp: names[v.orp] ?? '',
+            pozadovano_kc: v.pozadovano,
+            prideleno_kc: v.uspesna ? v.prideleno : 0,
+            uspesna: v.uspesna ? 'ano' : 'ne',
+          }))}
+      />
     </section>
   {:else}
     <div class="filtr">
@@ -312,6 +345,7 @@
       <ul>
         {#each data.chybyDat as c (c)}<li>{c}</li>{/each}
       </ul>
+      <a class="all" href="#/kraj?m=nalezy">Všechny nálezy ve všech datech kraje →</a>
     </section>
   {/if}
   <p class="foot">
@@ -822,6 +856,12 @@
   .chyby h3 {
     font-size: 1rem;
     margin-bottom: 6px;
+  }
+  .all {
+    display: inline-block;
+    margin-top: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
   }
   .chyby ul {
     margin: 0;

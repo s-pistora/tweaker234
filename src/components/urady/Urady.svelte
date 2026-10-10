@@ -16,6 +16,7 @@
     type UradTyp,
     type UradyFile,
   } from '../../lib/urady.ts';
+  import StahnoutData from '../common/StahnoutData.svelte';
 
   interface Props {
     data: UradyFile;
@@ -201,6 +202,25 @@
     </div>
   {/if}
 
+  <StahnoutData
+    nazev="urady-obci-karlovarskeho-kraje"
+    pocet={data.obce.length}
+    radky={() =>
+      data.obce.map((o) => ({
+        obec: o.nazev,
+        kod_obce: o.kod,
+        orp: o.orp,
+        obecni_urad: o.obecniUrad.nazev,
+        obecni_urad_telefon: o.obecniUrad.tel,
+        obecni_urad_email: o.obecniUrad.email,
+        obecni_urad_datovka: o.obecniUrad.datovka,
+        stavebni_urad: o.stavebni.map((x) => x.nazev).join(' | '),
+        stavebni_urad_datovka: o.stavebni.map((x) => x.datovka).join(' | '),
+        zivnostensky_urad: o.zivnostensky?.nazev ?? '',
+        zivnostensky_urad_telefon: o.zivnostensky?.tel ?? '',
+        poznamka: o.poznamky.join(' '),
+      }))}
+  />
   <p class="foot">
     Zdroj: Karlovarský kraj, DATAZÁPAD – stavební úřady podle katastrálních území, obecní živnostenské úřady, matriční
     úřady a seznam obcí (CC0). Před návštěvou si ověřte aktuální úřední hodiny na webu úřadu.

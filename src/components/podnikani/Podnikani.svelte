@@ -11,6 +11,7 @@
     type InfraTyp,
     type PodnikaniFile,
   } from '../../lib/podnikani.ts';
+  import StahnoutData from '../common/StahnoutData.svelte';
 
   interface Props {
     data: PodnikaniFile;
@@ -144,6 +145,11 @@
     {#if vysledky.length > limit}
       <button type="button" class="btn-secondary more" onclick={() => (limit += 48)}>Zobrazit další ({vysledky.length - limit})</button>
     {/if}
+    <StahnoutData
+      nazev={`kreativci${stav.obor ? `-${stav.obor}` : ''}`}
+      pocet={vysledky.length}
+      radky={() => vysledky.map((k) => ({ nazev: k.nazev, obory: k.obory.join(', '), obec: k.obec, web: k.web, profil: k.profil }))}
+    />
   {:else if stav.tab === 'centra'}
     <div class="chips" role="group" aria-label="Typ">
       <button type="button" class:on={!typ} onclick={() => (typ = '')}>Vše <span>{data.infra.length}</span></button>
@@ -165,6 +171,11 @@
         </li>
       {/each}
     </ul>
+    <StahnoutData
+      nazev="inkubatory-coworkingy"
+      pocet={centra.length}
+      radky={() => centra.map((c) => ({ nazev: c.nazev, typ: c.typy.map((t) => INFRA_TYP[t]).join(', '), adresa: c.adresa, rok_zalozeni: c.rok, sektor: c.sektor, web: c.web }))}
+    />
   {:else}
     <div class="two">
       <section>
@@ -190,12 +201,18 @@
         </ul>
       </section>
     </div>
+    <StahnoutData
+      nazev="prumyslove-zony"
+      pocet={data.zony.length}
+      radky={() => data.zony.map((z) => ({ nazev: z.nazev, stav: z.stav === 'zamer' ? 'záměr' : 'stávající', obec: z.obec, orp: z.orp, zemepisna_sirka: z.lat, zemepisna_delka: z.lon }))}
+    />
   {/if}
 
   {#if data.chybyDat.length}
     <section class="chyby" aria-labelledby="pchyby-h">
       <h3 id="pchyby-h">Co jsme v datech kraje našli</h3>
       <ul>{#each data.chybyDat as c (c)}<li>{c}</li>{/each}</ul>
+      <a class="all" href="#/kraj?m=nalezy">Všechny nálezy ve všech datech kraje →</a>
     </section>
   {/if}
   <p class="foot">
@@ -493,6 +510,12 @@
   .chyby h3 {
     font-size: 1rem;
     margin-bottom: 6px;
+  }
+  .all {
+    display: inline-block;
+    margin-top: 8px;
+    font-weight: 500;
+    font-size: 0.9rem;
   }
   .chyby ul {
     margin: 0;

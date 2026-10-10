@@ -19,8 +19,11 @@
   import Urady from './components/urady/Urady.svelte';
   import Penize from './components/penize/Penize.svelte';
   import Podnikani from './components/podnikani/Podnikani.svelte';
+  import Nalezy from './components/Nalezy.svelte';
   import { vouchery as nactiVouchery } from './lib/penize.ts';
   import SkolyList from './components/skoly/SkolyList.svelte';
+  import Poradny from './components/skoly/Poradny.svelte';
+  import StahnoutData from './components/common/StahnoutData.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
@@ -837,6 +840,7 @@
         {#if skolyTab === 'hledat'}
           <SkolyFiltr filtr={sk} obce={obecNames} skupiny={skupinyOboru} onchange={setSkoly} />
           <div class="split" id="skoly-vysledky">
+            <div class="split__list">
             <SkolyList
               {vysledky}
               vybrana={sk.skola}
@@ -849,6 +853,34 @@
               onselect={(izo) => setSkoly({ skola: izo })}
               onhover={(izo) => (zvyraznena = izo)}
             />
+            <StahnoutData
+              nazev={`kam-na-stredni${domovNazev ? `-${domovNazev}` : ''}`}
+              pocet={vysledky.length}
+              radky={() =>
+                vysledky.map((r) => ({
+                  skola: r.obor.skola,
+                  obec: r.obor.obec,
+                  obor: r.obor.nazevOboru,
+                  kod_oboru: r.obor.kodOboru,
+                  typ: r.obor.typ,
+                  delka: r.obor.delka,
+                  forma: r.obor.forma,
+                  mist_2026_27: r.obor.zamer[2026],
+                  mist_2025_26: r.obor.zamer[2025],
+                  prijato_2025: r.obor.prijato2025,
+                  obsazenost_2025_pct: r.naplnenost === null ? null : Math.round(r.naplnenost * 100),
+                  vzdalenost_km: r.km === null ? null : Math.round(r.km * 10) / 10,
+                  zastavky_do_500m: r.obor.zastavky500m,
+                  web: r.obor.web,
+                }))}
+              zdroje={snap.manifest.sources
+                .filter((x) => x.id.startsWith('dz-prijimani'))
+                .map((x) => ({ title: `záměr přijímání ${x.validFor}`, url: x.url }))}
+            />
+            {#if snap.skoly?.poradny?.length}
+              <Poradny poradny={snap.skoly.poradny} {domov} {domovNazev} />
+            {/if}
+            </div>
             <div class="split__map">
               <SkolyMapa
                 obce={obecFeatures}
@@ -1007,6 +1039,7 @@
       {:else}
         <VyletyFiltr filtr={vy} def={vyDef} obce={obecNames} pocet={vyVysledky.length} onchange={setVylety} />
         <div class="grid">
+          <div class="split__list">
           <MistaList
             vysledky={vyVysledky}
             vybrane={vy.misto}
@@ -1016,6 +1049,29 @@
             onselect={openMisto}
             onhover={(id) => (vyHover = id)}
           />
+          <StahnoutData
+            nazev={`kam-vyrazit-${vyDef.label}${vyDomovNazev ? `-${vyDomovNazev}` : ''}`}
+            pocet={vyVysledky.length}
+            radky={() =>
+              vyVysledky.map((r) => ({
+                nazev: r.misto.nazev,
+                obec: r.misto.obecNazev,
+                adresa: r.misto.adresa,
+                stitky: r.misto.tagy.join(', '),
+                vstupne: r.misto.vstupne === null ? '' : r.misto.vstupne ? 'placené' : 'zdarma',
+                vzdalenost_km: r.km === null ? null : Math.round(r.km * 10) / 10,
+                web: r.misto.web,
+                telefon: r.misto.tel,
+                email: r.misto.email,
+                zemepisna_sirka: r.misto.lat,
+                zemepisna_delka: r.misto.lon,
+              }))}
+            zdroje={[...new Set(vyVysledky.map((r) => r.misto.sourceId))]
+              .map((id) => snap?.manifest.sources.find((x) => x.id === id))
+              .filter((x) => !!x)
+              .map((x) => ({ title: x!.title.replace(/ v Karlovarském kraji/, ''), url: x!.url }))}
+          />
+          </div>
           <section class="mapcard" aria-label="Mapa" data-tour="mapa">
             <h2>Kde to je</h2>
             <p class="mapcard__hint">
@@ -1054,6 +1110,16 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'nalezy'}
+    <Nalezy
+      automaticke={[
+        { sada: 'Úřady', chyby: snap.urady?.chybyDat ?? [] },
+        { sada: 'Projekty kraje', chyby: snap.penize?.chybyDat ?? [] },
+        { sada: 'Podnikání', chyby: snap.podnikani?.chybyDat ?? [] },
+      ]}
+      sources={snap.manifest.sources}
+      onzdroje={openSources}
+    />
   {:else if st.mode === 'podnikani'}
     {#if snap.podnikani}
       <Podnikani data={snap.podnikani} stav={pod} onchange={setPodnikani} />
@@ -1266,6 +1332,8 @@
       <p>
         Čísla o ORP a obcích v čase:
         <button type="button" class="linklike" onclick={() => setMode('explore')} data-testid="footer-explore">Statistika kraje</button>.
+        Chyby a mezery v datech kraje:
+        <button type="button" class="linklike" onclick={() => setMode('nalezy')} data-testid="footer-nalezy">Co jsme našli v datech</button>.
       </p>
     </div>
   </footer>
@@ -1832,6 +1900,9 @@
     gap: 24px;
     align-items: start;
     margin-top: 24px;
+  }
+  .split__list {
+    min-width: 0;
   }
   .split__map {
     position: sticky;

@@ -109,6 +109,16 @@ kde je najdete, co vyrábějí (maso, mléčné výrobky, pečivo, nápoje, ovoc
 a jestli vyhráli svou kategorii. Data: DATAZÁPAD, sada „Dobroty Karlovarského kraje“ (CC0),
 součást `npm run data:vylety`.
 
+## Co jsme našli v datech kraje, poradny, stažení dat
+
+- **Co jsme našli v datech kraje** (odkaz v patičce a u každého přehledu nálezů): 22 nálezů
+  – chyby, nejednotné formáty a chybějící údaje v datových sadách DATAZÁPAD, u každého jak ho
+  aplikace řeší; ke stažení jako CSV. Zpětná vazba pro správce katalogu.
+- **Kam na střední – kde poradí s výběrem:** pedagogicko-psychologické poradny a speciálně pedagogická
+  centra seřazená podle vzdálenosti od bydliště (sada Školská poradenská zařízení, CC0).
+- **Stáhnout data (CSV):** u výsledků Kam na střední, Kam vyrazit, Úřadů, Peněz kraje a Podnikání –
+  stáhne právě vyfiltrovaný seznam (UTF-8, středník – otevře se rovnou v Excelu) s odkazem na zdrojovou sadu.
+
 ## Podnikání – „Kdo v kraji tvoří a kde začít podnikat“
 
 - **Kreativci:** 197 lidí a firem z Galerie kreativců (grafici, fotografové, řemeslníci, webdesign…)

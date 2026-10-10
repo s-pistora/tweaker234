@@ -4,7 +4,8 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isManifest, isPointLayer, type OboryFile } from '../src/lib/types.ts';
-import { ROKY, doplnZastavky, slucRoky, stahniRoky, zdrojRoku } from './sources/dz-prijimani.ts';
+import { PORADNY, ROKY, doplnZastavky, parsePoradny, slucRoky, stahniRoky, zdrojRoku } from './sources/dz-prijimani.ts';
+import { fetchDzCsv } from './sources/datazapad.ts';
 import { writeSnapshotAtomic } from './pipeline/write.ts';
 
 const OUT = path.resolve('public/data');
@@ -23,8 +24,21 @@ async function main(): Promise<void> {
   doplnZastavky(obory, zastavky.features);
   obory.sort((a, b) => a.skola.localeCompare(b.skola, 'cs') || a.nazevOboru.localeCompare(b.nazevOboru, 'cs'));
 
-  const sources = ROKY.map((c) => zdrojRoku(c, now));
-  const file: OboryFile = { updatedAt: now.toISOString(), sourceIds: sources.map((s) => s.id), obory };
+  const poradny = parsePoradny(await fetchDzCsv(PORADNY.itemId, PORADNY.layers, path.resolve('data-raw/dz-prijimani'), 'poradny'));
+  const sources = [
+    ...ROKY.map((c) => zdrojRoku(c, now)),
+    {
+      id: 'dz-poradny',
+      provider: 'Karlovarský kraj (datazapad.cz / ArcGIS Hub)',
+      title: PORADNY.title,
+      url: `https://www.datazapad.cz/api/download/v1/items/${PORADNY.itemId}/csv?layers=${PORADNY.layers}`,
+      license: 'CC0 1.0',
+      downloadedAt: now.toISOString(),
+      validFor: String(now.getFullYear()),
+      status: 'ok' as const,
+    },
+  ];
+  const file: OboryFile = { updatedAt: now.toISOString(), sourceIds: sources.map((s) => s.id), obory, poradny };
   const ids = new Set(sources.map((s) => s.id));
   manifest.sources = [...manifest.sources.filter((s) => !ids.has(s.id)), ...sources];
   manifest.files.skoly = REL;

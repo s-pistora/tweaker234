@@ -168,11 +168,25 @@ export interface Obor {
   nejblizsiZastavkaM: number | null;
 }
 
+/** Školské poradenské zařízení (pedagogicko-psychologická poradna, speciálně pedagogické centrum). */
+export interface Poradna {
+  nazev: string;
+  typ: string;
+  obec: string;
+  adresa: string;
+  web: string;
+  datovka: string;
+  lat: number | null;
+  lon: number | null;
+}
+
 export interface OboryFile {
   /** ISO čas vytvoření */
   updatedAt: string;
   sourceIds: string[];
   obory: Obor[];
+  /** poradny pro výběr školy (volitelné kvůli starším snapshotům) */
+  poradny?: Poradna[];
 }
 
 export function isOboryFile(x: unknown): x is OboryFile {

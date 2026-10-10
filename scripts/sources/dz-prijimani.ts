@@ -207,3 +207,36 @@ export async function stahniRoky(rawDir: string): Promise<RadekRoku[]> {
   }
   return out;
 }
+
+// --- školská poradenská zařízení -------------------------------------------------
+
+export const PORADNY = {
+  itemId: 'd3184b2f488f4d099bd56c84ace5ffd0',
+  layers: 0,
+  title: 'Školská poradenská zařízení v Karlovarském kraji',
+};
+
+/** Řádky sady poradenských zařízení → `Poradna` (souřadnice WGS84 jsou ve sloupcích N/E). */
+export function parsePoradny(text: string): import('../../src/lib/types.ts').Poradna[] {
+  return parseCsv(text)
+    .filter((r) => (r['ORGANIZACE'] ?? '').trim())
+    .map((r) => {
+      const t = (k: string) => (r[k] ?? '').replace(/\s+/g, ' ').trim();
+      const cislo = [t('DOMCIS'), t('ORIENCIS')].filter(Boolean).join('/');
+      const psc = t('PSC').replace(/^(\d{3})(\d{2})$/, '$1 $2');
+      const lat = Number(t('N'));
+      const lon = Number(t('E'));
+      return {
+        nazev: t('ORGANIZACE').replace(/,?\s*příspěvková organizace,?/i, ',').replace(/,\s*$/, '').replace(/\s+,/g, ','),
+        typ: t('TYP_ZARIZENI'),
+        obec: t('NAZEVOBCE'),
+        adresa: [[t('NAZEVULICE'), cislo].filter(Boolean).join(' '), [psc, t('NAZEVOBCE')].filter(Boolean).join(' ')]
+          .filter(Boolean)
+          .join(', '),
+        web: /^https?:\/\//.test(t('WEB')) ? t('WEB') : '',
+        datovka: t('DATOVKA'),
+        lat: Number.isFinite(lat) && lat > 40 ? lat : null,
+        lon: Number.isFinite(lon) && lon > 5 ? lon : null,
+      };
+    });
+}
