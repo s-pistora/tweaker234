@@ -15,6 +15,7 @@ const snap: Snapshot = {
   skoly: null,
     vylety: null,
     urady: null,
+    penize: null,
   updatedAt: manifest.updatedAt,
 };
 const names = { CZ041: 'Karlovarský kraj', '4103': 'Karlovy Vary' };

@@ -286,6 +286,8 @@ export interface Manifest {
     vylety?: string;
     /** příslušné úřady obcí (režim „Úřady“), volitelné */
     urady?: string;
+    /** projekty a strategie kraje (režim „Peníze kraje“), volitelné */
+    penize?: string;
   };
 }
 
@@ -301,6 +303,7 @@ export function isManifest(x: unknown): x is Manifest {
     isObj(x.files.geo) &&
     (x.files.skoly === undefined || typeof x.files.skoly === 'string') &&
     (x.files.vylety === undefined || typeof x.files.vylety === 'string') &&
-    (x.files.urady === undefined || typeof x.files.urady === 'string')
+    (x.files.urady === undefined || typeof x.files.urady === 'string') &&
+    (x.files.penize === undefined || typeof x.files.penize === 'string')
   );
 }

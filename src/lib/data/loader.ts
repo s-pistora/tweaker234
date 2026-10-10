@@ -7,6 +7,7 @@
 // do statusu odpovidajiciho kroku jako `'stale'`.
 
 import { isUradyFile, type UradyFile } from '../urady.ts';
+import { isPenizeFile, type PenizeFile } from '../penize.ts';
 import type { Level, IndicatorFile, PointLayer, Manifest, SourceEntry, OboryFile, MistaFile } from '../types.ts';
 import { isManifest, isIndicatorFile, isPointLayer, isOboryFile, isMistaFile } from '../types.ts';
 import type { Topology } from 'topojson-specification';
@@ -24,6 +25,8 @@ export interface Snapshot {
   vylety: MistaFile | null;
   /** příslušné úřady obcí (režim „Úřady“); null = v manifestu nejsou nebo selhalo načtení */
   urady: UradyFile | null;
+  /** projekty a strategie kraje (režim „Peníze kraje“) */
+  penize: PenizeFile | null;
   /** = manifest.updatedAt, pro pohodlny pristup */
   updatedAt: string;
 }
@@ -86,6 +89,7 @@ export async function loadSnapshot(
     skoly: null,
     vylety: null,
     urady: null,
+    penize: null,
     updatedAt: manifest.updatedAt,
   };
 
@@ -157,6 +161,18 @@ export async function loadSnapshot(
       const json = await fetchJson(fetchImpl, base, manifest.files.urady);
       if (!isUradyFile(json)) throw new Error('neplatny UradyFile');
       snapshot.urady = json;
+      onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
+    } catch {
+      onStep?.({ label, status: 'fail' });
+    }
+  }
+
+  if (manifest.files.penize) {
+    const label = 'PENÍZE KRAJE';
+    try {
+      const json = await fetchJson(fetchImpl, base, manifest.files.penize);
+      if (!isPenizeFile(json)) throw new Error('neplatny PenizeFile');
+      snapshot.penize = json;
       onStep?.({ label, status: statusFromSources(manifest.sources, json.sourceIds) });
     } catch {
       onStep?.({ label, status: 'fail' });

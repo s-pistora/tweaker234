@@ -399,6 +399,36 @@
    "downloadedAt": "2026-10-10T10:32:53.576Z",
    "validFor": "2026",
    "status": "ok"
+  },
+  {
+   "id": "dz-penize-projekty",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Aktuální projekty Karlovarského kraje v oblasti rozvoje regionu a územního plánování",
+   "url": "https://www.datazapad.cz/api/download/v1/items/3f9c9a95272e40d1a24e2711515e3d4d/csv?layers=3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-10T10:41:38.353Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-penize-projekty-ukoncene",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Ukončené projekty Karlovarského kraje v oblasti rozvoje regionu a územního plánování",
+   "url": "https://www.datazapad.cz/api/download/v1/items/59e913758bea4217b37caaf525459eeb/csv?layers=3",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-10T10:41:38.353Z",
+   "validFor": "2026",
+   "status": "ok"
+  },
+  {
+   "id": "dz-penize-strategie",
+   "provider": "Karlovarský kraj (datazapad.cz / ArcGIS Hub)",
+   "title": "Seznam strategických dokumentů Karlovarského kraje",
+   "url": "https://www.datazapad.cz/api/download/v1/items/01fcf68eb2054fb3ab99af6aa34af6e4/csv?layers=0",
+   "license": "CC BY 4.0",
+   "downloadedAt": "2026-10-10T10:41:38.353Z",
+   "validFor": "2026",
+   "status": "ok"
   }
  ],
  "files": {
@@ -422,6 +452,7 @@
   },
   "skoly": "skoly/obory.json",
   "vylety": "vylety/mista.json",
-  "urady": "urady/urady.json"
+  "urady": "urady/urady.json",
+  "penize": "penize/penize.json"
  }
 }

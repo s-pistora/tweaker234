@@ -13,7 +13,8 @@
     "data:update": "tsx scripts/update-data.ts",
     "data:skoly": "tsx scripts/update-skoly.ts",
     "data:vylety": "tsx scripts/update-vylety.ts",
-    "data:urady": "tsx scripts/update-urady.ts"
+    "data:urady": "tsx scripts/update-urady.ts",
+    "data:penize": "tsx scripts/update-penize.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",

@@ -92,6 +92,7 @@ function makeSnap(): Snapshot {
     skoly: null,
     vylety: null,
     urady: null,
+    penize: null,
     updatedAt: manifest.updatedAt,
   };
 }
@@ -428,5 +429,20 @@ describe('režim „Úřady“ v hashi', () => {
     expect(bad.state.urady).toEqual(DEFAULT_URADY);
     state.urady = { obec: null, situace: 'matrika' };
     expect(parseHash(toHash(state), snap).state.urady).toEqual(state.urady);
+  });
+});
+
+describe('režim „Peníze kraje“ v hashi', () => {
+  it('pt/pv/po round-trip, výchozí záložka se do hashe nepíše, neplatné hodnoty spadnou', async () => {
+    const { DEFAULT_PENIZE } = await import('../src/lib/state.ts');
+    const snap = makeSnap();
+    const { state } = parseHash('#/kraj?m=penize', snap);
+    expect(state.penize).toEqual(DEFAULT_PENIZE);
+    expect(toHash(state)).not.toContain('pt=');
+    state.penize = { tab: 'vouchery', typ: 'kreativni', orp: '4103' };
+    expect(parseHash(toHash(state), snap).state.penize).toEqual(state.penize);
+    const bad = parseHash('#/kraj?m=penize&pt=xx&pv=yy&po=abc', snap);
+    expect(bad.invalid).toBe(true);
+    expect(bad.state.penize).toEqual(DEFAULT_PENIZE);
   });
 });

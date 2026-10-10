@@ -95,6 +95,21 @@ má místo víc odběrných míst, platí nejhorší výsledek. Licence webu KHS
 Kraj nezveřejňuje kalendář akcí ani obsazenost sjezdovek. Místo toho ukazujeme místa, kde se akce
 konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm run data:vylety`.
 
+## Peníze kraje – „Co kraj buduje a komu dává“
+
+- **Projekty kraje:** 6 běžících projektů s rozpočtem, dotací, termínem a průběhem v čase
+  (např. Karlovarské inovační centrum 635 mil. Kč), 17 dokončených projektů jako časová osa.
+- **Vouchery pro firmy:** 341 žádostí 2012–2024, 200 podpořených, 24,2 mil. Kč – podle let, typu
+  (inovační, kreativní, asistenční, startovací) a ORP, seznam podpořených projektů.
+- **Strategie kraje:** 59 strategických dokumentů s platností a oblastmi, filtr „platí letos“.
+
+Data (DATAZÁPAD): aktuální a ukončené projekty kraje, seznam strategických dokumentů, vouchery.
+Aktualizace: `npm run data:penize`.
+
+**Nalezené nesrovnalosti v datech:** částky ve třech různých formátech, data někdy jen jako rok,
+duplicitní řádky v ukončených projektech, 3 „aktuální“ projekty s plánovaným koncem v minulosti,
+2 aktuální projekty bez uvedených výdajů.
+
 ## Úřady – „Kam s tím na úřad?“
 
 Vyberete obec a aplikace ukáže **příslušné úřady s kontakty**: obecní úřad, úřad obce s rozšířenou

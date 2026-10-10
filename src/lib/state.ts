@@ -13,8 +13,8 @@ import type { Snapshot } from './data/loader.ts';
 import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
 
-export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady';
-export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady'];
+export type Mode = 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize';
+export const MODES: readonly Mode[] = ['explore', 'score', 'skoly', 'vylety', 'urady', 'penize'];
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -74,6 +74,19 @@ export interface UradyState {
 
 export const DEFAULT_URADY: UradyState = { obec: null, situace: '' };
 
+/** Režim „Peníze kraje“. */
+export interface PenizeState {
+  tab: 'projekty' | 'vouchery' | 'strategie';
+  /** filtr voucherů podle typu ('' = všechny) */
+  typ: string;
+  /** filtr voucherů podle ORP (kód, '' = celý kraj) */
+  orp: string;
+}
+
+export const DEFAULT_PENIZE: PenizeState = { tab: 'projekty', typ: '', orp: '' };
+const PENIZE_TABY: PenizeState['tab'][] = ['projekty', 'vouchery', 'strategie'];
+const VOUCHER_TYPY = ['inovacni', 'kreativni', 'asistencni', 'startovaci'];
+
 /** Režim „Kde by se mi dobře žilo?“ – vlastní stav, nezávislý na drill-downu Statistiky. */
 export interface ZivotState {
   /** zvolené požadavky (id z `POZADAVKY`) s důležitostí 1 = důležité, 2 = velmi důležité */
@@ -109,6 +122,8 @@ export interface AppState {
   zivot?: ZivotState;
   /** jen když se režim „Úřady“ použil */
   urady?: UradyState;
+  /** jen když se režim „Peníze kraje“ použil */
+  penize?: PenizeState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -278,7 +293,36 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const ur = parseUrady(params, snap);
   if (ur.used || mode === 'urady') state.urady = ur.state;
   if (ur.invalid) invalid = true;
+  const pe = parsePenize(params);
+  if (pe.used || mode === 'penize') state.penize = pe.state;
+  if (pe.invalid) invalid = true;
   return { state, invalid };
+}
+
+/** Parametry režimu „Peníze kraje“: pt=<tab>, pv=<typ voucheru>, po=<kód ORP>. */
+function parsePenize(params: URLSearchParams): { state: PenizeState; used: boolean; invalid: boolean } {
+  const st: PenizeState = { ...DEFAULT_PENIZE };
+  let used = false;
+  let invalid = false;
+  const pt = params.get('pt');
+  if (pt !== null) {
+    used = true;
+    if ((PENIZE_TABY as string[]).includes(pt)) st.tab = pt as PenizeState['tab'];
+    else invalid = true;
+  }
+  const pv = params.get('pv');
+  if (pv !== null) {
+    used = true;
+    if (pv === '' || VOUCHER_TYPY.includes(pv)) st.typ = pv;
+    else invalid = true;
+  }
+  const po = params.get('po');
+  if (po !== null) {
+    used = true;
+    if (/^\d{4}$/.test(po) || po === '') st.orp = po;
+    else invalid = true;
+  }
+  return { state: st, used, invalid };
 }
 
 /** Parametry režimu „Úřady“: uo=<kód obce>, us=<situace>. */
@@ -480,6 +524,12 @@ export function toHash(state: AppState): string {
     parts.push(`zp=${Object.entries(z.pozadavky).map(([id, w]) => `${id}:${w}`).join(',')}`);
     if (z.obec) parts.push(`zo=${z.obec}`);
     if (z.ukaz) parts.push(`zu=${z.ukaz}`);
+  }
+  if (state.penize) {
+    const p = state.penize;
+    if (p.tab !== DEFAULT_PENIZE.tab) parts.push(`pt=${p.tab}`);
+    if (p.typ) parts.push(`pv=${p.typ}`);
+    if (p.orp) parts.push(`po=${p.orp}`);
   }
   if (state.urady) {
     const u = state.urady;

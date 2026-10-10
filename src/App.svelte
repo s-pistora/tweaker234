@@ -17,6 +17,8 @@
   import { bodyVObci, vrstvyPozadavku } from './lib/zivot-mapa.ts';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import Urady from './components/urady/Urady.svelte';
+  import Penize from './components/penize/Penize.svelte';
+  import { vouchery as nactiVouchery } from './lib/penize.ts';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
@@ -37,11 +39,13 @@
     DEFAULT_VYLETY,
     DEFAULT_ZIVOT,
     DEFAULT_URADY,
+    DEFAULT_PENIZE,
     type Mode,
     type SkolyState,
     type VyletyState,
     type ZivotState,
     type UradyState,
+    type PenizeState,
   } from './lib/state.ts';
   import {
     DOPORUCENY_VYBER,
@@ -201,6 +205,7 @@
           : s.vylety,
       zivot: m === 'score' ? (s.zivot ?? { ...DEFAULT_ZIVOT, pozadavky: { ...DOPORUCENY_VYBER } }) : s.zivot,
       // obec z jiného režimu se převezme i pro úřady
+      penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
       urady:
         m === 'urady'
           ? (s.urady ?? { ...DEFAULT_URADY, obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? null })
@@ -301,7 +306,16 @@
     { m: 'vylety', label: 'Kam vyrazit' },
     { m: 'score', label: 'Kde by se mi žilo' },
     { m: 'urady', label: 'Úřady' },
+    { m: 'penize', label: 'Peníze kraje' },
   ];
+
+  // --- režim „Peníze kraje“ ----------------------------------------------------
+  const pe = $derived<PenizeState>(st.penize ?? DEFAULT_PENIZE);
+  const penizeVouchery = $derived(nactiVouchery(snap?.points['vouchery']?.features ?? []));
+  const dnesIso = new Date().toISOString().slice(0, 10);
+  function setPenize(patch: Partial<PenizeState>) {
+    appState.update((s) => ({ ...s, penize: { ...(s.penize ?? DEFAULT_PENIZE), ...patch } }));
+  }
 
   // --- režim „Úřady“ ---------------------------------------------------------
   const ur = $derived<UradyState>(st.urady ?? DEFAULT_URADY);
@@ -1029,6 +1043,19 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'penize'}
+    {#if snap.penize}
+      <Penize
+        data={snap.penize}
+        vouchery={penizeVouchery}
+        names={geoIndex.names}
+        stav={pe}
+        dnes={dnesIso}
+        onchange={setPenize}
+      />
+    {:else}
+      <div class="wrap"><p class="state state--err" role="alert">Data o penězích kraje se nepodařilo načíst.</p></div>
+    {/if}
   {:else if st.mode === 'urady'}
     {#if snap.urady}
       <Urady data={snap.urady} stav={ur} stredy={obecCentroidy} onchange={setUrady} />
@@ -1263,7 +1290,7 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 8px 24px;
+    gap: 8px 16px;
     min-height: 72px;
   }
   .brandmark {
@@ -1296,9 +1323,11 @@
   }
   .mainnav button {
     font: inherit;
+    font-size: 0.95rem;
     font-weight: 500;
     min-height: 44px;
-    padding: 0 14px;
+    padding: 0 10px;
+    white-space: nowrap;
     border: 0;
     border-bottom: 3px solid transparent;
     background: none;
