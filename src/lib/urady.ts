@@ -381,7 +381,7 @@ export const SITUACE: Situace[] = [
   },
   {
     id: 'doklady',
-    nazev: 'Občanka nebo pas',
+    nazev: 'Občanský průkaz nebo pas',
     priklady: 'nový občanský průkaz, cestovní pas',
     urad: 'orp',
     proc: 'Občanské průkazy a pasy vydávají úřady obcí s rozšířenou působností – nejblíž máte tento.',

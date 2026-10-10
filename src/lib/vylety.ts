@@ -161,7 +161,7 @@ export const KATEGORIE: KategorieDef[] = [
   {
     id: 'rozhledny',
     label: 'Rozhledny',
-    perex: 'Rozhledny, vyhlídkové věže a vyhlídky. Některé jsou otevřené pořád.',
+    perex: 'Rozhledny, vyhlídkové věže a vyhlídky. Některé jsou přístupné celoročně.',
     barva: '#680526',
     ikona: 'M12 3l-3 18M12 3l3 18M10 9h4M9.5 14h5M7 21h10M12 3V1',
     jednotky: ['rozhledna', 'rozhledny', 'rozhleden'],
@@ -279,7 +279,7 @@ export const KATEGORIE: KategorieDef[] = [
   {
     id: 'prameny',
     label: 'Prameny',
-    perex: 'Přes 120 minerálních pramenů a studánek. Víme, kde teď teče voda.',
+    perex: 'Přes 120 minerálních pramenů a studánek. Uvádíme, kde voda právě teče.',
     barva: '#3771B8',
     ikona: 'M12 3c3 4 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 3-7 6-11zM9.5 15a2.5 2.5 0 0 0 2.5 2.5',
     jednotky: ['pramen', 'prameny', 'pramenů'],

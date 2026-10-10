@@ -62,7 +62,7 @@
     <p class="kicker">Podnikání · Karlovarský kraj</p>
     <h1>Kdo v kraji tvoří a kde začít podnikat</h1>
     <p class="perex">
-      Najděte grafika, fotografa nebo řemeslníka z kraje, místo, kde rozjet firmu, a plochy pro nové investice.
+      Najděte grafika, fotografa nebo řemeslníka z kraje, místo pro začátek podnikání a plochy pro nové investice.
     </p>
     <div class="kpis">
       <button type="button" class="kpi" onclick={() => onchange({ tab: 'kreativci' })}>

@@ -393,7 +393,7 @@
   function vyPreview(code: AreaCode): string[] {
     const n = vyDosah[code] ?? 0;
     const j = vyDef?.jednotky ?? (['místo', 'místa', 'míst'] as [string, string, string]);
-    return [`${n} ${plural(n, j)} do ${vy.maxKm} km`, 'klik = odsud vyrážím'];
+    return [`${n} ${plural(n, j)} do ${vy.maxKm} km`, 'kliknutím ji zvolíte jako výchozí místo'];
   }
   function setVylety(patch: Partial<VyletyState>) {
     appState.update((s) => ({ ...s, vylety: { ...(s.vylety ?? DEFAULT_VYLETY), ...patch } }));
@@ -531,7 +531,7 @@
     return [
       `Skóre ${Math.round(s.score)}/100 · ${ziRank[code]}. z ${ziPoradi.length}`,
       ...silneStranky(s, 2).map((p) => `+ ${POZADAVKY_BY_ID[p.id]?.label}: ${kratkaHodnota(p.id, p.value)}`),
-      'klik = detail obce',
+      'kliknutím otevřete detail obce',
     ];
   }
   function setZivot(patch: Partial<ZivotState>) {
@@ -560,7 +560,7 @@
         return;
       }
       await navigator.clipboard.writeText(url);
-      showToast('Odkaz je zkopírovaný. Otevře stránku přesně tak, jak ji vidíte.');
+      showToast('Odkaz byl zkopírován. Otevře stránku přesně v podobě, v jaké ji nyní vidíte.');
     } catch {
       showToast('Odkaz zkopírujte z adresního řádku – obsahuje vše, co jste nastavili.');
     }
@@ -603,12 +603,12 @@
   const KROKY: KrokPruvodce[] = [
     {
       nadpis: 'Vítejte! Tohle je Karlovarský kraj v datech',
-      text: 'Za minutu vám ukážeme, co tu najdete: střední školy, místa na výlet a čísla o obcích. Všechno pochází z otevřených dat kraje a státních úřadů.',
+      text: 'Za minutu vám ukážeme, co tu najdete: střední školy, místa na výlet a čísla o obcích. Vše pochází z otevřených dat kraje a státních úřadů.',
     },
     {
       cil: 'nav',
       nadpis: 'Tři části v jednom menu',
-      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Kde by se mi žilo: srovnání podle toho, na čem vám záleží. Čísla o ORP a obcích najdete ve Statistice kraje vedle Zdrojů dat a v patičce.',
+      text: 'Kam na střední: obory ve vašem okolí. Kam vyrazit: sjezdovky, koupání, hrady, rozhledny a další. Kde by se mi žilo: srovnání obcí podle toho, na čem vám záleží. Čísla o ORP a obcích najdete ve Statistice kraje vedle Zdrojů dat a v patičce.',
     },
     {
       cil: 'hub',
@@ -623,17 +623,17 @@
       cil: 'filtr',
       pred: () => openKat('koupani'),
       nadpis: 'Filtry přímo pro kategorii',
-      text: 'Vyberte obec, odkud vyrážíte, a jak daleko chcete jet. Každá kategorie má vlastní filtry. U koupání třeba poslední výsledek kontroly kvality vody od hygieniků.',
+      text: 'Vyberte obec, odkud vyrážíte, a jak daleko chcete jet. Každá kategorie má vlastní filtry. U koupání například poslední výsledek kontroly kvality vody od hygieniků.',
     },
     {
       cil: 'mapa',
       nadpis: 'Interaktivní mapa',
-      text: 'Tmavší obec = víc míst v dosahu. Klik na obec nastaví, odkud vyrážíte, klik na značku otevře detail místa. Na mobilu stačí klepnout.',
+      text: 'Kliknutím na obec nastavíte, odkud vyrážíte, kliknutím na značku otevřete detail místa. Na mobilu stačí klepnout.',
     },
     {
       cil: 'list',
       nadpis: 'Seznam a detail místa',
-      text: 'Karty řadíme od nejbližší. V detailu najdete web, kontakt, cestu na Mapy.cz a co dalšího je do 5 km.',
+      text: 'Karty řadíme od nejbližší. V detailu najdete web, kontakt, cestu na Mapy.cz a další místa do 5 km.',
     },
     {
       cil: 'zivot-panel',
@@ -644,17 +644,17 @@
     {
       cil: 'zivot-mapa',
       nadpis: 'Obce seřazené podle vás',
-      text: 'Tmavší obec = lépe splňuje vaše požadavky. Klikněte na obec a uvidíte, proč vyšla dobře nebo špatně.',
+      text: 'Čím tmavší obec, tím lépe splňuje vaše požadavky. Klikněte na obec a uvidíte, proč vyšla dobře nebo špatně.',
     },
     {
       cil: 'share',
       nadpis: 'Pošlete to dál',
-      text: 'Vše, co nastavíte, je uložené v adrese stránky. Tlačítko Sdílet zkopíruje odkaz, který otevře přesně stejný pohled.',
+      text: 'Vše, co nastavíte, se ukládá do adresy stránky. Tlačítko Sdílet zkopíruje odkaz, který otevře přesně stejný pohled.',
     },
     {
       cil: 'help',
       nadpis: 'Průvodce kdykoli znovu',
-      text: 'Když si nebudete jistí, spusťte průvodce tímto tlačítkem. Teď vás vrátíme tam, kde jste začali.',
+      text: 'Pokud si nebudete jisti, spusťte průvodce tímto tlačítkem. Teď vás vrátíme tam, kde jste začali.',
     },
   ];
 
@@ -794,10 +794,10 @@
         {#if snap.skoly}
           <form class="start" aria-labelledby="start-h" data-testid="skoly-start" onsubmit={(e) => { e.preventDefault(); najdiSkoly(); }}>
             <p class="start__kicker">Rychlý start</p>
-            <h2 id="start-h">Kde bydlíš?</h2>
+            <h2 id="start-h">Kde bydlíte?</h2>
             <label for="start-obec">Obec</label>
             <select id="start-obec" bind:value={startObec} data-testid="start-obec">
-              <option value="">Vyber obec</option>
+              <option value="">Vyberte obec</option>
               {#each Object.entries(obecNames).sort((a, b) => a[1].localeCompare(b[1], 'cs')) as [code, name] (code)}
                 <option value={code}>{name}</option>
               {/each}
@@ -811,7 +811,7 @@
               {/if}
             </small>
             <button type="submit" class="start__btn" disabled={!startObec} data-testid="start-go">Najít školy v okolí</button>
-            <button type="button" class="start__help" onclick={openTour}>Nevíš, jak začít? Spustit průvodce</button>
+            <button type="button" class="start__help" onclick={openTour}>Nevíte, jak začít? Spusťte průvodce</button>
           </form>
         {/if}
       </div>
@@ -1030,7 +1030,7 @@
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
               label="Mapa míst pro volný čas v Karlovarském kraji"
-              hint="Najeďte na značku nebo obec. Klik na značku otevře detail místa."
+              hint="Najeďte na značku nebo obec. Kliknutím na značku otevřete detail místa."
             />
             <ul class="katlegend" aria-label="Barvy kategorií">
               {#each KATEGORIE as k (k.id)}
@@ -1094,7 +1094,7 @@
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
               label="Mapa: {vyDef.label} v Karlovarském kraji"
-              hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Klik na značku otevře detail."
+              hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Kliknutím na značku otevřete detail."
             />
             <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={null} />
           </section>
@@ -1208,8 +1208,8 @@
           selectedPoint={ziBod}
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"
           hint={zi.obec
-            ? 'Najeďte na značku a uvidíte, co to je. Klik na značku ji ukáže v detailu obce.'
-            : 'Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail.'}
+            ? 'Najeďte na značku a uvidíte, co to je. Kliknutím ji zobrazíte v detailu obce.'
+            : 'Najeďte na obec a uvidíte skóre a silné stránky. Kliknutím nebo klávesou Enter otevřete detail.'}
         />
         </div>
         {#if zi.obec}
@@ -1780,7 +1780,7 @@
     gap: 32px;
     align-items: center;
   }
-  /* rychlý start „Kde bydlíš?“ – nejkratší cesta k výsledkům */
+  /* rychlý start „Kde bydlíte?“ – nejkratší cesta k výsledkům */
   .start {
     display: flex;
     flex-direction: column;

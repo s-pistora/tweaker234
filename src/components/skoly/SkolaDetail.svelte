@@ -50,7 +50,7 @@
     <div class="tiles">
       <div class="tile">
         <span class="v">{km !== null ? `${km.toFixed(1).replace('.', ',')} km` : '—'}</span>
-        <span class="l">{km !== null ? 'od domova vzdušnou čarou' : 'vyber obec, kde bydlíš'}</span>
+        <span class="l">{km !== null ? 'od domova vzdušnou čarou' : 'vyberte obec, kde bydlíte'}</span>
       </div>
       <div class="tile">
         <span class="v">{mist2026}</span>
@@ -71,7 +71,7 @@
       <a class="btn-secondary web" href={web} target="_blank" rel="noopener noreferrer">Otevřít web školy</a>
     {/if}
 
-    <h3>Obory, kam se hlásí na 2026/27</h3>
+    <h3>Obory, do kterých se přijímá na školní rok 2026/27</h3>
     <ul>
       {#each otevirane as o (o.kodOboru + o.forma)}
         {@const veta = vetaTrend(o)}

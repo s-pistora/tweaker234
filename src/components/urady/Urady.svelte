@@ -49,7 +49,7 @@
       typ: 'obecni',
       nadpis: URAD_NAZEV.obecni,
       k: obec.obecniUrad,
-      pozn: jeSidloOrp ? 'Vaše obec je zároveň obcí s rozšířenou působností – vydává i občanky a pasy.' : undefined,
+      pozn: jeSidloOrp ? 'Vaše obec je zároveň obcí s rozšířenou působností – vydává i občanské průkazy a pasy.' : undefined,
     });
     if (orp && !jeSidloOrp) {
       out.push({ typ: 'orp', nadpis: `${URAD_NAZEV.orp} (${obec.orp})`, k: orp, pozn: 'Občanské průkazy, pasy a další agenda pro celé ORP.' });
@@ -110,7 +110,7 @@
       živnostenský úřad i úřad obce s rozšířenou působností. S telefonem, e-mailem a datovou schránkou.
     </p>
     <label class="pick">
-      <span>Ve které obci bydlíte nebo vyřizujete?</span>
+      <span>Pro kterou obec hledáte úřady?</span>
       <select
         value={stav.obec ?? ''}
         onchange={(e) => onchange({ obec: e.currentTarget.value || null })}
