@@ -23,6 +23,9 @@
   import Nalezy from './components/Nalezy.svelte';
   import { vouchery as nactiVouchery, kc } from './lib/penize.ts';
   import Domu, { type Dlazdice } from './components/Domu.svelte';
+  import ObecProfil, { type Profil } from './components/ObecProfil.svelte';
+  import { matrikaProObec } from './lib/urady.ts';
+  import { latestValue } from './lib/map/values.ts';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import Poradny from './components/skoly/Poradny.svelte';
   import StahnoutData from './components/common/StahnoutData.svelte';
@@ -98,6 +101,9 @@
     procenta,
     tridaNaplnenosti,
     vzdalenostKm,
+    klicOboru,
+    prepniPorovnani,
+    MAX_POROVNANI,
     type TridaNaplnenosti,
   } from './lib/skoly.ts';
   import type { Glyph, Tone } from './lib/map/pointStyle.ts';
@@ -105,6 +111,11 @@
   import { fitIndicator, yearsWithData } from './lib/map/values.ts';
   import { resolveView, detailTarget, type View } from './lib/map/drill.ts';
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
+  import Hledani from './components/Hledani.svelte';
+  import SrovnaniOboru from './components/skoly/SrovnaniOboru.svelte';
+  import DenTip from './components/vylety/DenTip.svelte';
+  import { naplanujDen } from './lib/den.ts';
+  import { vytvorIndex, type Cil, type Polozka } from './lib/hledani.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data';
@@ -314,6 +325,21 @@
       .filter((o) => !v.has(o.izo) && !seen.has(o.izo) && seen.add(o.izo))
       .map((o) => ({ izo: o.izo, lat: o.lat, lon: o.lon }));
   });
+  // Srovnání oborů vedle sebe (nejvýš 3)
+  let porovnani = $state<string[]>([]);
+  let srovnaniOpen = $state(false);
+  function porovnat(k: string) {
+    const r = prepniPorovnani(porovnani, k);
+    if (r.plno) showToast(`Porovnat lze nejvýš ${MAX_POROVNANI} obory. Nejprve některý odeberte.`);
+    porovnani = r.vyber;
+    if (!porovnani.length) srovnaniOpen = false;
+  }
+  const porovnavane = $derived(
+    porovnani
+      .map((k) => obory.find((o) => klicOboru(o) === k))
+      .filter((o): o is NonNullable<typeof o> => !!o)
+      .map((o) => ({ obor: o, km: domov ? vzdalenostKm(domov.lat, domov.lon, o.lat, o.lon) : null })),
+  );
   const vybraneObory = $derived(sk.skola ? obory.filter((o) => o.izo === sk.skola) : []);
   const vybranaKm = $derived(
     domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
@@ -375,6 +401,8 @@
   const mista = $derived(snap?.vylety?.mista ?? []);
   const vyDomov = $derived(vy.domov ? (obecCentroidy[vy.domov] ?? null) : null);
   const vyDomovNazev = $derived(vy.domov ? (obecNames[vy.domov] ?? '') : '');
+  let denVarianta = $state(0);
+  const vyDen = $derived(vyDomov ? naplanujDen(mista, vyDomov, vy.maxKm, denVarianta) : null);
   const vyDef = $derived(vy.kat ? KATEGORIE_BY_ID[vy.kat] : undefined);
   const vyFiltr = $derived<FiltrMist>({
     kat: vy.kat,
@@ -605,6 +633,156 @@
   const ziCtx = $derived(snap ? vytvorKontext(snap, obecCentroidy, obecNames) : null);
   const ziSkore = $derived(ziCtx ? spocitejSkore(ziCtx, zi.pozadavky) : {});
   const ziPoradi = $derived(poradi(ziSkore, obecNames));
+
+  // Hledání napříč aplikací (pole v horní liště)
+  const hledaniIndex = $derived.by(() => {
+    const p: Polozka[] = [];
+    for (const [kod, nazev] of Object.entries(obecNames)) p.push({ typ: 'Obec', nazev, meta: 'Profil obce', cil: { kind: 'obec', kod } });
+    for (const o of obory) {
+      p.push({ typ: 'Střední škola', nazev: o.skola.replace(/,?\s*příspěvková organizace$/i, ''), meta: o.obec, cil: { kind: 'skola', izo: o.izo } });
+    }
+    for (const o of obory) {
+      p.push({ typ: 'Obor', nazev: o.nazevOboru, meta: `${o.skola.replace(/,?\s*příspěvková organizace$/i, '')}, ${o.obec}`, cil: { kind: 'skola', izo: o.izo } });
+    }
+    for (const m of mista) p.push({ typ: KATEGORIE_BY_ID[m.kat]?.label ?? 'Místo', nazev: m.nazev, meta: m.obecNazev, cil: { kind: 'misto', id: m.id } });
+    for (const u of snap?.urady?.obce ?? []) {
+      p.push({ typ: 'Úřad', nazev: u.obecniUrad.nazev, meta: `Kontakty pro obec ${u.nazev}`, cil: { kind: 'urad', kod: u.kod } });
+    }
+    for (const k of snap?.podnikani?.kreativci ?? []) {
+      p.push({ typ: 'Kreativec', nazev: k.nazev, meta: [k.obory.join(', '), k.obec].filter(Boolean).join(' · '), cil: { kind: 'kreativec', nazev: k.nazev } });
+    }
+    return vytvorIndex(p);
+  });
+  function otevriHledane(c: Cil) {
+    menuOpen = false;
+    if (c.kind === 'obec') {
+      setDomuObec(c.kod);
+      setMode('obec');
+    } else if (c.kind === 'skola') {
+      setMode('skoly');
+      setSkoly({ skola: c.izo });
+    } else if (c.kind === 'misto') {
+      setMode('vylety');
+      openMisto(c.id);
+    } else if (c.kind === 'urad') {
+      setMode('urady');
+      setUrady({ obec: c.kod });
+    } else {
+      setMode('podnikani');
+      setPodnikani({ tab: 'kreativci', obor: '', q: c.nazev });
+    }
+    toTop();
+  }
+
+  // --- profil „Moje obec“ ------------------------------------------------------
+  const PROFIL_KM = 15;
+  const profilSkore = $derived(ziCtx ? spocitejSkore(ziCtx, { ...DOPORUCENY_VYBER }) : {});
+  const profilPoradi = $derived(poradi(profilSkore, obecNames));
+  const profil = $derived.by((): Profil | null => {
+    if (!snap || !domuObec) return null;
+    const kod = domuObec;
+    const nazev = obecNames[kod] ?? kod;
+    const stred = obecCentroidy[kod] ?? null;
+    const ind = snap.indicators.obec;
+    const val = (id: string) => latestValue(ind?.values[id]?.[kod]);
+    const cf = (n: number, d = 0) => new Intl.NumberFormat('cs-CZ', { maximumFractionDigits: d, minimumFractionDigits: d }).format(n);
+    const ob = val('obyvatele');
+    const deti = val('podil_0_14');
+    const s65 = val('podil_65');
+    const nez = val('nezamestnanost');
+    const pri = val('prirustek_na_1000');
+    const urObec = snap.urady?.obce.find((o) => o.kod === kod);
+    const cisla = [
+      ob && { label: 'obyvatel', hodnota: cf(ob.value), pozn: String(ob.year) },
+      deti && { label: 'dětí do 14 let', hodnota: `${cf(deti.value, 1)} %`, pozn: String(deti.year) },
+      s65 && { label: 'obyvatel nad 65 let', hodnota: `${cf(s65.value, 1)} %`, pozn: String(s65.year) },
+      nez && { label: 'nezaměstnaných', hodnota: `${cf(nez.value, 1)} %`, pozn: `prosinec ${nez.year}` },
+      pri && { label: 'přírůstek na 1000 obyvatel', hodnota: `${pri.value > 0 ? '+' : ''}${cf(pri.value, 1)} ‰`, pozn: String(pri.year) },
+    ].filter((x): x is { label: string; hodnota: string; pozn: string } => !!x);
+    const sk = profilSkore[kod];
+    const rank = profilPoradi.find((r) => r.code === kod)?.rank ?? 0;
+    const skore =
+      sk && sk.score !== null && !sk.neobydlena
+        ? { hodnota: sk.score, poradi: rank, z: profilPoradi.length, silne: silneStranky(sk, 2).map((p) => (POZADAVKY_BY_ID[p.id]?.label ?? p.id).toLowerCase()) }
+        : null;
+    const kmTxt = (km: number) => `${km < 10 ? km.toFixed(1).replace('.', ',') : km.toFixed(0)} km`;
+    // školy
+    const oboryV = stred ? filtrujObory(obory, { domov: stred, typ: 'vse', skupina: '', maxKm: PROFIL_KM }) : [];
+    const skolyM = new globalThis.Map<string, { nazev: string; obec: string; km: number; n: number }>();
+    for (const r of oboryV) {
+      const g = skolyM.get(r.obor.izo) ?? { nazev: r.obor.skola.replace(/,?\s*příspěvková organizace$/i, ''), obec: r.obor.obec, km: r.km ?? 0, n: 0 };
+      g.n++;
+      skolyM.set(r.obor.izo, g);
+    }
+    const skolyL = [...skolyM.values()].sort((a, b) => a.km - b.km);
+    // výlety
+    const mistaV = stred ? filtrujMista(mista, { kat: null, domov: stred, maxKm: PROFIL_KM, tagy: [], vstup: 'vse', q: '' }) : [];
+    const kats = new globalThis.Map<string, number>();
+    for (const r of mistaV) kats.set(KATEGORIE_BY_ID[r.misto.kat].label, (kats.get(KATEGORIE_BY_ID[r.misto.kat].label) ?? 0) + 1);
+    const topKat = [...kats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => `${k.toLowerCase()} ${n}`);
+    const videne = new Set<string>();
+    const zajimave = mistaV
+      .filter((r) => ['hrady-zamky', 'rozhledny', 'pamatky', 'koupani', 'priroda', 'muzea', 'dobroty'].includes(r.misto.kat))
+      .filter((r) => {
+        const k = r.misto.nazev.toLowerCase();
+        if (videne.has(k)) return false;
+        videne.add(k);
+        return true;
+      })
+      .slice(0, 6);
+    // úřady
+    const matrika = urObec ? matrikaProObec(urObec.nazev, stred, snap.urady?.matriky ?? []) : null;
+    const uradyR = urObec
+      ? [
+          { nazev: urObec.obecniUrad.nazev, meta: [urObec.obecniUrad.tel, urObec.obecniUrad.email].filter(Boolean).join(' · ') },
+          ...urObec.stavebni.map((x) => ({ nazev: x.nazev, meta: 'stavební úřad' })),
+          ...(urObec.zivnostensky ? [{ nazev: urObec.zivnostensky.nazev, meta: 'živnostenský úřad' }] : []),
+          ...(matrika ? [{ nazev: matrika.matrika.nazev, meta: matrika.vObci ? 'matrika v obci' : `nejbližší matrika · ${kmTxt(matrika.km ?? 0)}` }] : []),
+        ]
+      : [];
+    // podnikání
+    const kreativci = snap.podnikani?.kreativci.filter((k) => k.obec === nazev.replace(/\s*\(.*\)$/, '')) ?? [];
+    const vouch = (snap.points['vouchery']?.features ?? []).filter((f) => f.obec === kod && f.attrs.uspesna === true);
+    const vouchKc = vouch.reduce((a, f) => a + (typeof f.attrs.prideleno === 'number' ? f.attrs.prideleno : 0), 0);
+    return {
+      kod,
+      nazev,
+      orp: urObec?.orp ?? '',
+      cisla,
+      skore,
+      sekce: [
+        {
+          id: 'skoly',
+          nadpis: 'Střední školy v okolí',
+          shrnuti: `${oboryV.length} ${pl3(oboryV.length, ['obor', 'obory', 'oborů'])} na ${skolyL.length} ${pl3(skolyL.length, ['škole', 'školách', 'školách'])} do ${PROFIL_KM} km.`,
+          radky: skolyL.slice(0, 5).map((x) => ({ nazev: x.nazev, meta: `${x.obec} · ${x.n} ${pl3(x.n, ['obor', 'obory', 'oborů'])}`, vpravo: kmTxt(x.km) })),
+          tlacitko: { text: 'Všechny obory v Kam na střední', mode: 'skoly' },
+        },
+        {
+          id: 'urady',
+          nadpis: 'Úřady pro obec',
+          shrnuti: urObec ? 'Kam s čím – obecní, stavební a živnostenský úřad a matrika.' : 'Údaje o úřadech pro tuto obec chybí.',
+          radky: uradyR,
+          tlacitko: { text: 'Kontakty a datové schránky', mode: 'urady' },
+        },
+        {
+          id: 'vylety',
+          nadpis: 'Kam vyrazit poblíž',
+          shrnuti: `${mistaV.length} ${pl3(mistaV.length, ['místo', 'místa', 'míst'])} do ${PROFIL_KM} km${topKat.length ? ` – ${topKat.join(', ')}` : ''}.`,
+          radky: zajimave.map((r) => ({ nazev: r.misto.nazev, meta: `${KATEGORIE_BY_ID[r.misto.kat].label} · ${r.misto.obecNazev}`, vpravo: kmTxt(r.km ?? 0) })),
+          tlacitko: { text: 'Všechna místa v Kam vyrazit', mode: 'vylety' },
+        },
+        {
+          id: 'podnikani',
+          nadpis: 'Podnikání a kreativci',
+          shrnuti: `${kreativci.length} ${pl3(kreativci.length, ['kreativec', 'kreativci', 'kreativců'])} z obce. Kraj sem poslal ${vouch.length} ${pl3(vouch.length, ['voucher', 'vouchery', 'voucherů'])} pro firmy za ${kc(vouchKc)}.`,
+          radky: kreativci.slice(0, 4).map((k) => ({ nazev: k.nazev, meta: k.obory.join(', ') })),
+          tlacitko: { text: 'Kreativci a místa pro podnikání', mode: 'podnikani' },
+        },
+      ],
+    };
+  });
+
   const ziRank = $derived(Object.fromEntries(ziPoradi.map((r) => [r.code, r.rank])) as Record<AreaCode, number>);
   const ziValues = $derived(
     Object.fromEntries(obecFeatures.map((f) => [f.properties.code, ziSkore[f.properties.code]?.score ?? null])) as Record<
@@ -883,7 +1061,8 @@
       return;
     }
     if (st.mode === 'skoly') {
-      if (sk.skola) setSkoly({ skola: null });
+      if (srovnaniOpen) srovnaniOpen = false;
+      else if (sk.skola) setSkoly({ skola: null });
       return;
     }
     if (st.mode === 'vylety') {
@@ -904,12 +1083,16 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="shell">
+  <a class="skiplink" href="#obsah" onclick={(e) => { e.preventDefault(); const t = document.getElementById('obsah'); t?.focus(); t?.scrollIntoView(); }}
+    >Přeskočit na obsah</a
+  >
   <header class="topbar">
     <div class="wrap topbar__in">
       <a class="brandmark" href="#/kraj?m=domu" onclick={(e) => { e.preventDefault(); setMode('domu'); menuOpen = false; }} data-testid="brand-home">
         <span class="brandmark__bar" aria-hidden="true"></span>
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
+      <div class="hledat"><Hledani index={hledaniIndex} onvyber={otevriHledane} /></div>
       <div class="tools">
         <button type="button" class="tool" onclick={share} data-tour="share" data-testid="share-btn" aria-label="Sdílet odkaz" title="Sdílet odkaz">
           <Ikona d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13" size={18} />
@@ -1013,6 +1196,7 @@
       </nav>
     </div>
   </header>
+  <div id="obsah" tabindex="-1" class="obsah-kotva"></div>
 
   {#if toast}
     <div class="toast" role="status" aria-live="polite">{toast}</div>
@@ -1134,6 +1318,8 @@
               onrazeni={(r) => setSkoly({ razeni: r })}
               onselect={(izo) => setSkoly({ skola: izo })}
               onhover={(izo) => (zvyraznena = izo)}
+              {porovnani}
+              onporovnat={porovnat}
             />
             <StahnoutData
               nazev={`kam-na-stredni${domovNazev ? `-${domovNazev}` : ''}`}
@@ -1202,6 +1388,8 @@
               km={vybranaKm}
               sources={skolySources}
               onclose={() => setSkoly({ skola: null })}
+              {porovnani}
+              onporovnat={porovnat}
               plan={sk.plan}
               onplan={togglePlan}
             />
@@ -1209,6 +1397,20 @@
         {/if}
       {/if}
     </main>
+    {#if porovnani.length}
+      <div class="cmpbar" role="region" aria-label="Srovnání oborů" data-testid="srovnani-lista">
+        <span
+          ><strong>Srovnání oborů</strong> · vybráno {porovnani.length} z {MAX_POROVNANI}{porovnani.length < 2 ? ' – přidejte ještě jeden' : ''}</span
+        >
+        <button type="button" class="btn-primary" disabled={porovnani.length < 2} onclick={() => (srovnaniOpen = true)} data-testid="srovnani-otevrit"
+          >Porovnat</button
+        >
+        <button type="button" class="btn-secondary" onclick={() => ((porovnani = []), (srovnaniOpen = false))}>Vymazat</button>
+      </div>
+    {/if}
+    {#if srovnaniOpen && porovnavane.length}
+      <SrovnaniOboru obory={porovnavane} onremove={porovnat} onclose={() => (srovnaniOpen = false)} />
+    {/if}
   {:else if st.mode === 'vylety'}
     <section class="hero" class:hero--slim={!!vyDef}>
       <div class="wrap">
@@ -1306,6 +1508,9 @@
                 onselect={openMisto}
                 onhover={(id) => (vyHover = id)}
               />
+            {/if}
+            {#if !vy.q.trim()}
+              <DenTip den={vyDen} domovNazev={vyDomovNazev} maxKm={vy.maxKm} onjiny={() => denVarianta++} onmisto={openMisto} />
             {/if}
             <VyletyHub pocty={vyPocty} vDosahu={vyPoctyVDosahu} maxKm={vy.maxKm} domovNazev={vyDomovNazev} onkat={(k) => openKat(k)} />
           </div>
@@ -1413,6 +1618,8 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'obec'}
+    <ObecProfil {profil} obce={obecNames} onobec={setDomuObec} onmode={setMode} />
   {:else if st.mode === 'domu'}
     <Domu
       dlazdice={domuDlazdice}
@@ -1771,8 +1978,55 @@
     gap: 6px;
     order: 3;
   }
-  /* na středních šířkách jen ikony, ať se lišta vejde na jeden řádek */
-  @media (max-width: 1599px) {
+  .skiplink {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 100;
+    padding: 10px 16px;
+    background: var(--brand);
+    color: #fff;
+    border-radius: 0 0 8px 8px;
+    font-weight: 700;
+  }
+  .skiplink:focus {
+    top: 0;
+  }
+  .obsah-kotva:focus {
+    outline: none;
+  }
+  .cmpbar {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    padding: 10px 12px 10px 18px;
+    background: var(--brand-dark);
+    color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(12, 24, 56, 0.3);
+  }
+  .cmpbar .btn-secondary {
+    background: transparent;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  .cmpbar .btn-primary:disabled {
+    opacity: 0.5;
+  }
+  .hledat {
+    order: 3;
+    margin-left: auto;
+  }
+  /* tlačítka nástrojů jen jako ikony (popisek pro čtečky), ať se lišta i s hledáním vejde na řádek */
+  @media (min-width: 0px) {
     .tool__t {
       position: absolute;
       width: 1px;
@@ -2387,13 +2641,18 @@
     .menubtn {
       margin-left: auto;
     }
+    .hledat {
+      order: 5;
+      width: 100%;
+      margin: 0 0 6px;
+    }
     .mainnav .mainnav__mob {
       display: block;
       color: var(--brand);
     }
     .mainnav {
       display: none;
-      order: 5;
+      order: 6;
       width: 100%;
       flex-direction: column;
       gap: 0;

@@ -11,6 +11,7 @@
     vetaDoprava,
     vetaNaplnenost,
     vetaTrend,
+    klicOboru,
   } from '../../lib/skoly.ts';
   import Naplnenost from './Naplnenost.svelte';
   import { PLAN_MAX, planId } from '../../lib/planovac.ts';
@@ -21,12 +22,14 @@
     km: number | null;
     sources: SourceEntry[];
     onclose: () => void;
+    porovnani?: string[];
+    onporovnat?: (klic: string) => void;
     /** id oborů v plánu přihlášek */
     plan?: string[];
     /** přidá obor do plánu, nebo ho z něj odebere */
     onplan?: (id: string) => void;
   }
-  const { obory, km, sources, onclose, plan = [], onplan }: Props = $props();
+  const { obory, km, sources, onclose, porovnani = [], onporovnat, plan = [], onplan }: Props = $props();
 
   const s = $derived(obory[0]);
   const otevirane = $derived(obory.filter((o) => (o.zamer[2026] ?? 0) > 0));
@@ -89,6 +92,12 @@
           <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           <p>{vetaNaplnenost(o)}</p>
           {#if veta}<p class="meta">{veta}</p>{/if}
+          {#if onporovnat}
+            {@const k = klicOboru(o)}
+            <button type="button" class="btn-secondary cmp" aria-pressed={porovnani.includes(k)} onclick={() => onporovnat(k)}
+              >{porovnani.includes(k) ? '✓ Ve srovnání – odebrat' : '+ Porovnat s jiným oborem'}</button
+            >
+          {/if}
           {#if onplan}
             {@const id = planId(o)}
             {@const v = plan.includes(id)}
@@ -118,6 +127,11 @@
 {/if}
 
 <style>
+  .cmp {
+    margin-top: 6px;
+    min-height: 36px;
+    font-size: 0.9rem;
+  }
   .backdrop {
     position: fixed;
     inset: 0;

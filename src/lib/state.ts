@@ -17,6 +17,7 @@ import { PLAN_MAX, planId } from './planovac.ts';
 
 export type Mode =
   | 'domu'
+  | 'obec'
   | 'explore'
   | 'score'
   | 'skoly'
@@ -29,6 +30,7 @@ export type Mode =
   | 'prokraj';
 export const MODES: readonly Mode[] = [
   'domu',
+  'obec',
   'explore',
   'score',
   'skoly',

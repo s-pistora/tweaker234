@@ -169,3 +169,88 @@ describe('App – úvodní stránka info centra', () => {
     await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy());
   }, 20000);
 });
+
+describe('App – profil Moje obec', () => {
+  it('z úvodu přes výběr obce do profilu: čísla, sekce, přechod do části s předvyplněnou obcí', async () => {
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '560537' } });
+    await fireEvent.click(screen.getByTestId('domu-profil'));
+    await waitFor(() => expect(screen.getByTestId('profil-cisla')).toBeTruthy());
+    expect(location.hash).toContain('m=obec');
+    expect(document.querySelector('h1')!.textContent).toBe('Loket');
+    expect(screen.getByTestId('profil-cisla').textContent).toContain('obyvatel');
+    const sekce = screen.getByTestId('profil-sekce');
+    expect(sekce.querySelectorAll('section')).toHaveLength(4);
+    expect(sekce.textContent).toContain('Městský úřad Loket');
+    expect(document.body.textContent).not.toMatch(/NaN|undefined/);
+    await fireEvent.click(screen.getByText('Kontakty a datové schránky'));
+    await waitFor(() => expect(screen.getByTestId('urady-karty')).toBeTruthy());
+    expect((screen.getByTestId('urady-obec') as HTMLSelectElement).value).toBe('560537');
+  }, 20000);
+});
+
+describe('App – hledání napříč aplikací', () => {
+  it('najde obec, místo i školu bez diakritiky a otevře správnou část', async () => {
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('domu-obec')).toBeTruthy(), { timeout: 5000 });
+    const pole = screen.getByTestId('hledani') as HTMLInputElement;
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'hrad loket' } });
+    const vys = await screen.findByTestId('hledani-vysledky');
+    const hrad = [...vys.querySelectorAll('li')].find((li) => li.textContent!.includes('Hrad Loket'))!;
+    expect(hrad).toBeTruthy();
+    await fireEvent.mouseDown(hrad);
+    await waitFor(() => expect(location.hash).toContain('m=vylety'));
+    expect(location.hash).toMatch(/vp=/);
+
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'gymnazium ostrov' } });
+    const vys2 = await screen.findByTestId('hledani-vysledky');
+    expect(vys2.querySelector('li')!.textContent).toContain('Střední škola');
+    await fireEvent.keyDown(pole, { key: 'Enter' });
+    await waitFor(() => expect(location.hash).toContain('m=skoly'));
+    expect(location.hash).toMatch(/[?&]s=\d+/);
+
+    await fireEvent.focus(pole);
+    await fireEvent.input(pole, { target: { value: 'sokolov' } });
+    await screen.findByTestId('hledani-vysledky');
+    await fireEvent.keyDown(pole, { key: 'Enter' });
+    await waitFor(() => expect(screen.getByTestId('profil-cisla')).toBeTruthy());
+    expect(document.querySelector('h1')!.textContent).toBe('Sokolov');
+  }, 20000);
+});
+
+describe('App – srovnání oborů', () => {
+  it('dva obory přidané tlačítkem + se ukážou vedle sebe v tabulce', async () => {
+    location.hash = '#/kraj?m=skoly&d=554481&km=20';
+    render(App);
+    await waitFor(() => expect(screen.getAllByTestId('porovnat').length).toBeGreaterThan(2), { timeout: 5000 });
+    const btns = screen.getAllByTestId('porovnat');
+    await fireEvent.click(btns[0]);
+    expect(screen.getByTestId('srovnani-lista').textContent).toContain('vybráno 1 z 3');
+    expect((screen.getByTestId('srovnani-otevrit') as HTMLButtonElement).disabled).toBe(true);
+    await fireEvent.click(btns[1]);
+    await fireEvent.click(screen.getByTestId('srovnani-otevrit'));
+    const dlg = await screen.findByTestId('srovnani');
+    expect(dlg.querySelectorAll('thead th')).toHaveLength(2);
+    expect(dlg.textContent).toContain('Loni obsazeno');
+    expect(dlg.textContent).not.toMatch(/NaN|undefined/);
+    await fireEvent.click(dlg.querySelectorAll<HTMLButtonElement>('.rm')[0]);
+    await waitFor(() => expect(screen.getByTestId('srovnani').querySelectorAll('thead th')).toHaveLength(1));
+  }, 20000);
+});
+
+describe('App – tip na celý den', () => {
+  it('po volbě obce sestaví okruh se zastávkami v dosahu a odkazem na Mapy.cz', async () => {
+    location.hash = '#/kraj?m=vylety&vd=560537&vkm=20';
+    render(App);
+    const den = await screen.findByTestId('den-tip', {}, { timeout: 5000 });
+    expect(den.querySelectorAll('li').length).toBeGreaterThanOrEqual(2);
+    expect(den.textContent).not.toMatch(/NaN|undefined/);
+    const prvni = den.querySelector('li strong')!.textContent;
+    expect((screen.getByTestId('den-mapy') as HTMLAnchorElement).href).toContain('mapy.cz');
+    await fireEvent.click(screen.getByTestId('den-jiny'));
+    await waitFor(() => expect(screen.getByTestId('den-tip').querySelector('li strong')!.textContent).not.toBe(prvni));
+  }, 20000);
+});

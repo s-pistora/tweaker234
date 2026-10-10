@@ -59,7 +59,10 @@
           {/each}
         </select>
         {#if obec}
-          <button type="button" class="btn-secondary" onclick={() => onobec(null)}>Zrušit výběr</button>
+          <button type="button" class="btn-primary" onclick={() => onmode('obec')} data-testid="domu-profil"
+            >Profil obce {obce[obec] ?? ''}</button
+          >
+          <button type="button" class="btn-secondary" onclick={() => onobec(null)}>Zrušit</button>
         {/if}
       </div>
       <small>{obec ? `Čísla níže platí pro okolí obce ${obce[obec] ?? ''}. Obec jsme předvyplnili i v ostatních částech.` : 'Obec se předvyplní ve všech částech aplikace.'}</small>

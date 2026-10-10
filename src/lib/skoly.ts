@@ -324,3 +324,18 @@ export function dostupnostObci(
   }
   return out;
 }
+
+/** Jednoznačný klíč oboru na škole (pro srovnání oborů). */
+export function klicOboru(o: Pick<Obor, 'izo' | 'kodOboru' | 'forma'>): string {
+  return `${o.izo}|${o.kodOboru}|${o.forma}`;
+}
+
+/** Nejvýš tolik oborů lze porovnat vedle sebe. */
+export const MAX_POROVNANI = 3;
+
+/** Přidá klíč, nebo ho odebere, pokud už ve výběru je. Plný výběr vrátí beze změny (`plno: true`). */
+export function prepniPorovnani(vyber: string[], klic: string): { vyber: string[]; plno: boolean } {
+  if (vyber.includes(klic)) return { vyber: vyber.filter((k) => k !== klic), plno: false };
+  if (vyber.length >= MAX_POROVNANI) return { vyber, plno: true };
+  return { vyber: [...vyber, klic], plno: false };
+}

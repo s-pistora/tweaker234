@@ -213,3 +213,16 @@ describe('skoly: věty', () => {
     expect(vetaDoprava(obor({ nejblizsiZastavkaM: null }))).toContain('není známa');
   });
 });
+
+describe('srovnání oborů', () => {
+  it('přepíná výběr a hlídá maximum tří oborů', async () => {
+    const { prepniPorovnani, klicOboru } = await import('../src/lib/skoly.ts');
+    expect(klicOboru({ izo: '1', kodOboru: '79-41-K/41', forma: 'denní' })).toBe('1|79-41-K/41|denní');
+    let v: string[] = [];
+    for (const k of ['a', 'b', 'c']) v = prepniPorovnani(v, k).vyber;
+    expect(v).toEqual(['a', 'b', 'c']);
+    const r = prepniPorovnani(v, 'd');
+    expect(r).toEqual({ vyber: ['a', 'b', 'c'], plno: true });
+    expect(prepniPorovnani(v, 'b').vyber).toEqual(['a', 'c']);
+  });
+});
