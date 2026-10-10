@@ -1,10 +1,9 @@
 /*
- * „Kde by se mi dobře žilo?“ – mapa přiblížené obce: vrstvy bodů vybraných požadavků
- * (každá jiná barva i tvar), body ve výřezu, nejbližší služba mimo obec a odkaz na Mapy.cz.
+ * „Kde by se mi dobře žilo?“ – mapa vybrané obce: vrstvy bodů vybraných požadavků
+ * (každá jiná barva i tvar), body v obci, nejbližší služba mimo obec a odkaz na Mapy.cz.
  * Čisté funkce nad ZivotKontext (testy nad public/data).
  */
 import type { AreaCode } from './types.ts';
-import type { AreaFeature } from './map/project.ts';
 import type { Glyph } from './map/pointStyle.ts';
 import { vzdalenostKm } from './skoly.ts';
 import { POZADAVKY_BY_ID, bodyPozadavku, type BodZivota, type ZivotKontext } from './zivot.ts';
@@ -83,47 +82,6 @@ export function chybejiciVObci(ctx: ZivotKontext, ids: readonly string[], code: 
           : null,
       };
     });
-}
-
-/** [[lonMin, latMin], [lonMax, latMax]] */
-export type Vyrez = [[number, number], [number, number]];
-
-/** Výřez obce s rezervou (podíl šířky/výšky na každou stranu) – přiblížená mapa ukazuje i okolí. */
-export function vyrezObce(feature: AreaFeature, rezerva = 0.35): Vyrez {
-  // přímo ze souřadnic: geoBounds z d3 vrací při opačném pořadí vrcholů celý glóbus
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  const projdi = (c: unknown): void => {
-    if (Array.isArray(c) && typeof c[0] === 'number') {
-      const [x, y] = c as [number, number];
-      if (x < x0) x0 = x;
-      if (x > x1) x1 = x;
-      if (y < y0) y0 = y;
-      if (y > y1) y1 = y;
-    } else if (Array.isArray(c)) c.forEach(projdi);
-  };
-  const g = feature.geometry as { coordinates?: unknown } | null;
-  projdi(g?.coordinates);
-  const dx = (x1 - x0) * rezerva;
-  const dy = (y1 - y0) * rezerva;
-  return [
-    [x0 - dx, y0 - dy],
-    [x1 + dx, y1 + dy],
-  ];
-}
-
-export function veVyrezu(b: { lat: number; lon: number }, v: Vyrez): boolean {
-  return b.lon >= v[0][0] && b.lon <= v[1][0] && b.lat >= v[0][1] && b.lat <= v[1][1];
-}
-
-/**
- * Body vrstvy pro přiblíženou obec: jen ty ve výřezu (zastávek je přes 1800)
- * a vždy i nejbližší bod, i když leží mimo výřez.
- */
-export function bodyProMapu(ctx: ZivotKontext, id: string, code: AreaCode, v: Vyrez): BodZivota[] {
-  const out = bodyPozadavku(ctx, id).filter((b) => veVyrezu(b, v));
-  const n = nejblizsiBod(ctx, id, code);
-  if (n && !out.some((b) => b.id === n.bod.id)) out.push(n.bod);
-  return out;
 }
 
 /** Odkaz na místo v Mapy.cz. */

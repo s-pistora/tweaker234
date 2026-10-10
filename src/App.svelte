@@ -14,7 +14,7 @@
   import ZivotTop from './components/zivot/ZivotTop.svelte';
   import ZivotDetail from './components/zivot/ZivotDetail.svelte';
   import ZivotVrstvy from './components/zivot/ZivotVrstvy.svelte';
-  import { bodyProMapu, bodyVObci, vrstvyPozadavku, vyrezObce } from './lib/zivot-mapa.ts';
+  import { bodyVObci, vrstvyPozadavku } from './lib/zivot-mapa.ts';
   import SkolyFiltr from './components/skoly/SkolyFiltr.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
@@ -423,16 +423,15 @@
   const ziObecSama = $derived(
     zi.obec && ziPriblizeno ? (obecFeatures.find((x) => x.properties.code === zi.obec) ?? null) : null,
   );
+  /** jen body, které leží ve vybrané obci */
   const ziObecPoints = $derived.by((): MapPoint[] => {
-    const f = zi.obec ? obecFeatures.find((x) => x.properties.code === zi.obec) : undefined;
-    if (!ziCtx || !zi.obec || !f) return [];
-    const vyrez = vyrezObce(f);
+    if (!ziCtx || !zi.obec) return [];
     const ctx = ziCtx;
     const obec = zi.obec;
     return ziVrstvy
       .filter((v) => !ziSkryte.has(v.id))
       .flatMap((v) =>
-        bodyProMapu(ctx, v.id, obec, vyrez).map((b) => ({
+        bodyVObci(ctx, v.id, obec).map((b) => ({
           id: `${v.id}|${b.id}`,
           name: b.nazev,
           lon: b.lon,
@@ -1063,7 +1062,7 @@
         {/if}
         <Map
           features={ziObecSama ? [ziObecSama] : obecFeatures}
-          fitPad={ziObecSama ? 70 : 8}
+          fitPad={ziObecSama ? 24 : 8}
           values={ziValues}
           def={ZIVOT_DEF}
           year={null}

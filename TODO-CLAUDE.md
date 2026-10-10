@@ -21,12 +21,12 @@ Uživatel píše česky a chce, aby ses průběžně ptal na podrobnosti.
 
 - Klik na obec zobrazí jen tu obec bez okolních obcí (`Map.svelte` `fitPad`), tlačítko „Celý kraj“ / „Přiblížit …“, zavření detailu vrátí celý kraj.
 - Body všech vybraných požadavků (barva + plný tvar podle pořadí, `src/lib/zivot-mapa.ts`), legenda
-  `ZivotVrstvy.svelte` s `aria-pressed` a „v obci N“; kreslí se jen výřez obce + nejbližší bod.
+  `ZivotVrstvy.svelte` s `aria-pressed` a „v obci N“; na mapě jen body ležící ve vybrané obci (přání uživatele).
 - Detail: „Co v obci není“ (nejbližší v obci B jako tlačítko, název + adresa) a „Vybrané místo“ po kliku na značku
   (odkaz na Mapy.cz). Bodové vrstvy adresu nemají → ukazuje se obec.
 - Testy: `tests/zivot-mapa.test.ts`, nový případ v `tests/components/app-zivot.test.ts`.
-- Známé: na mobilu (≤1000 px) překrývá detail mapu, přiblížení je vidět až po posunutí; nejbližší bod mimo výřez
-  se kreslí, ale je mimo zobrazenou oblast (informace je v detailu).
+- Známé: na mobilu (≤1000 px) překrývá detail mapu, obec je vidět až po posunutí. Nejbližší služba mimo obec je jen
+  v detailu („Co v obci není“), na mapě ne.
 
 ## TODO 2 – další nápady (jen po domluvě s uživatelem)
 

@@ -17,7 +17,7 @@
 
 {#if vrstvy.length}
   <div class="vrstvy" data-testid="zivot-vrstvy">
-    <p class="ttl">Na mapě v obci {obecNazev} a okolí <span>· klikem vrstvu skryjete</span></p>
+    <p class="ttl">Na mapě v obci {obecNazev} <span>· klikem vrstvu skryjete</span></p>
     <ul>
       {#each vrstvy as v (v.id)}
         {@const on = !skryte.has(v.id)}

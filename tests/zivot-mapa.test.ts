@@ -1,4 +1,4 @@
-// „Kde by se mi žilo“ – přiblížená obce: vrstvy, body v obci, nejbližší služba, výřez (reálná data public/data).
+// „Kde by se mi žilo“ – vybraná obec: vrstvy, body v obci, nejbližší služba (reálná data public/data).
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -7,14 +7,11 @@ import { areaFeatures } from '../src/lib/map/project.ts';
 import { centroidy } from '../src/lib/map/centroids.ts';
 import { vytvorKontext, bodyPozadavku } from '../src/lib/zivot.ts';
 import {
-  bodyProMapu,
   bodyVObci,
   chybejiciVObci,
   mapyCzOdkaz,
   nejblizsiBod,
   vrstvyPozadavku,
-  veVyrezu,
-  vyrezObce,
 } from '../src/lib/zivot-mapa.ts';
 
 const pub = (p: string) => JSON.parse(readFileSync(path.resolve(process.cwd(), 'public/data', p), 'utf8'));
@@ -75,22 +72,6 @@ describe('zivot-mapa', () => {
     expect(n.km).toBeGreaterThan(0);
     // Cheb nemocnici má → nechybí
     expect(chybejiciVObci(ctx, ['nemocnice'], CHEB)).toEqual([]);
-  });
-
-  it('výřez obce obsahuje její střed a body pro mapu jsou ve výřezu + nejbližší', () => {
-    const f = feats.find((x) => x.properties.code === CHEB)!;
-    const v = vyrezObce(f);
-    expect(v[1][0] - v[0][0]).toBeLessThan(1); // ne celý glóbus
-    expect(veVyrezu(ctx.obce[CHEB], v)).toBe(true);
-    const vsech = bodyPozadavku(ctx, 'zastavka').length;
-    const body = bodyProMapu(ctx, 'zastavka', CHEB, v);
-    expect(body.length).toBeGreaterThan(0);
-    expect(body.length).toBeLessThan(vsech);
-    // vzdálená obec: nejbližší nemocnice je mimo výřez, ale na mapě je
-    const mala = Object.keys(ctx.obce).find((c) => bodyVObci(ctx, 'nemocnice', c).length === 0)!;
-    const fm = feats.find((x) => x.properties.code === mala)!;
-    const bm = bodyProMapu(ctx, 'nemocnice', mala, vyrezObce(fm));
-    expect(bm.map((b) => b.id)).toContain(nejblizsiBod(ctx, 'nemocnice', mala)!.bod.id);
   });
 
   it('odkaz na Mapy.cz', () => {

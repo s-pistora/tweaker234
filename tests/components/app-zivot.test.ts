@@ -103,8 +103,8 @@ describe('App – Kde by se mi dobře žilo?', () => {
   }, 20000);
 
   it('přiblížená obec: vrstvy všech požadavků, chybějící služba s odkazem na jinou obec, vybrané místo', async () => {
-    // Milhostov (malá obec u Chebu): nemocnice ani lékárna v obci není
-    location.hash = '#/kraj?m=score&zp=nemocnice:1,lekarna:1,mlada-obec:1&zo=554651';
+    // Milhostov (malá obec u Chebu): nemocnice ani lékárna v obci není, zastávky a ZŠ ano
+    location.hash = '#/kraj?m=score&zp=nemocnice:1,lekarna:1,zastavka:1,zakladni-skola:1,mlada-obec:1&zo=554651';
     render(App);
     const detail = await screen.findByTestId('zivot-detail', {}, { timeout: 8000 });
     const mapa = screen.getByTestId('zivot-mapa');
@@ -115,19 +115,22 @@ describe('App – Kde by se mi dobře žilo?', () => {
 
     // legenda: jen požadavky s body, přepínač s aria-pressed a počtem v obci
     const vrstvy = screen.getByTestId('zivot-vrstvy');
-    expect(vrstvy.querySelectorAll('button[aria-pressed]')).toHaveLength(2);
+    expect(vrstvy.querySelectorAll('button[aria-pressed]')).toHaveLength(4);
     expect(screen.getByTestId('zv-nemocnice').textContent).toMatch(/v obci 0/);
-    // body obou vrstev, každá jiný tvar značky; nejbližší nemocnice je na mapě i mimo výřez
+    // na mapě jen body v obci: počet značek = součet „v obci N“, nemocnice ani lékárna žádná
     const znacky = () => [...mapa.querySelectorAll('[data-pt]')].map((e) => e.getAttribute('data-pt')!);
-    await waitFor(() => expect(znacky().some((id) => id.startsWith('nemocnice|'))).toBe(true));
-    expect(znacky().some((id) => id.startsWith('lekarna|'))).toBe(true);
+    const vObci = (id: string) => Number(/v obci (\d+)/.exec(screen.getByTestId(`zv-${id}`).textContent!)![1]);
+    await waitFor(() => expect(znacky().length).toBeGreaterThan(0));
+    expect(znacky()).toHaveLength(vObci('zastavka') + vObci('zakladni-skola'));
+    expect(znacky().some((id) => id.startsWith('nemocnice|') || id.startsWith('lekarna|'))).toBe(false);
+    // každá vrstva jiný tvar značky
     const tvary = new Set([...mapa.querySelectorAll('[data-pt]')].map((e) => e.textContent));
     expect(tvary.size).toBe(2);
 
     // skrýt vrstvu
-    await fireEvent.click(screen.getByTestId('zv-lekarna'));
-    expect(screen.getByTestId('zv-lekarna').getAttribute('aria-pressed')).toBe('false');
-    expect(znacky().some((id) => id.startsWith('lekarna|'))).toBe(false);
+    await fireEvent.click(screen.getByTestId('zv-zastavka'));
+    expect(screen.getByTestId('zv-zastavka').getAttribute('aria-pressed')).toBe('false');
+    expect(znacky().some((id) => id.startsWith('zastavka|'))).toBe(false);
 
     // „V obci A není. Nejbližší je v obci B (x km): …“ a B je tlačítko
     const chybi = screen.getByTestId('zivot-chybi');
