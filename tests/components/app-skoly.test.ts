@@ -106,4 +106,35 @@ describe('App – Kam na střední', () => {
     const detail = await screen.findByTestId('skola-detail');
     expect(detail.textContent).toContain(znacka.getAttribute('aria-label')!.split(',')[0].replace(/,?\s*příspěvková organizace$/i, ''));
   }, 20000);
+
+  it('plánovač: přidat obory z detailu školy, pořadí v adrese, termíny a kalendář', async () => {
+    location.hash = '#/kraj?m=skoly&d=554481&t=maturita&km=25';
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
+    await fireEvent.click(screen.getByTestId('tab-plan'));
+    expect(screen.getByTestId('plan-prazdny')).toBeTruthy();
+    await fireEvent.click(screen.getByTestId('tab-hledat'));
+
+    await fireEvent.click(screen.getAllByTestId('obor-row')[0]);
+    const tlacitka = screen.getAllByTestId('plan-toggle');
+    await fireEvent.click(tlacitka[0]);
+    expect(location.hash).toMatch(/p=\d+_/);
+    expect(screen.getAllByTestId('plan-toggle')[0].getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    await fireEvent.click(screen.getByTestId('tab-plan'));
+    expect(screen.getByTestId('tab-plan').textContent).toContain('(1)');
+    expect(screen.getAllByTestId('plan-polozka')).toHaveLength(1);
+    expect(screen.getByTestId('plan-terminy').textContent).toContain('12. dubna 2027');
+    expect(screen.getByTestId('planovac').textContent).not.toMatch(/NaN|undefined/);
+
+    const createObjectURL = vi.fn(() => 'blob:x');
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL: () => {} }));
+    await fireEvent.click(screen.getByTestId('plan-ics'));
+    expect(createObjectURL).toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByTestId('plan-odebrat'));
+    expect(screen.getByTestId('plan-prazdny')).toBeTruthy();
+    expect(location.hash).not.toContain('p=');
+  }, 20000);
 });

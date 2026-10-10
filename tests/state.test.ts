@@ -10,6 +10,7 @@ import {
   DEFAULT_SKOLY,
   DEFAULT_VYLETY,
   DEFAULT_ZIVOT,
+  DEFAULT_PROKRAJ,
   type AppState,
 } from '../src/lib/state.ts';
 import type { Snapshot } from '../src/lib/data/loader.ts';
@@ -281,7 +282,7 @@ describe('linkInvalid store (review finding #1 - varovani "neplatny odkaz")', ()
 
 describe('režim „Kam na střední“ v hashi', () => {
   const ob = (izo: string, kodObce: string, skupina: string) =>
-    ({ izo, kodObce, skupina }) as unknown as NonNullable<Snapshot['skoly']>['obory'][number];
+    ({ izo, kodObce, skupina, kodOboru: `${skupina}-41-M/01`, forma: 'denní' }) as unknown as NonNullable<Snapshot['skoly']>['obory'][number];
   function snapSkoly(): Snapshot {
     return {
       ...makeSnap(),
@@ -305,7 +306,15 @@ describe('režim „Kam na střední“ v hashi', () => {
   it('round-trip všech parametrů', () => {
     const snap = snapSkoly();
     const { state } = parseHash('#/kraj?m=skoly', snap);
-    state.skoly = { domov: '554481', typ: 'maturita', skupina: '18', maxKm: 30, skola: '600170462', razeni: 'volno' };
+    state.skoly = {
+      domov: '554481',
+      typ: 'maturita',
+      skupina: '18',
+      maxKm: 30,
+      skola: '600170462',
+      razeni: 'volno',
+      plan: ['1_79-41-M/01_d', '600170462_18-41-M/01_d'],
+    };
     const back = parseHash(toHash(state), snap);
     expect(back.invalid).toBe(false);
     expect(back.state).toEqual(state);
@@ -319,6 +328,35 @@ describe('režim „Kam na střední“ v hashi', () => {
     expect(ok.invalid).toBe(true);
     expect(ok.state.skoly?.domov).toBe('554481');
     expect(ok.state.skoly?.maxKm).toBe(DEFAULT_SKOLY.maxKm);
+  });
+});
+
+describe('plán přihlášek v hashi', () => {
+  const ob = (izo: string) => ({ izo, kodObce: '554481', skupina: '18', kodOboru: '18-20-M/01', forma: 'denní' }) as unknown as NonNullable<Snapshot['skoly']>['obory'][number];
+  const snap = (): Snapshot => ({ ...makeSnap(), skoly: { updatedAt: 'x', sourceIds: [], obory: ['1', '2', '3', '4'].map(ob) } });
+
+  it('neznámé id, duplicita a víc než 3 obory se zahodí', () => {
+    const { state, invalid } = parseHash('#/kraj?m=skoly&p=1_18-20-M%2F01_d,nic,1_18-20-M%2F01_d,2_18-20-M%2F01_d,3_18-20-M%2F01_d,4_18-20-M%2F01_d', snap());
+    expect(invalid).toBe(true);
+    expect(state.skoly?.plan).toEqual(['1_18-20-M/01_d', '2_18-20-M/01_d', '3_18-20-M/01_d']);
+  });
+});
+
+describe('režimy „Karta obce“ a „Pro kraj“ v hashi', () => {
+  it('round-trip', () => {
+    const snap = makeSnap();
+    const obec = [...Object.keys(snap.indicators.obec?.values.obyvatele ?? {})][0];
+    const h = `#/kraj?m=prokraj&xt=vyhled&xs=zs&xkm=12${obec ? `&k=${obec}` : ''}`;
+    const { state, invalid } = parseHash(h, snap);
+    expect(invalid).toBe(false);
+    expect(state.prokraj).toEqual({ tab: 'vyhled', sluzba: 'zs', km: 12 });
+    expect(parseHash(toHash(state), snap).state).toEqual(state);
+  });
+  it('nevalidní hodnoty spadnou na výchozí', () => {
+    const { state, invalid } = parseHash('#/kraj?m=prokraj&xt=x&xkm=99&k=000', makeSnap());
+    expect(invalid).toBe(true);
+    expect(state.prokraj).toEqual(DEFAULT_PROKRAJ);
+    expect(state.obec).toEqual({ kod: null });
   });
 });
 

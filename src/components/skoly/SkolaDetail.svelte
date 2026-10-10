@@ -13,6 +13,7 @@
     vetaTrend,
   } from '../../lib/skoly.ts';
   import Naplnenost from './Naplnenost.svelte';
+  import { PLAN_MAX, planId } from '../../lib/planovac.ts';
 
   interface Props {
     obory: Obor[];
@@ -20,8 +21,12 @@
     km: number | null;
     sources: SourceEntry[];
     onclose: () => void;
+    /** id oborů v plánu přihlášek */
+    plan?: string[];
+    /** přidá obor do plánu, nebo ho z něj odebere */
+    onplan?: (id: string) => void;
   }
-  const { obory, km, sources, onclose }: Props = $props();
+  const { obory, km, sources, onclose, plan = [], onplan }: Props = $props();
 
   const s = $derived(obory[0]);
   const otevirane = $derived(obory.filter((o) => (o.zamer[2026] ?? 0) > 0));
@@ -84,6 +89,21 @@
           <Naplnenost podil={naplnenost(o)} prijato={o.prijato2025} zamer={o.zamer[2025] ?? null} />
           <p>{vetaNaplnenost(o)}</p>
           {#if veta}<p class="meta">{veta}</p>{/if}
+          {#if onplan}
+            {@const id = planId(o)}
+            {@const v = plan.includes(id)}
+            <button
+              type="button"
+              class="plan"
+              class:plan--on={v}
+              disabled={!v && plan.length >= PLAN_MAX}
+              aria-pressed={v}
+              onclick={() => onplan(id)}
+              data-testid="plan-toggle"
+            >
+              {v ? `✓ V plánu přihlášek (${plan.indexOf(id) + 1}. místo) – odebrat` : plan.length >= PLAN_MAX ? `Plán je plný (${PLAN_MAX} přihlášky)` : '+ Přidat do plánu přihlášek'}
+            </button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -216,5 +236,32 @@
   }
   .src {
     margin-top: 18px;
+  }
+  .plan {
+    font: inherit;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    min-height: 44px;
+    padding: 0 14px;
+    border-radius: 4px;
+    border: 1px solid var(--brand);
+    background: #fff;
+    color: var(--brand);
+    cursor: pointer;
+  }
+  .plan:hover:not(:disabled) {
+    background: var(--brand-ice);
+  }
+  .plan--on {
+    background: var(--brand);
+    color: #fff;
+  }
+  .plan--on:hover:not(:disabled) {
+    background: var(--brand-dark);
+  }
+  .plan:disabled {
+    border-color: var(--line-strong);
+    color: var(--text-muted);
+    cursor: not-allowed;
   }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import './styles/tokens.css';
   import './styles/crt.css';
+  import './styles/print.css';
   import { onDestroy } from 'svelte';
   import Drilldown from './components/Drilldown.svelte';
   import Detail from './components/Detail.svelte';
@@ -27,6 +28,13 @@
   import StahnoutData from './components/common/StahnoutData.svelte';
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
+  import Planovac from './components/skoly/Planovac.svelte';
+  import KartaObce from './components/obec/KartaObce.svelte';
+  import { kartaObce } from './lib/karta.ts';
+  import ProKraj from './components/prokraj/ProKraj.svelte';
+  import { detiPodleOrp, indexyOrp } from './lib/odhad.ts';
+  import { pokryti } from './lib/bilamista.ts';
+  import { oboryPlanu, pridej, odeber } from './lib/planovac.ts';
   import KrajPrehled from './components/skoly/KrajPrehled.svelte';
   import VyletyHub from './components/vylety/VyletyHub.svelte';
   import VyletyFiltr from './components/vylety/VyletyFiltr.svelte';
@@ -46,6 +54,7 @@
     DEFAULT_URADY,
     DEFAULT_PENIZE,
     DEFAULT_PODNIKANI,
+    DEFAULT_PROKRAJ,
     type Mode,
     type SkolyState,
     type VyletyState,
@@ -53,6 +62,7 @@
     type UradyState,
     type PenizeState,
     type PodnikaniState,
+    type ProKrajState,
   } from './lib/state.ts';
   import {
     DOPORUCENY_VYBER,
@@ -125,7 +135,7 @@
 
   load(() => {}).catch(() => {});
 
-  let skolyTab = $state<'hledat' | 'kraj'>('hledat');
+  let skolyTab = $state<'hledat' | 'plan' | 'kraj'>('hledat');
 
   const st = $derived($appState);
 
@@ -214,6 +224,8 @@
       // obec z jiného režimu se převezme i pro úřady
       penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
       podnikani: m === 'podnikani' ? (s.podnikani ?? { ...DEFAULT_PODNIKANI }) : s.podnikani,
+      obec: m === 'obec' ? (s.obec ?? { kod: s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.zivot?.obec ?? null }) : s.obec,
+      prokraj: m === 'prokraj' ? (s.prokraj ?? { ...DEFAULT_PROKRAJ }) : s.prokraj,
       urady:
         m === 'urady'
           ? (s.urady ?? { ...DEFAULT_URADY, obec: s.skoly?.domov ?? s.vylety?.domov ?? s.zivot?.obec ?? null })
@@ -303,6 +315,10 @@
   const vybranaKm = $derived(
     domov && vybraneObory[0] ? vzdalenostKm(domov.lat, domov.lon, vybraneObory[0].lat, vybraneObory[0].lon) : null,
   );
+  const planObory = $derived(oboryPlanu(sk.plan, obory));
+  function togglePlan(id: string) {
+    setSkoly({ plan: sk.plan.includes(id) ? odeber(sk.plan, id) : pridej(sk.plan, id) });
+  }
   const skolySources = $derived(
     snap ? snap.manifest.sources.filter((x) => snap?.skoly?.sourceIds.includes(x.id)) : [],
   );
@@ -319,6 +335,11 @@
     { m: 'urady', label: 'Úřady' },
     { m: 'penize', label: 'Peníze kraje' },
     { m: 'podnikani', label: 'Podnikání' },
+  ];
+  /** vedlejší menu (vedle Statistiky kraje a Zdrojů dat) */
+  const MODE_NAV_DALSI: { m: Mode; label: string }[] = [
+    { m: 'obec', label: 'Karta obce' },
+    { m: 'prokraj', label: 'Pro kraj' },
   ];
 
   // --- režim „Podnikání“ ------------------------------------------------------
@@ -445,6 +466,24 @@
         pod: `kreativců a ${snap.podnikani?.infra.length ?? 0} míst pro podnikání`,
         ikona: 'M4 7h16v13H4zM9 7V4h6v3M4 12h16',
         barva: '#680526',
+      },
+      {
+        mode: 'obec',
+        nazev: 'Karta obce',
+        popis: 'Pro starosty: lidé, služby, školy, peníze a úřady obce na jedné stránce k tisku nebo do PDF.',
+        cislo: domuObec ? (obecNames[domuObec] ?? '') : fmtN(Object.keys(obecNames).length),
+        pod: domuObec ? 'karta připravená k tisku' : 'karet obcí k tisku',
+        ikona: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7',
+        barva: '#00796F',
+      },
+      {
+        mode: 'prokraj',
+        nazev: 'Pro kraj',
+        popis: 'Kde chybí lékař, školka nebo lékárna a kam ji umístit. Výhled oborů: kde hrozí prázdné lavice.',
+        cislo: ziCtx ? fmtN(pokryti(ziCtx, 'lekar', DEFAULT_PROKRAJ.km).mimo) : '–',
+        pod: `obyvatel má praktického lékaře dál než ${DEFAULT_PROKRAJ.km} km`,
+        ikona: 'M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11a2 2 0 1 0 0-.01',
+        barva: '#3771B8',
       },
       {
         mode: 'explore',
@@ -660,6 +699,24 @@
     ziFokus = true;
     setZivot({ obec: code });
   }
+
+  // --- režim „Karta obce“ ------------------------------------------------------
+  const obKod = $derived(st.obec?.kod ?? null);
+  const karta = $derived(
+    snap && ziCtx && obKod && obecCentroidy[obKod]
+      ? kartaObce({ snap, ctx: ziCtx, kod: obKod, orpNazev: ziOrp[obKod] ?? '', obory })
+      : null,
+  );
+  function setObec(kod: AreaCode | null) {
+    appState.update((s) => ({ ...s, obec: { kod } }));
+  }
+
+  // --- režim „Pro kraj“ --------------------------------------------------------
+  const pk = $derived<ProKrajState>(st.prokraj ?? DEFAULT_PROKRAJ);
+  function setProKraj(patch: Partial<ProKrajState>) {
+    appState.update((s) => ({ ...s, prokraj: { ...(s.prokraj ?? DEFAULT_PROKRAJ), ...patch } }));
+  }
+  const pkIndexy = $derived(indexyOrp(detiPodleOrp(snap?.indicators.obec, geoIndex.obecParent)));
 
   // --- sdílení odkazu --------------------------------------------------------
   let toast = $state<string | null>(null);
@@ -893,6 +950,19 @@
           }}
           data-testid="mode-explore">Statistika kraje</button
         >
+        {#each MODE_NAV_DALSI as n (n.m)}
+          <button
+            type="button"
+            class="mainnav__src"
+            class:on={st.mode === n.m}
+            aria-current={st.mode === n.m ? 'page' : undefined}
+            onclick={() => {
+              setMode(n.m);
+              menuOpen = false;
+            }}
+            data-testid="mode-{n.m}">{n.label}</button
+          >
+        {/each}
         <button
           type="button"
           class="mainnav__src"
@@ -940,7 +1010,7 @@
   {:else if !snap}
     <div class="wrap"><p class="state" role="status">Načítáme data…</p></div>
   {:else if st.mode === 'skoly'}
-    <section class="hero">
+    <section class="hero" class:noprint={skolyTab === 'plan'}>
       <div class="wrap hero__grid">
         <div>
           <p class="kicker">Střední školy · přijímací řízení 2026/27</p>
@@ -1000,7 +1070,7 @@
       {#if !snap.skoly}
         <p class="state state--err" role="alert">Data o středních školách se nepodařilo načíst.</p>
       {:else}
-        <div class="tabs" role="tablist" aria-label="Pohled">
+        <div class="tabs noprint" role="tablist" aria-label="Pohled">
           <button
             type="button"
             role="tab"
@@ -1008,6 +1078,14 @@
             class:on={skolyTab === 'hledat'}
             onclick={() => (skolyTab = 'hledat')}
             data-testid="tab-hledat">Najít školu</button
+          >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={skolyTab === 'plan'}
+            class:on={skolyTab === 'plan'}
+            onclick={() => (skolyTab = 'plan')}
+            data-testid="tab-plan">Můj plán přihlášek{sk.plan.length ? ` (${sk.plan.length})` : ''}</button
           >
           <button
             type="button"
@@ -1080,13 +1158,31 @@
               />
             </div>
           </div>
+        {:else if skolyTab === 'plan'}
+          <Planovac
+            plan={planObory}
+            {obory}
+            {domov}
+            {domovNazev}
+            maxKm={sk.maxKm}
+            poradny={snap.skoly?.poradny ?? []}
+            onchange={(plan) => setSkoly({ plan })}
+            onselect={(izo) => setSkoly({ skola: izo })}
+          />
         {:else}
           <KrajPrehled obory={obory} names={geoIndex.names} onselect={(izo) => setSkoly({ skola: izo })} />
         {/if}
 
         {#if vybraneObory.length}
           {#key sk.skola}
-            <SkolaDetail obory={vybraneObory} km={vybranaKm} sources={skolySources} onclose={() => setSkoly({ skola: null })} />
+            <SkolaDetail
+              obory={vybraneObory}
+              km={vybranaKm}
+              sources={skolySources}
+              onclose={() => setSkoly({ skola: null })}
+              plan={sk.plan}
+              onplan={togglePlan}
+            />
           {/key}
         {/if}
       {/if}
@@ -1304,6 +1400,20 @@
       onobec={setDomuObec}
       onmode={setMode}
     />
+  {:else if st.mode === 'prokraj'}
+    {#if ziCtx}
+      <ProKraj
+        stav={pk}
+        ctx={ziCtx}
+        obce={obecFeatures}
+        {obory}
+        indexy={pkIndexy}
+        names={geoIndex.names}
+        onchange={setProKraj}
+      />
+    {/if}
+  {:else if st.mode === 'obec'}
+    <KartaObce {karta} obce={obecNames} aktualizace={snap.updatedAt} onobec={setObec} />
   {:else if st.mode === 'nalezy'}
     <Nalezy
       automaticke={[

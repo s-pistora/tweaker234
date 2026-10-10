@@ -1,0 +1,53 @@
+/*
+ * Tisk a „Uložit jako PDF“ (plánovač přihlášek, karta obce): bez navigace, mapy a ovládacích prvků,
+ * černobíle na A4. `.noprint` skryje prvek při tisku, `.jenprint` ho ukáže jen při tisku.
+ */
+.jenprint {
+  display: none !important;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+  .topbar,
+  .toast,
+  .notice,
+  .footer,
+  footer,
+  .noprint,
+  button,
+  select,
+  input,
+  .split__map,
+  .mapcard {
+    display: none !important;
+  }
+  .jenprint {
+    display: block !important;
+  }
+  a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+  .hero {
+    background: none !important;
+    border: 0 !important;
+    padding: 0 0 6mm !important;
+  }
+  section,
+  li,
+  tr {
+    break-inside: avoid;
+  }
+  * {
+    box-shadow: none !important;
+  }
+}

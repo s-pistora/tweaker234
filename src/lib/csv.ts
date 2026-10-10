@@ -31,14 +31,14 @@ export function nazevSouboru(s: string): string {
 }
 
 /** Nabídne prohlížeči soubor ke stažení; vrací false, když to prostředí neumí. */
-export function stahni(nazev: string, radky: Radek[]): boolean {
+export function stahniSoubor(nazev: string, obsah: string, mime: string, pripona: string): boolean {
   try {
     if (typeof URL.createObjectURL !== 'function') return false;
-    const blob = new Blob([doCsv(radky)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob([obsah], { type: mime });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${nazevSouboru(nazev)}.csv`;
+    a.download = `${nazevSouboru(nazev)}.${pripona}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -47,4 +47,9 @@ export function stahni(nazev: string, radky: Radek[]): boolean {
   } catch {
     return false;
   }
+}
+
+/** Řádky jako CSV ke stažení; vrací false, když to prostředí neumí. */
+export function stahni(nazev: string, radky: Radek[]): boolean {
+  return stahniSoubor(nazev, doCsv(radky), 'text/csv;charset=utf-8', 'csv');
 }

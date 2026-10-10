@@ -1,7 +1,8 @@
 // Stav aplikace synchronizovany s `location.hash`.
 //
 // Format URL: #/{uroven}/{kod}?u=<ukazatel>&r=<rok>&m=<rezim>&w=<id:vaha,...>
-//             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>]  (rezim skoly)
+//             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>&p=<plan>]  (rezim skoly)
+//             [&k=<obec>]  (rezim obec = „Karta obce“), [&xt=<tab>&xs=<sluzba>&xkm=<km>]  (rezim prokraj)
 //             [&zp=<id:1|2,...>&zo=<obec>&zu=<id pozadavku>]  (rezim score = „Kde by se mi dobře žilo?“)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
@@ -12,9 +13,33 @@ import { LEVELS, KATEGORIE_IDS, type Level, type AreaCode, type TypStudia, type 
 import type { Snapshot } from './data/loader.ts';
 import { SITUACE } from './urady.ts';
 import { DOPORUCENY_VYBER, POZADAVEK_IDS, type Dulezitost } from './zivot.ts';
+import { PLAN_MAX, planId } from './planovac.ts';
 
-export type Mode = 'domu' | 'explore' | 'score' | 'skoly' | 'vylety' | 'urady' | 'penize' | 'podnikani' | 'nalezy';
-export const MODES: readonly Mode[] = ['domu', 'explore', 'score', 'skoly', 'vylety', 'urady', 'penize', 'podnikani', 'nalezy'];
+export type Mode =
+  | 'domu'
+  | 'explore'
+  | 'score'
+  | 'skoly'
+  | 'vylety'
+  | 'urady'
+  | 'penize'
+  | 'podnikani'
+  | 'nalezy'
+  | 'obec'
+  | 'prokraj';
+export const MODES: readonly Mode[] = [
+  'domu',
+  'explore',
+  'score',
+  'skoly',
+  'vylety',
+  'urady',
+  'penize',
+  'podnikani',
+  'nalezy',
+  'obec',
+  'prokraj',
+];
 
 /** Filtry režimu „Kam na střední“. */
 export interface SkolyState {
@@ -27,6 +52,8 @@ export interface SkolyState {
   /** IZO vybrané školy */
   skola: string | null;
   razeni: 'vzdalenost' | 'volno';
+  /** plán přihlášek: id oborů (`planId` v lib/planovac.ts) v pořadí priority, nejvýš PLAN_MAX */
+  plan: string[];
 }
 
 export const DEFAULT_SKOLY: SkolyState = {
@@ -36,6 +63,7 @@ export const DEFAULT_SKOLY: SkolyState = {
   maxKm: 25,
   skola: null,
   razeni: 'vzdalenost',
+  plan: [],
 };
 
 /** Filtry režimu „Kam vyrazit“. */
@@ -98,6 +126,27 @@ export interface PodnikaniState {
 export const DEFAULT_PODNIKANI: PodnikaniState = { tab: 'kreativci', obor: '', q: '' };
 const PODNIKANI_TABY: PodnikaniState['tab'][] = ['kreativci', 'centra', 'zony'];
 
+/** Režim „Karta obce“ – přehled jedné obce pro starostu. */
+export interface ObecState {
+  kod: AreaCode | null;
+}
+
+export const DEFAULT_OBEC: ObecState = { kod: null };
+
+/** Režim „Pro kraj“ – bílá místa a výhled oborů. */
+export interface ProKrajState {
+  tab: 'bila' | 'vyhled';
+  /** id služby pro bílá místa (`SLUZBY` v lib/bilamista.ts) */
+  sluzba: string;
+  /** hranice dostupnosti v km */
+  km: number;
+}
+
+export const DEFAULT_PROKRAJ: ProKrajState = { tab: 'bila', sluzba: 'lekar', km: 5 };
+const PROKRAJ_TABY: ProKrajState['tab'][] = ['bila', 'vyhled'];
+export const PROKRAJ_KM_MIN = 1;
+export const PROKRAJ_KM_MAX = 30;
+
 /** Režim „Kde by se mi dobře žilo?“ – vlastní stav, nezávislý na drill-downu Statistiky. */
 export interface ZivotState {
   /** zvolené požadavky (id z `POZADAVKY`) s důležitostí 1 = důležité, 2 = velmi důležité */
@@ -137,6 +186,10 @@ export interface AppState {
   penize?: PenizeState;
   /** jen když se režim „Podnikání“ použil */
   podnikani?: PodnikaniState;
+  /** jen když se režim „Karta obce“ použil */
+  obec?: ObecState;
+  /** jen když se režim „Pro kraj“ použil */
+  prokraj?: ProKrajState;
 }
 
 /** Roky (jako cisla), pro ktere existuje alespon jedna nenulova hodnota daneho ukazatele. */
@@ -312,7 +365,49 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const po = parsePodnikani(params, snap);
   if (po.used || mode === 'podnikani') state.podnikani = po.state;
   if (po.invalid) invalid = true;
+  const ob = parseObec(params, snap);
+  if (ob.used || mode === 'obec') state.obec = ob.state;
+  if (ob.invalid) invalid = true;
+  const pk = parseProKraj(params);
+  if (pk.used || mode === 'prokraj') state.prokraj = pk.state;
+  if (pk.invalid) invalid = true;
   return { state, invalid };
+}
+
+/** Parametr režimu „Karta obce“: k=<kód obce>. */
+function parseObec(params: URLSearchParams, snap: Snapshot): { state: ObecState; used: boolean; invalid: boolean } {
+  const st: ObecState = { ...DEFAULT_OBEC };
+  const k = params.get('k');
+  if (k === null) return { state: st, used: false, invalid: false };
+  if (areasAvailable(snap, 'obec').has(k)) return { state: { kod: k }, used: true, invalid: false };
+  return { state: st, used: true, invalid: true };
+}
+
+/** Parametry režimu „Pro kraj“: xt=<tab>, xs=<služba>, xkm=<km>. Služba se ověřuje až v UI (seznam služeb). */
+function parseProKraj(params: URLSearchParams): { state: ProKrajState; used: boolean; invalid: boolean } {
+  const st: ProKrajState = { ...DEFAULT_PROKRAJ };
+  let used = false;
+  let invalid = false;
+  const xt = params.get('xt');
+  if (xt !== null) {
+    used = true;
+    if ((PROKRAJ_TABY as string[]).includes(xt)) st.tab = xt as ProKrajState['tab'];
+    else invalid = true;
+  }
+  const xs = params.get('xs');
+  if (xs !== null) {
+    used = true;
+    if (/^[a-z0-9-]{1,40}$/.test(xs)) st.sluzba = xs;
+    else invalid = true;
+  }
+  const xkm = params.get('xkm');
+  if (xkm !== null) {
+    used = true;
+    const n = Number(xkm);
+    if (Number.isInteger(n) && n >= PROKRAJ_KM_MIN && n <= PROKRAJ_KM_MAX) st.km = n;
+    else invalid = true;
+  }
+  return { state: st, used, invalid };
 }
 
 /** Parametry režimu „Podnikání“: kt=<tab>, ko=<obor>, kq=<hledání>. */
@@ -429,6 +524,16 @@ function parseSkoly(params: URLSearchParams, snap: Snapshot): { state: SkolyStat
     used = true;
     if (o === 'vzdalenost' || o === 'volno') st.razeni = o;
     else invalid = true;
+  }
+  const p = params.get('p');
+  if (p !== null) {
+    used = true;
+    const plan: string[] = [];
+    for (const id of p.split(',').filter(Boolean)) {
+      if (plan.length < PLAN_MAX && !plan.includes(id) && obory.some((x) => planId(x) === id)) plan.push(id);
+      else invalid = true;
+    }
+    st.plan = plan;
   }
   return { state: st, used, invalid };
 }
@@ -547,6 +652,7 @@ export function toHash(state: AppState): string {
     parts.push(`km=${k.maxKm}`);
     if (k.skola) parts.push(`s=${k.skola}`);
     if (k.razeni !== DEFAULT_SKOLY.razeni) parts.push(`o=${k.razeni}`);
+    if (k.plan?.length) parts.push(`p=${k.plan.map(encodeURIComponent).join(',')}`);
   }
   if (state.vylety) {
     const v = state.vylety;
@@ -582,6 +688,13 @@ export function toHash(state: AppState): string {
     const u = state.urady;
     if (u.obec) parts.push(`uo=${u.obec}`);
     if (u.situace) parts.push(`us=${u.situace}`);
+  }
+  if (state.obec?.kod) parts.push(`k=${state.obec.kod}`);
+  if (state.prokraj) {
+    const x = state.prokraj;
+    if (x.tab !== DEFAULT_PROKRAJ.tab) parts.push(`xt=${x.tab}`);
+    if (x.sluzba !== DEFAULT_PROKRAJ.sluzba) parts.push(`xs=${x.sluzba}`);
+    if (x.km !== DEFAULT_PROKRAJ.km) parts.push(`xkm=${x.km}`);
   }
   const query = parts.length ? `?${parts.join('&')}` : '';
   return `#/${state.level}${area}${query}`;
