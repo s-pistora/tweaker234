@@ -117,3 +117,16 @@ describe('App – tlačítka mapy škol', () => {
     await waitFor(() => expect(svg.querySelector('.kruh')).toBeTruthy());
   }, 20000);
 });
+
+describe('App – mapa Kam vyrazit se přiblíží na dosah', () => {
+  it('s bydlištěm je výřez mapy menší než celý kraj, bez bydliště celý kraj', async () => {
+    location.hash = '#/kraj?m=vylety&vk=hrady-zamky&vd=554481&vkm=15';
+    const { container } = render(App);
+    await waitFor(() => expect(container.querySelector('[data-testid="map"] svg')).toBeTruthy(), { timeout: 5000 });
+    const svg = container.querySelector('[data-testid="map"] svg')!;
+    await waitFor(() => expect(Number(svg.getAttribute('viewBox')!.split(' ')[2])).toBeLessThan(600));
+    // podklad je jednobarevný (žádné vzory tříd)
+    const vyplne = new Set([...svg.querySelectorAll('path.area')].map((p) => p.getAttribute('fill')));
+    expect([...vyplne]).toEqual(['#dfe8f3']);
+  }, 20000);
+});

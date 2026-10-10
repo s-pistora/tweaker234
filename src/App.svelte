@@ -1015,7 +1015,7 @@
           <section class="mapcard" aria-label="Mapa míst" data-tour="mapa-hub">
             <h2>Všechna místa na mapě</h2>
             <p class="mapcard__hint">
-              Barva značky = kategorie. Klikněte na značku pro detail, na obec pro nastavení, odkud vyrážíte.
+              Barva značky označuje kategorii. Kliknutím na značku otevřete detail, kliknutím na obec zvolíte, odkud vyrážíte.
             </p>
             <Map
               features={obecFeatures}
@@ -1029,6 +1029,8 @@
               onselect={(code) => setVylety({ domov: code })}
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
+              jednobarevna
+              priblizitNaKruh
               label="Mapa míst pro volný čas v Karlovarském kraji"
               hint="Najeďte na značku nebo obec. Kliknutím na značku otevřete detail místa."
             />
@@ -1078,8 +1080,8 @@
           <section class="mapcard" aria-label="Mapa" data-tour="mapa">
             <h2>Kde to je</h2>
             <p class="mapcard__hint">
-              Tmavší obec = víc míst{vyDomov ? '' : ' (podle filtrů)'} do {vy.maxKm} km. Klikněte na obec, odkud vyrážíte,
-              nebo na značku místa.
+              {#if vyDomov}Na mapě jsou jen místa do {vy.maxKm} km od obce {vyDomovNazev}.{:else}Kliknutím na obec zvolíte, odkud
+                vyrážíte – mapa pak ukáže jen místa v dosahu.{/if} Kliknutím na značku otevřete detail.
             </p>
             <Map
               features={obecFeatures}
@@ -1093,10 +1095,11 @@
               onselect={(code) => setVylety({ domov: code })}
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
+              jednobarevna
+              priblizitNaKruh
               label="Mapa: {vyDef.label} v Karlovarském kraji"
               hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Kliknutím na značku otevřete detail."
             />
-            <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={null} />
           </section>
         </div>
       {/if}
