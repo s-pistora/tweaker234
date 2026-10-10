@@ -43,7 +43,7 @@
 </script>
 
 <section class="prehled" aria-label="Přehled pro kraj" data-testid="kraj-prehled">
-  <h2 class="title">Jak byla místa obsazená loni</h2>
+  <h2 class="title">Jak byla místa loni obsazena</h2>
   <p class="lead">
     Porovnáváme plán škol na 2025/26 s počtem žáků, kteří k 30. 9. 2025 opravdu nastoupili. Přehled
     ukazuje, kde zůstávají volná místa a kde zájem převyšuje nabídku.
@@ -64,7 +64,7 @@
   <div class="card">
     {#if pohled === 'skupiny' || pohled === 'orp'}
       {@const rows = pohled === 'skupiny' ? skupiny : orp}
-      <p class="hint">Jak byla loni obsazená první místa – od nejméně obsazených.</p>
+      <p class="hint">Jak byla loni obsazena první místa – od nejméně obsazených.</p>
       <table class="chart">
         <caption class="sr-only">
           Obsazenost prvních ročníků 2025 {pohled === 'skupiny' ? 'podle skupin oborů' : 'podle území ORP'}

@@ -431,7 +431,7 @@
   function vyPreview(code: AreaCode): string[] {
     const n = vyDosah[code] ?? 0;
     const j = vyDef?.jednotky ?? (['místo', 'místa', 'míst'] as [string, string, string]);
-    return [`${n} ${plural(n, j)} do ${vy.maxKm} km`, 'klik = odsud vyrážím'];
+    return [`${n} ${plural(n, j)} do ${vy.maxKm} km`, 'kliknutím ji zvolíte jako výchozí místo'];
   }
   function setVylety(patch: Partial<VyletyState>) {
     appState.update((s) => ({ ...s, vylety: { ...(s.vylety ?? DEFAULT_VYLETY), ...patch } }));
@@ -573,7 +573,7 @@
     return [
       `Skóre ${Math.round(s.score)}/100 · ${ziRank[code]}. z ${ziPoradi.length}`,
       ...silneStranky(s, 2).map((p) => `+ ${POZADAVKY_BY_ID[p.id]?.label}: ${kratkaHodnota(p.id, p.value)}`),
-      'klik = detail obce',
+      'kliknutím otevřete detail obce',
     ];
   }
   function setZivot(patch: Partial<ZivotState>) {
@@ -602,7 +602,7 @@
         return;
       }
       await navigator.clipboard.writeText(url);
-      showToast('Odkaz je zkopírovaný. Otevře stránku přesně tak, jak ji vidíte.');
+      showToast('Odkaz byl zkopírován. Otevře stránku přesně v podobě, v jaké ji nyní vidíte.');
     } catch {
       showToast('Odkaz zkopírujte z adresního řádku – obsahuje vše, co jste nastavili.');
     }
@@ -881,10 +881,10 @@
         {#if snap.skoly}
           <form class="start" aria-labelledby="start-h" data-testid="skoly-start" onsubmit={(e) => { e.preventDefault(); najdiSkoly(); }}>
             <p class="start__kicker">Rychlý start</p>
-            <h2 id="start-h">Kde bydlíš?</h2>
+            <h2 id="start-h">Kde bydlíte?</h2>
             <label for="start-obec">Obec</label>
             <select id="start-obec" bind:value={startObec} data-testid="start-obec">
-              <option value="">Vyber obec</option>
+              <option value="">Vyberte obec</option>
               {#each Object.entries(obecNames).sort((a, b) => a[1].localeCompare(b[1], 'cs')) as [code, name] (code)}
                 <option value={code}>{name}</option>
               {/each}
@@ -898,7 +898,7 @@
               {/if}
             </small>
             <button type="submit" class="start__btn" disabled={!startObec} data-testid="start-go">Najít školy v okolí</button>
-            <button type="button" class="start__help" onclick={openTour}>Nevíš, jak začít? Spustit průvodce</button>
+            <button type="button" class="start__help" onclick={openTour}>Nevíte, jak začít? Spusťte průvodce</button>
           </form>
         {/if}
       </div>
@@ -1117,7 +1117,7 @@
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
               label="Mapa míst pro volný čas v Karlovarském kraji"
-              hint="Najeďte na značku nebo obec. Klik na značku otevře detail místa."
+              hint="Najeďte na značku nebo obec. Kliknutím na značku otevřete detail místa."
             />
             <ul class="katlegend" aria-label="Barvy kategorií">
               {#each KATEGORIE as k (k.id)}
@@ -1181,7 +1181,7 @@
               onpointselect={openMisto}
               circle={vyDomov ? { ...vyDomov, km: vy.maxKm, label: vyDomovNazev } : null}
               label="Mapa: {vyDef.label} v Karlovarském kraji"
-              hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Klik na značku otevře detail."
+              hint="Najeďte na obec a uvidíte, kolik míst je odtud v dosahu. Kliknutím na značku otevřete detail."
             />
             <Legend values={obecFeatures.map((f) => vyDosah[f.properties.code] ?? null)} def={VY_DOSAH_DEF} year={null} />
           </section>
@@ -1266,7 +1266,7 @@
           {/if}
         </h2>
         <p class="mapcard__hint">
-          Tmavší obec = lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
+          Čím tmavší obec, tím lépe splňuje váš výběr ({ziVybrano}&nbsp;{plural(ziVybrano, ['požadavek', 'požadavky', 'požadavků'])}).
           Klikněte na obec a uvidíte proč.
         </p>
         <div class="zivot__mapa">
@@ -1295,8 +1295,8 @@
           selectedPoint={ziBod}
           label="Mapa obcí Karlovarského kraje podle skóre bydlení"
           hint={zi.obec
-            ? 'Najeďte na značku a uvidíte, co to je. Klik na značku ji ukáže v detailu obce.'
-            : 'Najeďte na obec a uvidíte skóre a silné stránky. Klik nebo Enter otevře detail.'}
+            ? 'Najeďte na značku a uvidíte, co to je. Kliknutím ji zobrazíte v detailu obce.'
+            : 'Najeďte na obec a uvidíte skóre a silné stránky. Kliknutím nebo klávesou Enter otevřete detail.'}
         />
         </div>
         {#if zi.obec}
@@ -1824,7 +1824,7 @@
     gap: 32px;
     align-items: center;
   }
-  /* rychlý start „Kde bydlíš?“ – nejkratší cesta k výsledkům */
+  /* rychlý start „Kde bydlíte?“ – nejkratší cesta k výsledkům */
   .start {
     display: flex;
     flex-direction: column;

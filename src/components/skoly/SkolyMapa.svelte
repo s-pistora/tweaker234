@@ -343,10 +343,10 @@
         <span class="tip__st tip__st--{tipSkola.trida}"
           >{tipSkola.podil !== null ? `${procenta(tipSkola.podil)} · ` : ''}{TRIDA_TXT[tipSkola.trida]}</span
         >
-        <em>Klikněte pro detail školy</em>
+        <em>Kliknutím otevřete detail školy</em>
       {:else if tipObec}
         <strong>{tipObec.name}</strong>
-        <em>{tipObec.code === domov ? 'Tady bydlíte' : 'Klikněte – tady bydlím'}</em>
+        <em>{tipObec.code === domov ? 'Tady bydlíte' : 'Kliknutím ji vyberete jako bydliště'}</em>
       {/if}
     </div>
   {/if}
