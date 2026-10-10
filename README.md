@@ -126,7 +126,7 @@ součást `npm run data:vylety`.
   a návrh zálohy ze stejné skupiny oborů v dosahu. Termíny přijímaček 2027 (sdělení MŠMT č. j.
   MSMT-525/2026-13 – nejsou z otevřených dat kraje), nejbližší pedagogicko-psychologická poradna,
   export termínů do kalendáře (`.ics`) a tisk / PDF pro rodiče. Plán je v adrese (`p=`), jde poslat.
-- **Karta obce** (`m=obec&k=<kód>`): pro starosty – obyvatelé a jejich vývoj, služby v dosahu se srovnáním
+- **Karta obce** (`m=karta&k=<kód>`): pro starosty – obyvatelé a jejich vývoj, služby v dosahu se srovnáním
   s ostatními obcemi kraje, střední školy, vouchery a podnikání, příslušné úřady. Jedna stránka A4 k tisku
   nebo do PDF, i jako CSV.
 - **Pro kraj → Bílá místa** (`m=prokraj`): kolik lidí to má k lékaři, školce, lékárně… dál než zvolená

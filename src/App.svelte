@@ -29,7 +29,7 @@
   import SkolyMapa, { type MapaSkola } from './components/skoly/SkolyMapa.svelte';
   import SkolaDetail from './components/skoly/SkolaDetail.svelte';
   import Planovac from './components/skoly/Planovac.svelte';
-  import KartaObce from './components/obec/KartaObce.svelte';
+  import KartaObce from './components/karta/KartaObce.svelte';
   import { kartaObce } from './lib/karta.ts';
   import ProKraj from './components/prokraj/ProKraj.svelte';
   import { detiPodleOrp, indexyOrp } from './lib/odhad.ts';
@@ -227,7 +227,7 @@
       // obec z jiného režimu se převezme i pro úřady
       penize: m === 'penize' ? (s.penize ?? { ...DEFAULT_PENIZE }) : s.penize,
       podnikani: m === 'podnikani' ? (s.podnikani ?? { ...DEFAULT_PODNIKANI }) : s.podnikani,
-      obec: m === 'obec' ? (s.obec ?? { kod: s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.zivot?.obec ?? null }) : s.obec,
+      karta: m === 'karta' ? (s.karta ?? { kod: s.skoly?.domov ?? s.vylety?.domov ?? s.urady?.obec ?? s.zivot?.obec ?? null }) : s.karta,
       prokraj: m === 'prokraj' ? (s.prokraj ?? { ...DEFAULT_PROKRAJ }) : s.prokraj,
       urady:
         m === 'urady'
@@ -341,7 +341,7 @@
   ];
   /** vedlejší menu (vedle Statistiky kraje a Zdrojů dat) */
   const MODE_NAV_DALSI: { m: Mode; label: string }[] = [
-    { m: 'obec', label: 'Karta obce' },
+    { m: 'karta', label: 'Karta obce' },
     { m: 'prokraj', label: 'Pro kraj' },
   ];
 
@@ -490,7 +490,7 @@
         barva: '#680526',
       },
       {
-        mode: 'obec',
+        mode: 'karta',
         nazev: 'Karta obce',
         popis: 'Pro starosty: lidé, služby, školy, peníze a úřady obce na jedné stránce k tisku nebo do PDF.',
         cislo: domuObec ? (obecNames[domuObec] ?? '') : fmtN(Object.keys(obecNames).length),
@@ -723,14 +723,14 @@
   }
 
   // --- režim „Karta obce“ ------------------------------------------------------
-  const obKod = $derived(st.obec?.kod ?? null);
+  const obKod = $derived(st.karta?.kod ?? null);
   const karta = $derived(
     snap && ziCtx && obKod && obecCentroidy[obKod]
       ? kartaObce({ snap, ctx: ziCtx, kod: obKod, orpNazev: ziOrp[obKod] ?? '', obory })
       : null,
   );
   function setObec(kod: AreaCode | null) {
-    appState.update((s) => ({ ...s, obec: { kod } }));
+    appState.update((s) => ({ ...s, karta: { kod } }));
   }
 
   // --- režim „Pro kraj“ --------------------------------------------------------
@@ -1435,7 +1435,7 @@
         onchange={setProKraj}
       />
     {/if}
-  {:else if st.mode === 'obec'}
+  {:else if st.mode === 'karta'}
     <KartaObce {karta} obce={obecNames} aktualizace={snap.updatedAt} onobec={setObec} />
   {:else if st.mode === 'nalezy'}
     <Nalezy

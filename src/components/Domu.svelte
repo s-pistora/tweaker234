@@ -51,7 +51,7 @@
           id="domu-obec"
           value={obec ?? ''}
           onchange={(e) => onobec(e.currentTarget.value || null)}
-          data-testid="domu-vyber-obce"
+          data-testid="domu-obec"
         >
           <option value="">Celý kraj – vyberte obec</option>
           {#each serazene as [code, name] (code)}

@@ -2,7 +2,7 @@
 //
 // Format URL: #/{uroven}/{kod}?u=<ukazatel>&r=<rok>&m=<rezim>&w=<id:vaha,...>
 //             [&d=<obec domova>&t=<typ>&g=<skupina>&km=<max>&s=<izo skoly>&o=<razeni>&p=<plan>]  (rezim skoly)
-//             [&k=<obec>]  (rezim obec = „Karta obce“), [&xt=<tab>&xs=<sluzba>&xkm=<km>]  (rezim prokraj)
+//             [&k=<obec>]  (rezim karta = „Karta obce“), [&xt=<tab>&xs=<sluzba>&xkm=<km>]  (rezim prokraj)
 //             [&zp=<id:1|2,...>&zo=<obec>&zu=<id pozadavku>]  (rezim score = „Kde by se mi dobře žilo?“)
 // `#/` nebo prazdny hash = vychozi stav. Kazda nevalidni cast hashe spadne
 // zvlast na svou vychozi hodnotu a cely vysledny stav zustava validni
@@ -25,7 +25,7 @@ export type Mode =
   | 'penize'
   | 'podnikani'
   | 'nalezy'
-  | 'obec'
+  | 'karta'
   | 'prokraj';
 export const MODES: readonly Mode[] = [
   'domu',
@@ -37,7 +37,7 @@ export const MODES: readonly Mode[] = [
   'penize',
   'podnikani',
   'nalezy',
-  'obec',
+  'karta',
   'prokraj',
 ];
 
@@ -126,12 +126,12 @@ export interface PodnikaniState {
 export const DEFAULT_PODNIKANI: PodnikaniState = { tab: 'kreativci', obor: '', q: '' };
 const PODNIKANI_TABY: PodnikaniState['tab'][] = ['kreativci', 'centra', 'zony'];
 
-/** Režim „Karta obce“ – přehled jedné obce pro starostu. */
-export interface ObecState {
+/** Režim „Karta obce“ – přehled jedné obce pro starostu (k tisku). */
+export interface KartaState {
   kod: AreaCode | null;
 }
 
-export const DEFAULT_OBEC: ObecState = { kod: null };
+export const DEFAULT_KARTA: KartaState = { kod: null };
 
 /** Režim „Pro kraj“ – bílá místa a výhled oborů. */
 export interface ProKrajState {
@@ -187,7 +187,7 @@ export interface AppState {
   /** jen když se režim „Podnikání“ použil */
   podnikani?: PodnikaniState;
   /** jen když se režim „Karta obce“ použil */
-  obec?: ObecState;
+  karta?: KartaState;
   /** jen když se režim „Pro kraj“ použil */
   prokraj?: ProKrajState;
 }
@@ -365,9 +365,9 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
   const po = parsePodnikani(params, snap);
   if (po.used || mode === 'podnikani') state.podnikani = po.state;
   if (po.invalid) invalid = true;
-  const ob = parseObec(params, snap);
-  if (ob.used || mode === 'obec') state.obec = ob.state;
-  if (ob.invalid) invalid = true;
+  const ka = parseKarta(params, snap);
+  if (ka.used || mode === 'karta') state.karta = ka.state;
+  if (ka.invalid) invalid = true;
   const pk = parseProKraj(params);
   if (pk.used || mode === 'prokraj') state.prokraj = pk.state;
   if (pk.invalid) invalid = true;
@@ -375,8 +375,8 @@ export function parseHash(hash: string, snap: Snapshot): { state: AppState; inva
 }
 
 /** Parametr režimu „Karta obce“: k=<kód obce>. */
-function parseObec(params: URLSearchParams, snap: Snapshot): { state: ObecState; used: boolean; invalid: boolean } {
-  const st: ObecState = { ...DEFAULT_OBEC };
+function parseKarta(params: URLSearchParams, snap: Snapshot): { state: KartaState; used: boolean; invalid: boolean } {
+  const st: KartaState = { ...DEFAULT_KARTA };
   const k = params.get('k');
   if (k === null) return { state: st, used: false, invalid: false };
   if (areasAvailable(snap, 'obec').has(k)) return { state: { kod: k }, used: true, invalid: false };
@@ -689,7 +689,7 @@ export function toHash(state: AppState): string {
     if (u.obec) parts.push(`uo=${u.obec}`);
     if (u.situace) parts.push(`us=${u.situace}`);
   }
-  if (state.obec?.kod) parts.push(`k=${state.obec.kod}`);
+  if (state.karta?.kod) parts.push(`k=${state.karta.kod}`);
   if (state.prokraj) {
     const x = state.prokraj;
     if (x.tab !== DEFAULT_PROKRAJ.tab) parts.push(`xt=${x.tab}`);

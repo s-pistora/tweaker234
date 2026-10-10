@@ -42,10 +42,10 @@ describe('App – Karta obce', () => {
     location.hash = '#/kraj?m=domu';
     render(App);
     await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
-    await fireEvent.change(screen.getByTestId('domu-vyber-obce'), { target: { value: '554481' } });
-    await fireEvent.click(screen.getByTestId('mode-obec'));
+    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '554481' } });
+    await fireEvent.click(screen.getByTestId('mode-karta'));
     await waitFor(() => expect(screen.getByTestId('karta')).toBeTruthy());
-    expect(location.hash).toContain('m=obec');
+    expect(location.hash).toContain('m=karta');
     expect(location.hash).toContain('k=554481');
     const karta = screen.getByTestId('karta');
     expect(karta.textContent).toContain('obyvatel');
@@ -63,7 +63,7 @@ describe('App – Karta obce', () => {
   }, 20000);
 
   it('bez obce ukáže výzvu k výběru', async () => {
-    location.hash = '#/kraj?m=obec';
+    location.hash = '#/kraj?m=karta';
     render(App);
     await waitFor(() => expect(screen.getByTestId('karta-prazdna')).toBeTruthy(), { timeout: 5000 });
   });

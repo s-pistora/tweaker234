@@ -157,7 +157,7 @@ describe('App – úvodní stránka info centra', () => {
     await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
     expect(location.hash).toContain('m=domu');
     expect(screen.getByTestId('domu-dlazdice').querySelectorAll('button')).toHaveLength(10);
-    await fireEvent.change(screen.getByTestId('domu-vyber-obce'), { target: { value: '554481' } });
+    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '554481' } });
     expect(location.hash).toContain('d=554481');
     expect(location.hash).toContain('vd=554481');
     expect(location.hash).toContain('uo=554481');

@@ -357,7 +357,7 @@ describe('režimy „Karta obce“ a „Pro kraj“ v hashi', () => {
     const { state, invalid } = parseHash('#/kraj?m=prokraj&xt=x&xkm=99&k=000', makeSnap());
     expect(invalid).toBe(true);
     expect(state.prokraj).toEqual(DEFAULT_PROKRAJ);
-    expect(state.obec).toEqual({ kod: null });
+    expect(state.karta).toEqual({ kod: null });
   });
 });
 
