@@ -20,7 +20,8 @@
   import Penize from './components/penize/Penize.svelte';
   import Podnikani from './components/podnikani/Podnikani.svelte';
   import Nalezy from './components/Nalezy.svelte';
-  import { vouchery as nactiVouchery } from './lib/penize.ts';
+  import { vouchery as nactiVouchery, kc } from './lib/penize.ts';
+  import Domu, { type Dlazdice } from './components/Domu.svelte';
   import SkolyList from './components/skoly/SkolyList.svelte';
   import Poradny from './components/skoly/Poradny.svelte';
   import StahnoutData from './components/common/StahnoutData.svelte';
@@ -95,9 +96,9 @@
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
   const DATA_BASE = 'data';
 
-  // „Kam na střední“ je výchozí stránka: prázdná adresa → rovnou tento režim.
+  // Výchozí stránka je úvod info centra: prázdná adresa → rozcestník.
   if (!location.hash || location.hash === '#' || location.hash === '#/') {
-    history.replaceState(null, '', '#/kraj?m=skoly');
+    history.replaceState(null, '', '#/kraj?m=domu');
   }
 
   let snap = $state<Snapshot | null>(null);
@@ -337,6 +338,7 @@
   /** mobilní menu (do 1000 px šířky) */
   let menuOpen = $state(false);
 
+
   // --- režim „Úřady“ ---------------------------------------------------------
   const ur = $derived<UradyState>(st.urady ?? DEFAULT_URADY);
   function setUrady(patch: Partial<UradyState>) {
@@ -363,6 +365,118 @@
   const vyVysledky = $derived(filtrujMista(mista, vyFiltr, vy.razeni));
   const vyDosah = $derived(mistaVDosahu(vyBezDosahu, obecCentroidy, vy.maxKm));
   const vyPocty = $derived(pocty(mista));
+
+  // --- úvodní stránka info centra ---------------------------------------------
+  const domuObec = $derived(st.skoly?.domov ?? st.vylety?.domov ?? st.urady?.obec ?? null);
+  function setDomuObec(code: AreaCode | null) {
+    appState.update((s) => ({
+      ...s,
+      skoly: { ...(s.skoly ?? DEFAULT_SKOLY), domov: code, skola: null },
+      vylety: { ...(s.vylety ?? DEFAULT_VYLETY), tagy: s.vylety?.tagy ?? [], domov: code, misto: null },
+      urady: { ...(s.urady ?? DEFAULT_URADY), obec: code },
+    }));
+  }
+  const pl3 = (n: number, f: [string, string, string]) => (n === 1 ? f[0] : n >= 2 && n <= 4 ? f[1] : f[2]);
+  const fmtN = (n: number) => new Intl.NumberFormat('cs-CZ').format(n);
+  const domuDlazdice = $derived.by((): Dlazdice[] => {
+    if (!snap) return [];
+    const stred = domuObec ? (obecCentroidy[domuObec] ?? null) : null;
+    const nazev = domuObec ? (obecNames[domuObec] ?? '') : '';
+    const kmS = st.skoly?.maxKm ?? DEFAULT_SKOLY.maxKm;
+    const kmV = st.vylety?.maxKm ?? DEFAULT_VYLETY.maxKm;
+    const oboryV = stred ? filtrujObory(obory, { domov: stred, typ: 'vse', skupina: '', maxKm: kmS }) : null;
+    const skolV = oboryV ? new Set(oboryV.map((r) => r.obor.izo)).size : 0;
+    const mistaV = stred ? filtrujMista(mista, { kat: null, domov: stred, maxKm: kmV, tagy: [], vstup: 'vse', q: '' }).length : null;
+    const urObec = domuObec ? snap.urady?.obce.find((o) => o.kod === domuObec) : undefined;
+    const aktualni = snap.penize?.projekty.filter((p) => p.stav === 'probiha') ?? [];
+    const vydaje = aktualni.reduce((a, p) => a + (p.vydaje ?? 0), 0);
+    const pocetKat = new Set(mista.map((m) => m.kat)).size;
+    return [
+      {
+        mode: 'skoly',
+        nazev: 'Kam na střední',
+        popis: 'Obory středních škol, počet míst a jak byly loni obsazené. Poradny pro výběr školy.',
+        cislo: fmtN(oboryV ? oboryV.length : oboru2026),
+        pod: oboryV ? `${pl3(oboryV.length, ['obor', 'obory', 'oborů'])} na ${skolV} ${pl3(skolV, ['škole', 'školách', 'školách'])} do ${kmS} km` : `oborů na ${new Set(obory.map((o) => o.izo)).size} školách`,
+        ikona: 'M3 9l9-5 9 5-9 5zM7 11v5c3 2 7 2 10 0v-5M21 9v6',
+        barva: '#00469B',
+      },
+      {
+        mode: 'vylety',
+        nazev: 'Kam vyrazit',
+        popis: 'Hrady, rozhledny, koupání, prameny, památky, regionální dobroty a další tipy na výlet.',
+        cislo: fmtN(mistaV ?? mista.length),
+        pod: mistaV !== null ? `${pl3(mistaV, ['místo', 'místa', 'míst'])} do ${kmV} km od obce ${nazev}` : `míst v ${pocetKat} kategoriích`,
+        ikona: 'M3 20l6-12 4 7 3-4 5 9zM16 6a2 2 0 1 0 0-.01',
+        barva: '#00998F',
+      },
+      {
+        mode: 'score',
+        nazev: 'Kde by se mi žilo',
+        popis: 'Srovnání obcí podle toho, na čem vám záleží – lékař, škola, zastávka, příroda, věk obyvatel.',
+        cislo: fmtN(Object.keys(obecNames).length),
+        pod: `obcí podle ${POZADAVKY.length} požadavků`,
+        ikona: 'M3 11l9-7 9 7M5 10v10h14V10M10 20v-6h4v6',
+        barva: '#462E73',
+      },
+      {
+        mode: 'urady',
+        nazev: 'Úřady',
+        popis: 'Kam s čím: obecní, stavební a živnostenský úřad, matrika, občanské průkazy. Kontakty a datové schránky.',
+        cislo: urObec ? String(2 + urObec.stavebni.length + (urObec.zivnostensky ? 1 : 0) + (urObec.nazev === urObec.orp ? 0 : 1)) : fmtN(snap.urady?.obce.length ?? 0),
+        pod: urObec ? `úřadů pro obec ${urObec.nazev}` : 'obcí s příslušnými úřady',
+        ikona: 'M3 21h18M5 21V10M9 21V10M15 21V10M19 21V10M2 10h20L12 3z',
+        barva: '#3771B8',
+      },
+      {
+        mode: 'penize',
+        nazev: 'Peníze kraje',
+        popis: 'Co kraj buduje, kolik stojí a kolik pokryjí dotace. Vouchery pro firmy a strategie kraje.',
+        cislo: kc(vydaje),
+        pod: `v ${aktualni.length} běžících projektech`,
+        ikona: 'M3 7h18v12H3zM3 11h18M7 15h3',
+        barva: '#FFAA00',
+      },
+      {
+        mode: 'podnikani',
+        nazev: 'Podnikání',
+        popis: 'Grafici, fotografové a řemeslníci z kraje, inkubátory a coworkingy, průmyslové zóny.',
+        cislo: fmtN(snap.podnikani?.kreativci.length ?? 0),
+        pod: `kreativců a ${snap.podnikani?.infra.length ?? 0} míst pro podnikání`,
+        ikona: 'M4 7h16v13H4zM9 7V4h6v3M4 12h16',
+        barva: '#680526',
+      },
+      {
+        mode: 'explore',
+        nazev: 'Statistika kraje',
+        popis: 'Obyvatelé, věk, nezaměstnanost, školy a lékaři v ORP a obcích – s vývojem v čase.',
+        cislo: '7',
+        pod: 'ORP a 134 obcí v číslech',
+        ikona: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+        barva: '#5A6370',
+      },
+      {
+        mode: 'nalezy',
+        nazev: 'Co jsme našli v datech',
+        popis: 'Chyby, nejednotné formáty a mezery v datech kraje – a jak jsme si s nimi poradili.',
+        cislo: String(11 + (snap.urady?.chybyDat.length ?? 0) + (snap.penize?.chybyDat.length ?? 0) + (snap.podnikani?.chybyDat.length ?? 0)),
+        pod: 'nálezů pro správce katalogu',
+        ikona: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-5-5M11 8v4M11 15h.01',
+        barva: '#B8860B',
+      },
+    ];
+  });
+  const domuSouhrn = $derived({
+    sady: snap?.manifest.sources.length ?? 0,
+    zaznamy:
+      (snap?.skoly?.obory.length ?? 0) +
+      mista.length +
+      (snap?.urady?.obce.length ?? 0) +
+      (snap?.urady?.matriky.length ?? 0) +
+      (snap?.penize?.projekty.length ?? 0) +
+      (snap?.podnikani ? snap.podnikani.kreativci.length + snap.podnikani.infra.length + snap.podnikani.zony.length : 0),
+    nalezy: 11 + (snap?.urady?.chybyDat.length ?? 0) + (snap?.penize?.chybyDat.length ?? 0) + (snap?.podnikani?.chybyDat.length ?? 0),
+  });
   const vyPoctyVDosahu = $derived(vyDomov ? pocty(filtrujMista(mista, { ...vyFiltr, kat: null, tagy: [], vstup: 'vse', q: '' }).map((r) => r.misto)) : null);
   const vyMisto = $derived(vy.misto ? (mista.find((m) => m.id === vy.misto) ?? null) : null);
   const vyMistoKm = $derived(
@@ -713,7 +827,7 @@
 <div class="shell">
   <header class="topbar">
     <div class="wrap topbar__in">
-      <a class="brandmark" href="#/kraj?m=skoly" onclick={(e) => { e.preventDefault(); setMode('skoly'); }}>
+      <a class="brandmark" href="#/kraj?m=domu" onclick={(e) => { e.preventDefault(); setMode('domu'); menuOpen = false; }} data-testid="brand-home">
         <span class="brandmark__bar" aria-hidden="true"></span>
         <span class="brandmark__txt">Otevřená data<br /><strong>Karlovarského kraje</strong></span>
       </a>
@@ -747,6 +861,15 @@
         <span>{menuOpen ? 'Zavřít' : 'Menu'}</span>
       </button>
       <nav class="mainnav" class:open={menuOpen} id="mainnav" aria-label="Hlavní navigace" data-tour="nav">
+        <button
+          type="button"
+          class="mainnav__mob"
+          class:on={st.mode === 'domu'}
+          onclick={() => {
+            setMode('domu');
+            menuOpen = false;
+          }}>Úvodní stránka</button
+        >
         {#each MODE_NAV as n (n.m)}
           <button
             type="button"
@@ -1172,6 +1295,15 @@
         />
       {/if}
     </main>
+  {:else if st.mode === 'domu'}
+    <Domu
+      dlazdice={domuDlazdice}
+      obce={obecNames}
+      obec={domuObec}
+      souhrn={domuSouhrn}
+      onobec={setDomuObec}
+      onmode={setMode}
+    />
   {:else if st.mode === 'nalezy'}
     <Nalezy
       automaticke={[

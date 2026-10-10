@@ -150,3 +150,22 @@ describe('App – mobilní menu', () => {
     expect(nav.classList.contains('open')).toBe(false);
   }, 20000);
 });
+
+describe('App – úvodní stránka info centra', () => {
+  it('prázdná adresa → rozcestník; výběr obce předvyplní ostatní části a dlaždice ukážou okolí', async () => {
+    render(App);
+    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
+    expect(location.hash).toContain('m=domu');
+    expect(screen.getByTestId('domu-dlazdice').querySelectorAll('button')).toHaveLength(8);
+    await fireEvent.change(screen.getByTestId('domu-obec'), { target: { value: '554481' } });
+    expect(location.hash).toContain('d=554481');
+    expect(location.hash).toContain('vd=554481');
+    expect(location.hash).toContain('uo=554481');
+    expect(screen.getByTestId('domu-vylety').textContent).toContain('od obce Cheb');
+    expect(screen.getByTestId('domu-urady').textContent).toContain('pro obec Cheb');
+    await fireEvent.click(screen.getByTestId('domu-urady'));
+    await waitFor(() => expect(screen.getByTestId('urady-karty')).toBeTruthy());
+    await fireEvent.click(screen.getByTestId('brand-home'));
+    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy());
+  }, 20000);
+});

@@ -42,10 +42,13 @@ afterEach(() => {
 
 describe('App – Kam na střední', () => {
   it('obec Cheb + maturita → obory v dosahu, detail školy, Esc detail zavře', async () => {
-    // prázdná adresa → výchozí stránka „Kam na střední“, bez boot sekvence
+    // prázdná adresa → úvodní stránka info centra, z ní dlaždicí do „Kam na střední“
     render(App);
     expect(screen.queryByTestId('boot')).toBeNull();
-    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
+    await waitFor(() => expect(screen.getByTestId('domu-dlazdice')).toBeTruthy(), { timeout: 5000 });
+    expect(location.hash).toContain('m=domu');
+    await fireEvent.click(screen.getByTestId('domu-skoly'));
+    await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy());
     expect(location.hash).toContain('m=skoly');
     // bez domova: školy celého kraje (karty po 8, uvnitř obory)
     const nadpis = () => screen.getByTestId('obory-list').querySelector('h2')!.textContent ?? '';

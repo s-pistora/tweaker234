@@ -40,6 +40,7 @@ afterEach(() => {
 
 describe('App – Kam vyrazit', () => {
   it('rozcestník → sjezdovky → filtr + bydliště → detail → Esc zpět na rozcestník', async () => {
+    location.hash = '#/kraj?m=skoly'; // výchozí je úvodní stránka
     render(App);
     await waitFor(() => expect(screen.getByTestId('mode-vylety')).toBeTruthy());
     await waitFor(() => expect(screen.getByTestId('skoly-filtr')).toBeTruthy(), { timeout: 5000 });
