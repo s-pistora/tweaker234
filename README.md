@@ -5,6 +5,20 @@
 **Hackathon otevřených dat Karlovarského kraje 2026** (Cheb, 9.–10. 10. 2026), kategorie SŠ.
 Živá verze: https://s-pistora.github.io/tweaker234/
 
+## Info centrum v kostce
+
+- **Úvodní stránka** – rozcestník osmi částí s čísly z dat. Po výběru obce se obec předvyplní všude.
+- **Profil „Moje obec“** – vše o jedné obci na jedné stránce: obyvatelé, věk, nezaměstnanost, skóre
+  bydlení (pořadí mezi 133 obcemi), školy, úřady, místa k výletu a kreativci v okolí.
+- **Hledání napříč aplikací** – jedno pole v horní liště najde obec, školu, obor, místo k výletu, úřad
+  i kreativce (i bez diakritiky).
+- **Srovnání oborů** – až tři obory vedle sebe: místa, loňská obsazenost, vzdálenost, zastávky.
+- **Tip na celý den** – z vybrané obce sestaví okruh tří zastávek (památka → příroda/rozhledna →
+  pivovar, pramen nebo zábava pro děti) s odkazem na trasu v Mapy.cz.
+- **Instalace na mobil (PWA)**, provoz bez signálu po první návštěvě, náhled při sdílení odkazu.
+- **Přístupnost** – vykání a spisovná čeština, ovládání klávesnicí, odkaz „Přeskočit na obsah“,
+  automatický test, že všechna tlačítka a pole mají přístupný název.
+
 ## Kam na střední (hlavní soutěžní funkce)
 
 Deváťáci v Karlovarském kraji vybírají střední školu podle letáků a doslechu. Otevřená data kraje
@@ -181,8 +195,9 @@ režim „Kde by se mi dobře žilo?“, původně v retro CRT vzhledu) napsal �
 **Během hackathonu (9.–10. 10. 2026)** vznikl režim **„Kam na střední“** – nová data záměrů
 přijímání SŠ, výpočty naplněnosti, mapa dostupnosti, seznam, detail školy a přehled pro kraj,
 nový vzhled celé aplikace podle brandbooku, režim **„Kam vyrazit“** (12 kategorií z 21 sad kraje,
-kvalita vody z KHS), průvodce pro nové uživatele a omezení map jen na Karlovarský kraj
-(viz historie commitů od 9. 10. 2026).
+kvalita vody z KHS), průvodce pro nové uživatele a omezení map jen na Karlovarský kraj, dále části Úřady, Peníze kraje,
+Podnikání, Co jsme našli v datech, úvodní stránka, profil obce, hledání, srovnání oborů, tip na výlet
+a PWA (viz historie commitů od 9. 10. 2026).
 
 ## Tým
 
