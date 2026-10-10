@@ -210,6 +210,7 @@ export const KATEGORIE_IDS = [
   'sport',
   'pivovary',
   'dobroty',
+  'pamatky',
 ] as const;
 export type KategorieId = (typeof KATEGORIE_IDS)[number];
 

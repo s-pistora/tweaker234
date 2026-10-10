@@ -95,6 +95,13 @@ má místo víc odběrných míst, platí nejhorší výsledek. Licence webu KHS
 Kraj nezveřejňuje kalendář akcí ani obsazenost sjezdovek. Místo toho ukazujeme místa, kde se akce
 konají (divadla, kina, kulturní domy), a velikost areálů. Aktualizace: `npm run data:vylety`.
 
+## Památky a historie (kategorie v „Kam vyrazit“)
+
+140 památek z 6 sad DATAZÁPAD: památky UNESCO (6), národní kulturní památky (15), náboženské (27),
+archeologické (69), hornické a technické (22), vojenské a pietní (11). Stejné místo uvedené ve více
+sadách (např. klášter Teplá je NKP i církevní památka) se sloučí do jednoho se všemi štítky.
+Filtry: druh památky, přístupné / prohlídky, vstupné. Součást `npm run data:vylety`.
+
 ## Regionální dobroty (kategorie v „Kam vyrazit“)
 
 156 oceněných výrobků ze soutěže **Dobroty Karlovarského kraje** (2017–2026) sloučených do 39 výrobců:

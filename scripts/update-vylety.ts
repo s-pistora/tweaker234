@@ -5,7 +5,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isManifest, isMistaFile, type Misto, type MistaFile, type SourceEntry } from '../src/lib/types.ts';
-import { SADY, stahniSadu } from './sources/dz-vylety.ts';
+import { SADY, sloucitDuplicity, stahniSadu } from './sources/dz-vylety.ts';
 import { stahniHodnoceni } from './sources/khs-koupani.ts';
 import { writeFileAtomic, writeSnapshotAtomic } from './pipeline/write.ts';
 import { renderSourcesMd } from './sources-md.ts';
@@ -71,6 +71,10 @@ async function main(): Promise<void> {
   sources.push({ ...KHS, downloadedAt: now.toISOString(), validFor: `koupací sezóna ${rokVody}`, status: sOk ? 'ok' : 'stale' });
   console.log(`  kvalita vody: ${sOk} koupacích míst s hodnocením`);
 
+  const sloucene = sloucitDuplicity(mista);
+  if (sloucene.length < mista.length) console.log(`  sloučeno ${mista.length - sloucene.length} duplicit (stejné místo ve více sadách)`);
+  mista.length = 0;
+  mista.push(...sloucene);
   mista.sort((a, b) => a.kat.localeCompare(b.kat) || a.nazev.localeCompare(b.nazev, 'cs'));
   const file: MistaFile = { updatedAt: now.toISOString(), sourceIds: sources.map((s) => s.id), mista };
   const ids = new Set(sources.map((s) => s.id));

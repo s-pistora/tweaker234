@@ -46,6 +46,12 @@ Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.j
 | Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Jezdectví v Karlovarském kraji | <https://www.datazapad.cz/datasets/1233e8ab25e64a859ad3c88d51f0fdb8> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
 | Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Pivovarnictví v Karlovarském kraji | <https://www.datazapad.cz/datasets/0ddb05a36f0c4b319975df6a4b1ed90e> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
 | Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Dobroty Karlovarského kraje | <https://www.datazapad.cz/datasets/5767506f1df649098991f462da16d497> | CC0 1.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Památky UNESCO v Karlovarském kraji | <https://www.datazapad.cz/datasets/135900efd11e4df1865987b57428eb9f> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Národní kulturní památky v Karlovarském kraji | <https://www.datazapad.cz/datasets/c0ae279455b34b5fb4a929ef98675a5b> | CC0 1.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Náboženské památky v Karlovarském kraji | <https://www.datazapad.cz/datasets/2c9bd5558c4a495c8424a84bc6b370e2> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Archeologické památky v Karlovarském kraji | <https://www.datazapad.cz/datasets/5b6083d1a59d46c59d26717b31e991d1> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Hornické a technické památky v Karlovarském kraji | <https://www.datazapad.cz/datasets/3727aefc159e47fd8cb9d70432ab7397> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
+| Karlovarský kraj (datazapad.cz / ArcGIS Hub) | Vojenské a pietní památky v Karlovarském kraji | <https://www.datazapad.cz/datasets/142875a7b4ba49769393c8a3b80cca6d> | CC BY 4.0 | 2026-10-10 | stav k 2026-10-10 | ok |
 | Krajská hygienická stanice Karlovarského kraje (khskv.cz) | Kontrola kvality vody ke koupání – poslední hodnocení (výtah z webových stránek koupacích míst) | <https://www.khskv.cz/> | neuvedeno poskytovatelem | 2026-10-10 | koupací sezóna 2026 | ok |
 
 ### Poznámky ke zdrojům
@@ -102,5 +108,11 @@ Soubor je generovaný příkazem `npm run data:update` z `public/data/manifest.j
   - Jezdectví v Karlovarském kraji: CC BY 4.0
   - Pivovarnictví v Karlovarském kraji: CC BY 4.0
   - Dobroty Karlovarského kraje: CC0 1.0
+  - Památky UNESCO v Karlovarském kraji: CC BY 4.0
+  - Národní kulturní památky v Karlovarském kraji: CC0 1.0
+  - Náboženské památky v Karlovarském kraji: CC BY 4.0
+  - Archeologické památky v Karlovarském kraji: CC BY 4.0
+  - Hornické a technické památky v Karlovarském kraji: CC BY 4.0
+  - Vojenské a pietní památky v Karlovarském kraji: CC BY 4.0
 - ÚZIS ČR – Národní registr poskytovatelů zdravotních služeb (NRPZS): licence dle poskytovatele – „neuvedeno poskytovatelem“.
 - Krajská hygienická stanice Karlovarského kraje (khskv.cz) – Kontrola kvality vody ke koupání – poslední hodnocení (výtah z webových stránek koupacích míst): neuvedeno poskytovatelem

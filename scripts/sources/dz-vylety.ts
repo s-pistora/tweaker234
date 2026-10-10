@@ -325,7 +325,86 @@ export const SADY: SadaCfg[] = [
     tagy: (a) => DOBROTY_DRUH.filter(([sloupec]) => b(a, sloupec)).map(([, tag]) => tag),
     seskup: (rows, cfg) => seskupDobroty(rows, cfg),
   },
+  {
+    itemId: '135900efd11e4df1865987b57428eb9f',
+    slug: 'unesco',
+    title: 'Památky UNESCO v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: () => ['unesco', 'pristupne'],
+  },
+  {
+    itemId: 'c0ae279455b34b5fb4a929ef98675a5b',
+    slug: 'nkp',
+    title: 'Národní kulturní památky v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: (a) => ['nkp', ...pamatkaNavsteva(a)],
+  },
+  {
+    itemId: '2c9bd5558c4a495c8424a84bc6b370e2',
+    slug: 'nabozenske',
+    title: 'Náboženské památky v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: (a) => ['cirkevni', ...(/národní kulturní památka/i.test(t(a, 'poznámka')) ? ['nkp'] : []), ...pamatkaNavsteva(a)],
+  },
+  {
+    itemId: '5b6083d1a59d46c59d26717b31e991d1',
+    slug: 'archeologicke',
+    title: 'Archeologické památky v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: (a) => ['archeo', ...pamatkaNavsteva(a)],
+  },
+  {
+    itemId: '3727aefc159e47fd8cb9d70432ab7397',
+    slug: 'technicke',
+    title: 'Hornické a technické památky v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: (a) => ['technicka', ...pamatkaNavsteva(a)],
+  },
+  {
+    itemId: '142875a7b4ba49769393c8a3b80cca6d',
+    slug: 'pietni',
+    title: 'Vojenské a pietní památky v Karlovarském kraji',
+    kat: 'pamatky',
+    tagy: () => ['pietni', 'pristupne'],
+  },
 ];
+
+/** Přístupnost a prohlídky památky z různých tvarů sloupců (ano/ne i text „v otevírací době“). */
+function pamatkaNavsteva(a: Attrs): string[] {
+  const out: string[] = [];
+  const pristupne = b(a, 'přístupné');
+  const text = t(a, 'přístupnost');
+  if (pristupne === true || (text && !/^nep/i.test(text))) out.push('pristupne');
+  if (b(a, 'prohlídky') === true) out.push('prohlidky');
+  return out;
+}
+
+/**
+ * Stejné místo ve více sadách (např. klášter je NKP i církevní památka) → jedno místo se sloučenými
+ * štítky. Jen pro kategorie v `kategorie` (výchozí: památky) – ostatní zůstávají beze změny.
+ */
+export function sloucitDuplicity(mista: Misto[], kategorie: string[] = ['pamatky']): Misto[] {
+  const out = new Map<string, Misto>();
+  const ostatni: Misto[] = [];
+  for (const m of mista) {
+    if (!kategorie.includes(m.kat)) {
+      ostatni.push(m);
+      continue;
+    }
+    const k = `${m.kat}|${m.nazev.trim().toLowerCase()}|${m.obec ?? m.obecNazev}`;
+    const prev = out.get(k);
+    if (!prev) {
+      out.set(k, { ...m, tagy: [...m.tagy] });
+      continue;
+    }
+    for (const tg of m.tagy) if (!prev.tagy.includes(tg)) prev.tagy.push(tg);
+    prev.popis ??= m.popis;
+    prev.web ??= m.web;
+    prev.tel ??= m.tel;
+    prev.email ??= m.email;
+  }
+  return [...ostatni, ...out.values()];
+}
 
 /** Příznakové sloupce sady Dobroty → tag filtru „Co vyrábějí“. */
 const DOBROTY_DRUH: [string, string][] = [
@@ -413,7 +492,7 @@ export function toMisto(a: Attrs, cfg: SadaCfg, index: number): Misto | null {
     obec: code(field(a, ['kód_obce'])),
     obecNazev,
     orp: code(field(a, [], ['kód_obce_s_rozšířenou'])),
-    popis: str(field(a, ['popis', 'popis_služeb', 'typ_atraktivity', 'typ_centra', 'typ'])),
+    popis: str(field(a, ['popis', 'stručný_popis', 'popis_služeb', 'typ_atraktivity', 'typ_centra', 'typ'])),
     web: web && /^https?:\/\//.test(web) ? web : null,
     tel: str(field(a, [], ['telefon']))?.replace(/^tel:/, '') ?? null,
     email: str(field(a, [], ['kontaktní_e']))?.replace(/^mailto:/, '') ?? null,

@@ -382,6 +382,37 @@ export const KATEGORIE: KategorieDef[] = [
       },
     ],
   },
+  {
+    id: 'pamatky',
+    label: 'Památky a historie',
+    perex: 'Památky UNESCO, národní kulturní památky, kostely a kláštery, archeologická naleziště, technické a pietní památky.',
+    barva: '#462E73',
+    ikona: 'M3 21h18M5 21V10M9 21V10M15 21V10M19 21V10M2 10h20L12 3z',
+    jednotky: ['památka', 'památky', 'památek'],
+    vstupne: true,
+    filtry: [
+      {
+        id: 'typ',
+        label: 'Druh památky',
+        volby: [
+          { tag: 'unesco', label: 'UNESCO' },
+          { tag: 'nkp', label: 'národní kulturní památka' },
+          { tag: 'cirkevni', label: 'kostel, klášter, kaple' },
+          { tag: 'archeo', label: 'archeologické naleziště' },
+          { tag: 'technicka', label: 'technická a hornická' },
+          { tag: 'pietni', label: 'vojenská a pietní' },
+        ],
+      },
+      {
+        id: 'navsteva',
+        label: 'Návštěva',
+        volby: [
+          { tag: 'pristupne', label: 'přístupné' },
+          { tag: 'prohlidky', label: 'prohlídky' },
+        ],
+      },
+    ],
+  },
 ];
 
 export const KATEGORIE_BY_ID = Object.fromEntries(KATEGORIE.map((k) => [k.id, k])) as Record<KategorieId, KategorieDef>;

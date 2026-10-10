@@ -160,3 +160,34 @@ describe('Dobroty Karlovarského kraje: výrobky → výrobci', () => {
     expect(m.web).toBe('https://www.maso-pelant.cz/');
   });
 });
+
+describe('Památky a historie', () => {
+  it('štítky druhu a návštěvy z různých tvarů sloupců', () => {
+    const nab = sada('nabozenske');
+    expect(nab.kat).toBe('pamatky');
+    expect(nab.tagy({ Poznámka: 'národní kulturní památka', Přístupnost: 'v otevírací době', Prohlídky: 'true' })).toEqual([
+      'cirkevni',
+      'nkp',
+      'pristupne',
+      'prohlidky',
+    ]);
+    expect(sada('archeologicke').tagy({ přístupné: 'false' })).toEqual(['archeo']);
+    expect(sada('unesco').tagy({})).toContain('unesco');
+  });
+
+  it('duplicity se slučují jen v památkách, ostatní kategorie zůstanou beze změny', async () => {
+    const { sloucitDuplicity } = await import('../scripts/sources/dz-vylety.ts');
+    const m = (kat: string, nazev: string, tagy: string[]) =>
+      ({ id: nazev + kat + tagy.join(), kat, nazev, obec: '1', obecNazev: 'X', tagy, web: null, popis: null, tel: null, email: null }) as never;
+    const out = sloucitDuplicity([
+      m('pamatky', 'Klášter Teplá', ['nkp']),
+      m('pamatky', 'Klášter Teplá', ['cirkevni']),
+      m('kultura', 'Kino Svět', ['kino']),
+      m('kultura', 'Kino Svět', ['kd']),
+    ]) as unknown as { kat: string; tagy: string[] }[];
+    expect(out.filter((x) => x.kat === 'kultura')).toHaveLength(2);
+    const p = out.filter((x) => x.kat === 'pamatky');
+    expect(p).toHaveLength(1);
+    expect(p[0].tagy.sort()).toEqual(['cirkevni', 'nkp']);
+  });
+});
