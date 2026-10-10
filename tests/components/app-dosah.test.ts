@@ -240,3 +240,17 @@ describe('App – srovnání oborů', () => {
     await waitFor(() => expect(screen.getByTestId('srovnani').querySelectorAll('thead th')).toHaveLength(1));
   }, 20000);
 });
+
+describe('App – tip na celý den', () => {
+  it('po volbě obce sestaví okruh se zastávkami v dosahu a odkazem na Mapy.cz', async () => {
+    location.hash = '#/kraj?m=vylety&vd=560537&vkm=20';
+    render(App);
+    const den = await screen.findByTestId('den-tip', {}, { timeout: 5000 });
+    expect(den.querySelectorAll('li').length).toBeGreaterThanOrEqual(2);
+    expect(den.textContent).not.toMatch(/NaN|undefined/);
+    const prvni = den.querySelector('li strong')!.textContent;
+    expect((screen.getByTestId('den-mapy') as HTMLAnchorElement).href).toContain('mapy.cz');
+    await fireEvent.click(screen.getByTestId('den-jiny'));
+    await waitFor(() => expect(screen.getByTestId('den-tip').querySelector('li strong')!.textContent).not.toBe(prvni));
+  }, 20000);
+});

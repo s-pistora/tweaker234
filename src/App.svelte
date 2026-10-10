@@ -100,6 +100,8 @@
   import type { AreaCode, IndicatorDef } from './lib/types.ts';
   import Hledani from './components/Hledani.svelte';
   import SrovnaniOboru from './components/skoly/SrovnaniOboru.svelte';
+  import DenTip from './components/vylety/DenTip.svelte';
+  import { naplanujDen } from './lib/den.ts';
   import { vytvorIndex, type Cil, type Polozka } from './lib/hledani.ts';
 
   /** Kořen dat (relativně k index.html). Koordinátor přepne na 'data' při integraci. */
@@ -375,6 +377,8 @@
   const mista = $derived(snap?.vylety?.mista ?? []);
   const vyDomov = $derived(vy.domov ? (obecCentroidy[vy.domov] ?? null) : null);
   const vyDomovNazev = $derived(vy.domov ? (obecNames[vy.domov] ?? '') : '');
+  let denVarianta = $state(0);
+  const vyDen = $derived(vyDomov ? naplanujDen(mista, vyDomov, vy.maxKm, denVarianta) : null);
   const vyDef = $derived(vy.kat ? KATEGORIE_BY_ID[vy.kat] : undefined);
   const vyFiltr = $derived<FiltrMist>({
     kat: vy.kat,
@@ -1387,6 +1391,9 @@
                 onselect={openMisto}
                 onhover={(id) => (vyHover = id)}
               />
+            {/if}
+            {#if !vy.q.trim()}
+              <DenTip den={vyDen} domovNazev={vyDomovNazev} maxKm={vy.maxKm} onjiny={() => denVarianta++} onmisto={openMisto} />
             {/if}
             <VyletyHub pocty={vyPocty} vDosahu={vyPoctyVDosahu} maxKm={vy.maxKm} domovNazev={vyDomovNazev} onkat={(k) => openKat(k)} />
           </div>
